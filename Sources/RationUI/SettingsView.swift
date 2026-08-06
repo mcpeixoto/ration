@@ -4,9 +4,11 @@ import SwiftUI
 public struct SettingsView: View {
 
     @Bindable var settings: Settings
+    let updater: (any UpdateControlling)?
 
-    public init(settings: Settings) {
+    public init(settings: Settings, updater: (any UpdateControlling)? = nil) {
         self.settings = settings
+        self.updater = updater
     }
 
     public var body: some View {
@@ -69,8 +71,48 @@ public struct SettingsView: View {
                         .foregroundStyle(.red)
                 }
             }
+
+            if let updater, updater.canCheck {
+                updateSection(updater)
+            }
         }
         .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func updateSection(_ updater: any UpdateControlling) -> some View {
+        Section {
+            Toggle(
+                "Install updates automatically",
+                isOn: Binding(
+                    get: { updater.automaticallyChecks },
+                    set: { updater.automaticallyChecks = $0 }
+                ))
+
+            HStack {
+                Text(lastCheckLabel(updater.lastCheck))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Check Now") { updater.checkNow() }
+                    .controlSize(.small)
+            }
+
+            Text(
+                "Updates are downloaded from GitHub and verified against a signing key "
+                    + "built into this app. An update that isn't signed by the Ration key "
+                    + "is refused."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private func lastCheckLabel(_ date: Date?) -> String {
+        guard let date else { return "Not checked yet" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return "Last checked \(formatter.localizedString(for: date, relativeTo: Date()))"
     }
 
     private func intervalLabel(_ seconds: Double) -> String {

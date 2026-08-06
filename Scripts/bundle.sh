@@ -17,13 +17,18 @@ cd "$ROOT"
 VERSION="$(cat VERSION 2>/dev/null || echo "0.1.0")"
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo "1")"
 
+# Update feed. Override to point a fork at its own releases.
+FEED_URL="${RATION_FEED_URL:-https://raw.githubusercontent.com/mcpeixoto/ration/main/appcast.xml}"
+PUBLIC_KEY="${RATION_PUBLIC_KEY:-$(cat "$ROOT/Resources/sparkle_public_key.txt" 2>/dev/null || echo "")}"
+
 APP="$ROOT/.build/Ration.app"
 CONTENTS="$APP/Contents"
 
 echo "==> Building ($CONFIG)"
 swift build -c "$CONFIG" --product Ration
 
-BIN="$(swift build -c "$CONFIG" --product Ration --show-bin-path)/Ration"
+BINDIR_BUILD="$(swift build -c "$CONFIG" --product Ration --show-bin-path)"
+BIN="$BINDIR_BUILD/Ration"
 [ -f "$BIN" ] || { echo "error: binary not found at $BIN" >&2; exit 1; }
 
 echo "==> Assembling $APP"
@@ -36,6 +41,20 @@ BINDIR="$(dirname "$BIN")"
 for b in "$BINDIR"/*.bundle; do
     [ -e "$b" ] && cp -R "$b" "$CONTENTS/Resources/"
 done
+
+# Sparkle ships as a framework and must travel inside the bundle, with an
+# rpath pointing at it. Without this the app launches to a dyld crash.
+SPARKLE="$BINDIR_BUILD/Sparkle.framework"
+if [ -d "$SPARKLE" ]; then
+    echo "==> Embedding Sparkle.framework"
+    mkdir -p "$CONTENTS/Frameworks"
+    rm -rf "$CONTENTS/Frameworks/Sparkle.framework"
+    cp -R "$SPARKLE" "$CONTENTS/Frameworks/"
+    install_name_tool -add_rpath "@executable_path/../Frameworks" \
+        "$CONTENTS/MacOS/Ration" 2>/dev/null || true
+else
+    echo "warning: Sparkle.framework not found — auto-update will be unavailable"
+fi
 
 if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
     cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
@@ -60,6 +79,14 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     $ICON_ENTRY
     <!-- Menu bar only: no Dock icon, no app switcher entry. -->
     <key>LSUIElement</key><true/>
+
+    <!-- Sparkle auto-update. The feed lists every release; each entry carries
+         an EdDSA signature checked against SUPublicEDKey before installing,
+         so a compromised download host cannot ship a modified Ration. -->
+    <key>SUFeedURL</key><string>$FEED_URL</string>
+    <key>SUPublicEDKey</key><string>$PUBLIC_KEY</string>
+    <key>SUEnableAutomaticChecks</key><true/>
+    <key>SUScheduledCheckInterval</key><integer>86400</integer>
     <key>NSHumanReadableCopyright</key><string>MIT licensed. Not affiliated with Anthropic.</string>
 </dict>
 </plist>

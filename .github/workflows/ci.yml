@@ -41,12 +41,13 @@ jobs:
 
       # The security posture in SECURITY.md is only true if it holds for the
       # binary we actually ship, not just the source.
-      - name: Check the shipped binary reaches only api.anthropic.com
+      # Anthropic for usage; GitHub for signed updates. Nothing else.
+      - name: Check the shipped binary reaches only its two known hosts
         run: |
           hosts=$(strings .build/Ration.app/Contents/MacOS/Ration \
             | grep -oE 'https?://[A-Za-z0-9.-]+' \
             | sed -E 's#https?://##' | sort -u \
-            | grep -vE '^(api\.anthropic\.com|github\.com)$' || true)
+            | grep -vE '^(api\.anthropic\.com|github\.com|raw\.githubusercontent\.com)$' || true)
           if [ -n "$hosts" ]; then
             echo "::error::unexpected host(s) in the shipped binary:"
             echo "$hosts"

@@ -21,7 +21,8 @@ Three tabs:
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, refreshed in the background.
 - **Quiet.** Optional notifications when you approach a limit, and nothing else.
-- **Private.** No analytics, no telemetry, nothing leaves your machine except one request to Anthropic.
+- **Private.** No analytics, no telemetry. Two hosts, both listed below, and nothing else.
+- **Self-updating.** Signed updates via Sparkle; nothing to re-download by hand.
 
 > Ration is an independent open-source project. It is **not affiliated with,
 > endorsed by, or supported by Anthropic**. "Claude" is a trademark of Anthropic.
@@ -88,8 +89,11 @@ idle and read nothing.
 **It does:**
 
 - Read one keychain item, read-only.
-- Make one kind of network request, to `api.anthropic.com`.
-- Keep the token in memory for the duration of that request.
+- Send your token to exactly one host, `api.anthropic.com`, and keep it in
+  memory only for that request.
+- Check `raw.githubusercontent.com` for an update feed, and download releases
+  from `github.com` when you install one. **Your token is never sent there** —
+  update checks carry no credentials and no usage data.
 
 **It does not:**
 
@@ -103,6 +107,17 @@ idle and read nothing.
 - Write the token to disk, to `UserDefaults`, or to a log.
 - Send analytics, telemetry, or crash reports anywhere.
 - Read your prompts, your conversations, or your code.
+
+## Updates
+
+Ration checks for updates once a day and can install them itself. Each update
+is signed with an EdDSA key; the matching public key is compiled into the app,
+and an update that isn't signed by the Ration key is refused — so a compromised
+download host still can't ship you a modified Ration.
+
+Turn automatic checks off in Settings if you'd rather update by hand.
+
+## What Ration does and does not do (continued)
 
 These are enforced by tests, not just promised in a README — see
 [`Tests/RationKitTests/CredentialTests.swift`](Tests/RationKitTests/CredentialTests.swift),

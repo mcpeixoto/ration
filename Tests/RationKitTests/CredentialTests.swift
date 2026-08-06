@@ -181,9 +181,12 @@ struct SourceTreeTests {
             "unexpected host(s) in source: \(hosts.subtracting(allowed))")
     }
 
-    /// The stronger promise: every outbound request Ration makes originates in
-    /// one file, and that file targets exactly one URL.
-    @Test("all networking is confined to LimitsClient")
+    /// Every request Ration's *own* code makes originates in one file.
+    ///
+    /// Sparkle also makes requests — update checks against the appcast, and the
+    /// release download — but it does so from its own framework, not from code
+    /// in this repository. `updateFeedIsTheExpectedHost` covers that half.
+    @Test("all first-party networking is confined to LimitsClient")
     func networkingIsConfinedToTheClient() throws {
         for file in try swiftFiles() where file.url.lastPathComponent != "LimitsClient.swift" {
             for symbol in ["URLSession", "URLRequest", "NSURLConnection", "CFSocket"] {
@@ -192,6 +195,24 @@ struct SourceTreeTests {
                     "\(file.url.lastPathComponent) performs networking outside LimitsClient")
             }
         }
+    }
+
+    /// The update feed is the one host besides Anthropic that the shipped app
+    /// contacts. It is set in `Scripts/bundle.sh` rather than Swift, so pin it
+    /// here — a silent change of update host is exactly the kind of thing this
+    /// repository's promises should not allow.
+    @Test("the update feed points at the project's own repository")
+    func updateFeedIsTheExpectedHost() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let script = try String(
+            contentsOf: root.appendingPathComponent("Scripts/bundle.sh"), encoding: .utf8)
+
+        #expect(
+            script.contains("https://raw.githubusercontent.com/mcpeixoto/ration/main/appcast.xml"),
+            "the default update feed changed")
     }
 
     @Test("the client targets exactly one URL")

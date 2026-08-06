@@ -37,18 +37,34 @@ Ration has no code to exchange a refresh token or mint a new session. When the
 token expires it stops polling and shows a "signed out" state until Claude Code
 refreshes it. **Ration cannot invalidate your session or lock you out.**
 
-### 4. One host, one endpoint
+### 4. One credentialed host
 
-`noUnexpectedHosts` fails if any host other than `api.anthropic.com` (or the
-project's own GitHub links, which are user-clickable and never requested by the
-app) appears under `Sources/`.
+Your token goes to exactly one place: `api.anthropic.com`.
 
+`noUnexpectedHosts` fails if any host other than that (or the project's own
+GitHub links, which are user-clickable) appears under `Sources/`.
 `networkingIsConfinedToTheClient` fails if `URLSession`, `URLRequest`,
 `NSURLConnection`, or `CFSocket` appears in any file other than
-`LimitsClient.swift`.
+`LimitsClient.swift`. `clientHasOneEndpoint` fails if `LimitsClient.swift`
+constructs any URL other than `https://api.anthropic.com/api/oauth/usage`.
 
-`clientHasOneEndpoint` fails if `LimitsClient.swift` constructs any URL other
-than `https://api.anthropic.com/api/oauth/usage`.
+Ration does contact a second host — `raw.githubusercontent.com` for the update
+feed, and `github.com` to download a release you chose to install. Those
+requests come from Sparkle, carry no credentials, no usage data, and no
+identifier, and stop entirely if you turn off automatic checks.
+`updateFeedIsTheExpectedHost` pins the feed URL so it cannot be repointed
+without the change appearing in a diff.
+
+### 4b. Updates are signed, and the signature is checked
+
+Every update is signed with an EdDSA key. The matching public key is compiled
+into the app bundle (`SUPublicEDKey`), and Sparkle refuses any update whose
+signature does not verify against it.
+
+This means the download host is **not** trusted: an attacker who compromised
+GitHub Releases, or who intercepted the download, still could not make Ration
+install a modified build. The private key lives only in the maintainer's
+keychain and in one GitHub Actions secret — never in this repository.
 
 ### 5. The token never lands anywhere
 

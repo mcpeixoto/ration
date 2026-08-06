@@ -8,6 +8,11 @@ let package = Package(
         .executable(name: "Ration", targets: ["Ration"]),
         .library(name: "RationKit", targets: ["RationKit"]),
     ],
+    dependencies: [
+        // Auto-update. Widely audited, and the EdDSA signature check on every
+        // downloaded update is the part worth not writing ourselves.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0")
+    ],
     targets: [
         // Pure logic. No SwiftUI, no AppKit. Fully unit-testable.
         .target(name: "RationKit"),
@@ -16,7 +21,13 @@ let package = Package(
         .target(name: "RationUI", dependencies: ["RationKit"]),
 
         // Thin executable that wires the two together.
-        .executableTarget(name: "Ration", dependencies: ["RationKit", "RationUI"]),
+        .executableTarget(
+            name: "Ration",
+            dependencies: [
+                "RationKit", "RationUI",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ]
+        ),
 
         // Development tool: renders the UI to PNGs for review and for the
         // README. Not shipped in the app bundle.

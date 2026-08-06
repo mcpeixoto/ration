@@ -13,13 +13,26 @@ anthropic-beta: oauth-2025-04-20
 User-Agent: Ration/<version> (github.com/mcpeixoto/ration)
 ```
 
-That is the only network request Ration makes, and `api.anthropic.com` is the
-only host it contacts. There is no analytics endpoint, no crash reporter, no
-update checker, and no telemetry of any kind.
+That is the only request that carries your token, and `api.anthropic.com` is
+the only host it goes to.
 
-This is enforced by a test that fails the build if a second host appears
-anywhere in the source tree, and by another that fails if any networking code
-appears outside `Sources/RationKit/LimitsClient.swift`.
+Ration also checks for its own updates:
+
+```
+GET https://raw.githubusercontent.com/mcpeixoto/ration/main/appcast.xml
+```
+
+and, if you install an update, downloads it from `github.com`. **Neither
+request carries your token, your usage numbers, or any identifier.** They are
+ordinary anonymous file fetches — GitHub sees an IP address and a user agent,
+the same as visiting the repository in a browser. Turn automatic checks off in
+Settings and Ration never contacts GitHub at all.
+
+There is no analytics endpoint, no crash reporter, and no telemetry of any
+kind. This is enforced by tests: one fails the build if an unexpected host
+appears in the source tree, one fails if networking appears outside
+`LimitsClient.swift`, and one pins the update feed so it cannot be redirected
+without the change showing up in a diff.
 
 ## What Ration reads
 

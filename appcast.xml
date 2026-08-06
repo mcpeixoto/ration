@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>Ration</title>
+    <link>https://raw.githubusercontent.com/mcpeixoto/ration/main/appcast.xml</link>
+    <description>Updates for Ration, a menu bar meter for Claude usage.</description>
+    <language>en</language>
+    <!-- No releases published yet. The release workflow prepends a signed
+         <item> here on every tag; an entry without a valid EdDSA signature is
+         refused by Sparkle, so this file is deliberately empty until the first
+         real release rather than carrying a placeholder. -->
+  </channel>
+</rss>

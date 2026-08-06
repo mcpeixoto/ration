@@ -34,7 +34,7 @@ struct RationApp: App {
         }
 
         Settings {
-            SettingsView(settings: appDelegate.settings)
+            SettingsView(settings: appDelegate.settings, updater: appDelegate.updater)
         }
     }
 }
@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let settings = Settings()
     let poller: UsagePoller
     let transcripts = TranscriptStore()
+    let updater = UpdateController()
     private let notifier = Notifier()
 
     private var onboardingWindow: NSWindow?

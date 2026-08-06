@@ -58,6 +58,56 @@ jobs:
       - name: Notarise
         run: ./Scripts/notarize.sh
 
+      - name: Sign the update and publish the appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          VERSION="$(cat VERSION)"
+          DMG=".build/Ration-${VERSION}.dmg"
+          SIGN="$(find .build/artifacts -name sign_update -type f | head -1)"
+          [ -x "$SIGN" ] || { echo "::error::sign_update not found"; exit 1; }
+
+          # The private key never lands on disk unencrypted for longer than
+          # this step; the signature is what users' copies actually verify.
+          # sign_update prints `sparkle:edSignature="..." length="..."`; take
+          # just the signature.
+          SIGNATURE="$(echo "$SPARKLE_PRIVATE_KEY" \
+            | "$SIGN" "$DMG" --ed-key-file - \
+            | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p')"
+          [ -n "$SIGNATURE" ] || { echo "::error::signing produced no signature"; exit 1; }
+
+          LENGTH="$(stat -f%z "$DMG")"
+          URL="https://github.com/mcpeixoto/ration/releases/download/${GITHUB_REF_NAME}/Ration-${VERSION}.dmg"
+          PUBDATE="$(date -R)"
+
+          # Prepend this release to the feed, keeping older entries so people
+          # on much older builds still find a path forward.
+          python3 Scripts/update_appcast.py \
+            --version "$VERSION" \
+            --build "$(git rev-list --count HEAD)" \
+            --url "$URL" \
+            --length "$LENGTH" \
+            --signature "$SIGNATURE" \
+            --pubdate "$PUBDATE"
+
+      # A tag build checks out a detached HEAD, so land the feed on main
+      # explicitly — that is the URL every installed copy polls.
+      - name: Commit the appcast to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp appcast.xml /tmp/appcast.xml
+          git fetch origin main
+          git checkout -B main origin/main
+          cp /tmp/appcast.xml appcast.xml
+          git add appcast.xml
+          if git diff --cached --quiet; then
+            echo "appcast unchanged"
+          else
+            git commit -m "chore: appcast for ${GITHUB_REF_NAME}"
+            git push origin main
+          fi
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
