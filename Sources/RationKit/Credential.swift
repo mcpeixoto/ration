@@ -35,8 +35,14 @@ public struct Credential: Sendable {
     /// A credential with no stated expiry is assumed usable; the server will
     /// tell us with a 401 if it is not.
     public var isExpired: Bool {
+        expires(within: 0)
+    }
+
+    /// Whether the token expires within `margin` seconds from now.
+    /// A credential with no stated expiry never reports as expiring.
+    public func expires(within margin: TimeInterval, now: Date = Date()) -> Bool {
         guard let expiresAt else { return false }
-        return expiresAt <= Date()
+        return expiresAt.timeIntervalSince(now) <= margin
     }
 }
 
@@ -156,5 +162,50 @@ public struct KeychainCredentialStore: CredentialStore {
         default:
             throw CredentialError.keychain(status: status)
         }
+    }
+}
+
+// MARK: - Caching
+
+/// Holds a credential in memory until it is close to expiring.
+///
+/// Without this, Ration reads the keychain on every poll. macOS only treats an
+/// "Always Allow" grant as durable for a stable code signature, so during
+/// development — and after any re-signing — a read-per-poll means a password
+/// prompt per poll. Reading once per token lifetime is both kinder and more
+/// correct: the token does not change between refreshes.
+public final class CachingCredentialStore: CredentialStore, @unchecked Sendable {
+
+    /// Re-read this long before the token actually expires, so a refresh by
+    /// Claude Code is picked up without a failed request in between.
+    public static let refreshMargin: TimeInterval = 300
+
+    private let underlying: any CredentialStore
+    private let lock = NSLock()
+    private var cached: Credential?
+
+    public init(wrapping underlying: any CredentialStore = KeychainCredentialStore()) {
+        self.underlying = underlying
+    }
+
+    public func credential() throws -> Credential {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let cached, !cached.expires(within: Self.refreshMargin) {
+            return cached
+        }
+        let fresh = try underlying.credential()
+        cached = fresh
+        return fresh
+    }
+
+    /// Drops the cached copy, forcing the next read to hit the keychain.
+    /// Called when the server rejects the token, since Claude Code has
+    /// probably replaced it by now.
+    public func invalidate() {
+        lock.lock()
+        defer { lock.unlock() }
+        cached = nil
     }
 }

@@ -84,8 +84,11 @@ MainActor.assumeIsolated {
         credentialStore: PreviewCredentialStore(),
         client: PreviewLimitsClient(snapshot: sampleSnapshot()))
 
+    let transcripts = TranscriptStore(
+        root: sampleTranscriptRoot(), supportDirectory: temporaryPreviewSupport())
+
     let popover = PopoverView(
-        poller: poller, settings: settings,
+        poller: poller, settings: settings, transcripts: transcripts,
         openSettings: {}, startSetup: {}, quit: {})
 
     // Drive one refresh so the poller holds the sample snapshot. The poller is
@@ -102,11 +105,39 @@ MainActor.assumeIsolated {
         exit(1)
     }
 
+    // Scan the synthetic corpus so Activity and Metrics have data.
+    transcripts.refresh()
+    let scanDeadline = Date().addingTimeInterval(10)
+    while transcripts.status != .ready && Date() < scanDeadline {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+    }
+
     render(
         popover, to: outputDirectory.appendingPathComponent("popover-dark.png"),
         scale: 2, appearance: .darkAqua)
     render(
         popover, to: outputDirectory.appendingPathComponent("popover-light.png"),
+        scale: 2, appearance: .aqua)
+
+    // The other two tabs, rendered standalone — the switcher is state inside
+    // PopoverView and a static render can't click it.
+    render(
+        TabPreview(title: "Activity") {
+            ActivityView(history: transcripts.history, status: .ready)
+        },
+        to: outputDirectory.appendingPathComponent("activity-dark.png"),
+        scale: 2, appearance: .darkAqua)
+    render(
+        TabPreview(title: "Metrics") {
+            MetricsView(history: transcripts.history, status: .ready)
+        },
+        to: outputDirectory.appendingPathComponent("metrics-dark.png"),
+        scale: 2, appearance: .darkAqua)
+    render(
+        TabPreview(title: "Metrics") {
+            MetricsView(history: transcripts.history, status: .ready)
+        },
+        to: outputDirectory.appendingPathComponent("metrics-light.png"),
         scale: 2, appearance: .aqua)
 
     render(

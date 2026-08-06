@@ -24,7 +24,7 @@ func drawIcon(size: CGFloat, in context: CGContext) {
 
     context.saveGState()
 
-    // Background: a deep blue gradient, lighter at the top left.
+    // Background: Claude's terracotta orange, lighter at the top left.
     let path = CGPath(
         roundedRect: body, cornerWidth: radius, cornerHeight: radius, transform: nil)
     context.addPath(path)
@@ -34,8 +34,8 @@ func drawIcon(size: CGFloat, in context: CGContext) {
     let gradient = CGGradient(
         colorsSpace: colorSpace,
         colors: [
-            CGColor(red: 0.267, green: 0.545, blue: 0.980, alpha: 1),
-            CGColor(red: 0.118, green: 0.310, blue: 0.812, alpha: 1),
+            CGColor(red: 0.898, green: 0.549, blue: 0.427, alpha: 1),  // #E58C6D
+            CGColor(red: 0.788, green: 0.392, blue: 0.267, alpha: 1),  // #C96444
         ] as CFArray,
         locations: [0, 1]
     )!

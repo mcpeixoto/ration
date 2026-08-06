@@ -14,6 +14,7 @@ struct RationApp: App {
             PopoverView(
                 poller: appDelegate.poller,
                 settings: appDelegate.settings,
+                transcripts: appDelegate.transcripts,
                 openSettings: {
                     NSApp.activate(ignoringOtherApps: true)
                     openSettings()
@@ -45,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     let settings = Settings()
     let poller: UsagePoller
+    let transcripts = TranscriptStore()
     private let notifier = Notifier()
 
     private var onboardingWindow: NSWindow?
@@ -82,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         // it before it appears, rather than after.
         if settings.hasCompletedOnboarding {
             poller.start()
+            startHistory()
         } else {
             showOnboarding()
         }
@@ -146,6 +149,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         settings.hasCompletedOnboarding = true
         onboardingWindow?.close()
         poller.start()
+        startHistory()
+    }
+
+    /// Loads the cached history immediately, then scans for anything new.
+    /// Reading transcripts needs no permission — they are the user's own files
+    /// in their own home directory.
+    private func startHistory() {
+        transcripts.loadCheckpoint()
+        transcripts.refresh()
     }
 }
 

@@ -85,7 +85,7 @@ public struct SettingsView: View {
         VStack(spacing: 14) {
             Image(systemName: "gauge.with.dots.needle.67percent")
                 .font(.system(size: 44, weight: .light))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.accent)
                 .accessibilityHidden(true)
 
             VStack(spacing: 3) {

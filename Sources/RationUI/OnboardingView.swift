@@ -19,7 +19,7 @@ public struct OnboardingView: View {
             VStack(spacing: 10) {
                 Image(systemName: "gauge.with.dots.needle.67percent")
                     .font(.system(size: 40, weight: .light))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
                     .accessibilityHidden(true)
 
                 Text("Ration")
@@ -90,7 +90,7 @@ public struct OnboardingView: View {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: symbol)
                     .font(.system(size: 16))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
                     .frame(width: 22)
                     .accessibilityHidden(true)
 

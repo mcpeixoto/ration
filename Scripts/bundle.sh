@@ -65,9 +65,27 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad-hoc sign so the app can run locally and hold a stable Keychain identity.
-# Release builds are re-signed with a Developer ID by Scripts/sign.sh.
-codesign --force --sign - --timestamp=none "$APP" 2>/dev/null || \
-    echo "warning: ad-hoc codesign failed; app may still run"
+# Sign the bundle.
+#
+# macOS ties a keychain "Always Allow" grant to the app's code signature. An
+# ad-hoc signature changes on every build, so the grant is void each time and
+# you get a password prompt. If a stable identity is available, use it — set
+# RATION_SIGN_IDENTITY, or create a self-signed "Ration Development"
+# certificate via Keychain Access > Certificate Assistant.
+IDENTITY="${RATION_SIGN_IDENTITY:-}"
+if [ -z "$IDENTITY" ] && security find-identity -v -p codesigning 2>/dev/null \
+        | grep -q "Ration Development"; then
+    IDENTITY="Ration Development"
+fi
+
+if [ -n "$IDENTITY" ]; then
+    echo "==> Signing with: $IDENTITY"
+    codesign --force --sign "$IDENTITY" --timestamp=none "$APP"
+else
+    codesign --force --sign - --timestamp=none "$APP" 2>/dev/null || \
+        echo "warning: ad-hoc codesign failed; app may still run"
+    echo "note: ad-hoc signed. macOS will ask for your password once per launch."
+    echo "      See Scripts/bundle.sh for how to avoid that during development."
+fi
 
 echo "==> Built $APP ($VERSION build $BUILD)"

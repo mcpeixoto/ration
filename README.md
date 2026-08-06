@@ -7,16 +7,21 @@ you have used. No more discovering you hit a limit halfway through a long agent
 run.
 
 <p align="center">
-  <img src="docs/images/popover-dark.png" width="320" alt="Ration's panel in dark mode">
-  <img src="docs/images/popover-light.png" width="320" alt="Ration's panel in light mode">
+  <img src="docs/images/popover-dark.png" width="270" alt="Live plan limits">
+  <img src="docs/images/activity-dark.png" width="270" alt="Calendar heat map of past activity">
+  <img src="docs/images/metrics-dark.png" width="270" alt="Token breakdown by model and project">
 </p>
+
+Three tabs:
+
+- **Usage** — live plan limits, straight from Anthropic. Click any limit to promote it into the ring.
+- **Activity** — a calendar heat map of the last five months, built from your local Claude Code transcripts.
+- **Metrics** — where your tokens went, by model and by project, over 7/30/90 days.
 
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, refreshed in the background.
 - **Quiet.** Optional notifications when you approach a limit, and nothing else.
-- **Private.** No analytics, no telemetry, nothing written to disk.
-
-Click any limit to promote it into the ring.
+- **Private.** No analytics, no telemetry, nothing leaves your machine except one request to Anthropic.
 
 > Ration is an independent open-source project. It is **not affiliated with,
 > endorsed by, or supported by Anthropic**. "Claude" is a trademark of Anthropic.
@@ -40,12 +45,22 @@ Claude Code already has.
 
 ## How it works
 
+**Live limits (the Usage tab).**
+
 1. Claude Code stores your login session in the macOS keychain under
    `Claude Code-credentials`.
 2. Ration reads the **access token** from that item — nothing else.
 3. It calls `GET https://api.anthropic.com/api/oauth/usage` with that token,
    which is the same endpoint `/usage` uses inside Claude Code.
 4. It draws the resulting percentages in your menu bar.
+
+**History (the Activity and Metrics tabs).** Claude Code writes a transcript of
+every session to `~/.claude/projects/**/*.jsonl`. Ration reads the token counts
+out of those files — and only the token counts. Your prompts, Claude's replies,
+and the contents of files you opened are never decoded, never retained, and
+never leave your machine. The first scan reads the whole corpus in the
+background (a few seconds for a gigabyte); after that it reads only the bytes
+appended since the last check.
 
 That is the whole program.
 
@@ -80,6 +95,8 @@ idle and read nothing.
 
 - Read your refresh token, your MCP server logins, or anything else in that
   keychain blob.
+- Read your prompts, Claude's replies, or file contents out of your transcripts —
+  only `usage`, `model`, `timestamp`, `cwd`, and `sessionId`.
 - Write to your keychain, ever.
 - Refresh, rotate, or invalidate your session. Only Claude Code does that. If
   your session expires, Ration says so and waits.
@@ -117,7 +134,7 @@ being locked down for everyone.
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-swift test          # 120 tests, no network, no keychain
+swift test          # 167 tests, no network, no keychain
 ./Scripts/bundle.sh # produces .build/Ration.app
 open .build/Ration.app
 ```
@@ -150,13 +167,9 @@ show, when to notify, when to back off — is testable without launching an app.
 
 ## Roadmap
 
-v1 is the live limits API, which is what this is. Planned for v2:
-
-- Local analytics from `~/.claude/projects/**/*.jsonl`: tokens by model, by
-  project, and over time
-- Cost estimates
-- Burn rate and a sparkline of the current session
-- History beyond the current window
+- Burn rate and a live sparkline of the current session
+- Export history as CSV
+- A wider window than 90 days in Metrics
 
 ## Contributing
 

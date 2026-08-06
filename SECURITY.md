@@ -83,12 +83,24 @@ wc -l Sources/RationKit/Credential.swift Sources/RationKit/LimitsClient.swift
 strings /Applications/Ration.app/Contents/MacOS/Ration | grep -E 'https?://'
 ```
 
+### 7. Transcripts are read for numbers, not content
+
+The Activity and Metrics tabs are built from Claude Code's local transcripts,
+which contain your prompts, Claude's replies, and file contents. The parser
+decodes five fields per turn — token counts, model, timestamp, working
+directory, session id — and nothing else.
+
+Enforced by `TranscriptParserPrivacyTests`: one test plants a marker string in a
+fixture transcript and fails if it survives into the parsed result; another pins
+the exact field set a parsed event may expose, so widening it breaks the build.
+Transcripts are read, never written.
+
 ## Sandboxing
 
-Ration is not App Sandboxed. The v2 roadmap includes reading Claude Code's local
-transcripts from `~/.claude/projects`, which the sandbox would block. Releases
-are signed with a Developer ID, use the hardened runtime, and are notarised by
-Apple.
+Ration is not App Sandboxed: reading Claude Code's transcripts from
+`~/.claude/projects` requires filesystem access the sandbox would block.
+Releases are signed with a Developer ID, use the hardened runtime, and are
+notarised by Apple.
 
 ## Scope
 

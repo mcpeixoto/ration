@@ -36,6 +36,30 @@ From the macOS keychain item `Claude Code-credentials`, created by Claude Code:
 
 Ration never reads your conversations, prompts, files, or project history.
 
+## What Ration reads from your transcripts
+
+Claude Code writes every session to `~/.claude/projects/**/*.jsonl`. Those files
+contain your prompts, Claude's replies, and the contents of files you opened.
+
+Ration reads five fields per assistant turn and discards the rest:
+
+| Field | Used for |
+| --- | --- |
+| `message.usage.*` | Token counts |
+| `message.model` | Grouping by model |
+| `timestamp` | Grouping by day |
+| `cwd` | Grouping by project (the directory name only) |
+| `sessionId` | Counting distinct sessions |
+
+**Message content is never decoded.** `TranscriptParserPrivacyTests` asserts
+this by putting a marker string in a fixture transcript and failing if it
+appears anywhere in the parsed result. A second test pins the exact set of
+fields a parsed event may carry, so adding one is a deliberate act that breaks
+the build rather than a quiet expansion.
+
+None of it leaves your machine. The history is aggregated per day and stored
+locally (below); the raw transcripts are only ever read.
+
 ## What Ration stores
 
 On disk, in `UserDefaults` (`com.mcpeixoto.Ration`):
@@ -45,6 +69,11 @@ On disk, in `UserDefaults` (`com.mcpeixoto.Ration`):
 - Your chosen refresh interval
 - Whether notifications are on
 - Whether you have completed the welcome screen
+
+And a local history cache in `~/Library/Application Support/Ration/history.json`:
+per-day token totals by model and project, session counts, and the byte offset
+reached in each transcript file. No message content — only the numbers described
+above. Delete the file to reset; Ration rebuilds it on the next launch.
 
 That is the complete list. Your access token is held in memory for the duration
 of a request and is never written to disk, to `UserDefaults`, or to a log. The

@@ -52,7 +52,7 @@ struct RingGauge: View {
 
     private var track: some View {
         Circle()
-            .stroke(Color.primary.opacity(0.09), lineWidth: lineWidth)
+            .stroke(Theme.track, lineWidth: lineWidth)
     }
 
     private var progress: some View {
@@ -116,7 +116,7 @@ struct LimitBar: View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.primary.opacity(0.09))
+                    .fill(Theme.track)
 
                 Capsule()
                     .fill(severity.accentColor.gradient)

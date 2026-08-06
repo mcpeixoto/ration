@@ -6,6 +6,7 @@ public struct PopoverView: View {
 
     @Bindable var poller: UsagePoller
     @Bindable var settings: Settings
+    @Bindable var transcripts: TranscriptStore
     let openSettings: () -> Void
     let startSetup: () -> Void
     let quit: () -> Void
@@ -13,17 +14,20 @@ public struct PopoverView: View {
     /// Which limit the user promoted into the ring, if any. Resets when the
     /// panel closes, so the ring returns to their configured default.
     @State private var focusedLimitID: String?
+    @State private var tab: PanelTab = .usage
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(
         poller: UsagePoller,
         settings: Settings,
+        transcripts: TranscriptStore,
         openSettings: @escaping () -> Void,
         startSetup: @escaping () -> Void,
         quit: @escaping () -> Void
     ) {
         self.poller = poller
         self.settings = settings
+        self.transcripts = transcripts
         self.openSettings = openSettings
         self.startSetup = startSetup
         self.quit = quit
@@ -36,8 +40,17 @@ public struct PopoverView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             VStack(spacing: 0) {
                 header
+
+                // The tab bar only appears once setup is done — before that
+                // there is nothing behind any of the tabs.
+                if settings.hasCompletedOnboarding {
+                    TabSwitcher(selection: $tab)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 10)
+                }
+
                 Divider()
-                content(now: context.date)
+                tabContent(now: context.date)
                 Divider()
                 footer(now: context.date)
             }
@@ -79,6 +92,18 @@ public struct PopoverView: View {
     }
 
     // MARK: Content
+
+    @ViewBuilder
+    private func tabContent(now: Date) -> some View {
+        switch tab {
+        case .usage:
+            content(now: now)
+        case .activity:
+            ActivityView(history: transcripts.history, status: transcripts.status, now: now)
+        case .metrics:
+            MetricsView(history: transcripts.history, status: transcripts.status, now: now)
+        }
+    }
 
     /// Ordered so that having usable numbers wins over a transient error:
     /// a failed refresh should never replace a working gauge with an error page.

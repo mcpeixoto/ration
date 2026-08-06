@@ -33,7 +33,7 @@ public final class UsagePoller {
     public var onStateChange: (@MainActor (UsageState) -> Void)?
 
     public init(
-        credentialStore: any CredentialStore = KeychainCredentialStore(),
+        credentialStore: any CredentialStore = CachingCredentialStore(),
         client: any LimitsClient = AnthropicLimitsClient(),
         schedule: PollSchedule = PollSchedule()
     ) {
@@ -158,6 +158,11 @@ public final class UsagePoller {
             let snapshot = try await client.fetchUsage(token: credential.accessToken)
             state.recordSuccess(snapshot)
         } catch let error as LimitsError {
+            // A rejected token means Claude Code has probably rotated it, so
+            // drop the cached copy and read the keychain again next time.
+            if error == .unauthorized {
+                (credentialStore as? CachingCredentialStore)?.invalidate()
+            }
             state.recordFailure(error)
         } catch {
             state.recordFailure(.transport(message: error.localizedDescription))
