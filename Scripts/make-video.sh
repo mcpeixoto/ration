@@ -14,7 +14,9 @@ cd "$ROOT"
 
 FRAMES="${1:-.build/video-frames}"
 OUT="${2:-docs/images}"
-FPS=30
+# Must match Timeline.fps in Sources/RationPreview/MacBookScene.swift —
+# a mismatch silently changes the playback speed rather than failing.
+FPS=24
 
 command -v ffmpeg >/dev/null || { echo "error: ffmpeg not installed (brew install ffmpeg)" >&2; exit 1; }
 [ -d "$FRAMES" ] || { echo "error: no frames at $FRAMES — run 'swift run RationPreview video' first" >&2; exit 1; }
