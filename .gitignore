@@ -4,3 +4,11 @@ DerivedData/
 *.xcuserstate
 .DS_Store
 *.dmg
+
+# Never commit credentials
+.env
+*.env
+!*.example.env
+*.p12
+*.p8
+*.cer
