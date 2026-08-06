@@ -16,6 +16,11 @@ run.
   <img src="docs/images/metrics-dark.png" width="260" alt="Token breakdown by model and project">
 </p>
 
+The menu bar item carries a small bar for the weekly allowance — the limit that
+creeps up on you, since a session window resets often enough to watch itself.
+It turns amber past 80% and red past 90%, so you get a warning at a glance
+without opening anything.
+
 Three tabs:
 
 - **Usage** — live plan limits, straight from Anthropic. Click any limit to promote it into the ring.
@@ -136,7 +141,8 @@ More detail in [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md).
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Menu bar shows | Session % | Session, Weekly, Highest, or icon only |
-| Colour when near a limit | Off | Amber approaching, red at the limit |
+| Weekly usage bar | On | A small bar beside the icon, filling as the week is spent |
+| Colour when near a limit | On | Amber past 80%, red past 90% |
 | Check every | 60s | 30s minimum; faster while the panel is open |
 | Notify near a limit | On | Fires once per threshold per window |
 | Open at login | Off | Standard `SMAppService` login item |

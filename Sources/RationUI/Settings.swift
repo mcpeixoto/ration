@@ -16,6 +16,7 @@ public final class Settings {
         static let useSeverityColor = "useSeverityColor"
         static let pollInterval = "pollInterval"
         static let notifyOnThresholds = "notifyOnThresholds"
+        static let showWeeklyBar = "showWeeklyBar"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
     }
 
@@ -27,8 +28,13 @@ public final class Settings {
         self.displayMode =
             defaults.string(forKey: Key.displayMode)
             .flatMap(MenuBarDisplayMode.init(rawValue:)) ?? .sessionPercent
-        // A coloured menu bar is a strong opinion; let people opt in.
-        self.useSeverityColor = defaults.bool(forKey: Key.useSeverityColor)
+        // Colour earns its place here: the whole point of the menu bar item is
+        // to warn you before you run out, and a monochrome warning is not one.
+        // Still a setting, for anyone who keeps a strictly grey menu bar.
+        self.useSeverityColor =
+            defaults.object(forKey: Key.useSeverityColor) as? Bool ?? true
+        self.showWeeklyBar =
+            defaults.object(forKey: Key.showWeeklyBar) as? Bool ?? true
         self.pollInterval =
             defaults.object(forKey: Key.pollInterval) as? Double ?? 60
         self.notifyOnThresholds =
@@ -51,6 +57,14 @@ public final class Settings {
 
     public var notifyOnThresholds: Bool {
         didSet { defaults.set(notifyOnThresholds, forKey: Key.notifyOnThresholds) }
+    }
+
+    /// Whether the menu bar item carries a small weekly-usage bar.
+    ///
+    /// The weekly window is the one that creeps up on you — a session resets
+    /// often enough to watch itself.
+    public var showWeeklyBar: Bool {
+        didSet { defaults.set(showWeeklyBar, forKey: Key.showWeeklyBar) }
     }
 
     public var hasCompletedOnboarding: Bool {

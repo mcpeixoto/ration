@@ -47,19 +47,38 @@ public struct MenuBarPresentation: Sendable, Equatable {
     public let accessibilityLabel: String
     /// Shown on hover.
     public let tooltip: String
+    /// A small bar drawn beside the icon. `nil` hides it.
+    public let bar: Bar?
+
+    /// A miniature progress bar for the menu bar.
+    public struct Bar: Sendable, Equatable {
+        /// 0…1 of the limit consumed.
+        public let fraction: Double
+        public let severity: Severity
+        /// What it tracks, for the accessibility label.
+        public let name: String
+
+        public init(fraction: Double, severity: Severity, name: String) {
+            self.fraction = min(max(fraction, 0), 1)
+            self.severity = severity
+            self.name = name
+        }
+    }
 
     public init(
         title: String?,
         symbolName: String,
         tint: Severity?,
         accessibilityLabel: String,
-        tooltip: String
+        tooltip: String,
+        bar: Bar? = nil
     ) {
         self.title = title
         self.symbolName = symbolName
         self.tint = tint
         self.accessibilityLabel = accessibilityLabel
         self.tooltip = tooltip
+        self.bar = bar
     }
 }
 
@@ -77,6 +96,7 @@ extension MenuBarPresentation {
         state: UsageState,
         mode: MenuBarDisplayMode,
         useSeverityColor: Bool,
+        showWeeklyBar: Bool = false,
         now: Date = Date()
     ) -> MenuBarPresentation {
 
@@ -119,14 +139,33 @@ extension MenuBarPresentation {
         }
 
         let title = mode == .iconOnly ? nil : Self.percentText(limit.percent)
-        let severity = snapshot.overallSeverity
+
+        // Escalate the whole item from the worst limit on the account, not
+        // just the one being displayed — a calm menu bar while the weekly
+        // limit is about to stop your work would be actively misleading.
+        let severity =
+            snapshot.limits
+            .map { Severity.escalating(percent: $0.percent, reported: $0.severity) }
+            .max { $0.rank < $1.rank } ?? .normal
 
         return MenuBarPresentation(
             title: title,
             symbolName: symbolName(forPercent: limit.percent),
             tint: useSeverityColor && severity != .normal ? severity : nil,
             accessibilityLabel: "\(limit.displayName): \(Self.percentText(limit.percent)) used",
-            tooltip: tooltip(for: snapshot, state: state, now: now)
+            tooltip: tooltip(for: snapshot, state: state, now: now),
+            bar: showWeeklyBar ? weeklyBar(from: snapshot) : nil
+        )
+    }
+
+    /// The bar tracks the weekly allowance, which is the one that creeps up on
+    /// you — the session window resets often enough to watch itself.
+    static func weeklyBar(from snapshot: UsageSnapshot) -> Bar? {
+        guard let limit = snapshot.weeklyLimit ?? snapshot.primaryLimit else { return nil }
+        return Bar(
+            fraction: limit.percent / 100,
+            severity: Severity.escalating(percent: limit.percent, reported: limit.severity),
+            name: limit.displayName
         )
     }
 

@@ -310,3 +310,107 @@ struct RelativeTimeTests {
         #expect(past == "resets now")
     }
 }
+
+// MARK: - Weekly bar
+
+@Suite("Menu bar weekly bar")
+struct MenuBarWeeklyBarTests {
+
+    private func present(
+        _ limits: [UsageLimit], bar: Bool = true, color: Bool = true
+    ) -> MenuBarPresentation {
+        var state = UsageState()
+        state.recordSuccess(UsageSnapshot(limits: limits))
+        return MenuBarPresentation.make(
+            state: state, mode: .sessionPercent, useSeverityColor: color, showWeeklyBar: bar)
+    }
+
+    @Test("the bar tracks the weekly limit, not the displayed one")
+    func tracksWeekly() {
+        let presentation = present([limit(.session, 10), limit(.weeklyAll, 64)])
+
+        #expect(presentation.title == "10%", "the title still shows the chosen mode")
+        #expect(presentation.bar?.fraction == 0.64)
+        #expect(presentation.bar?.name == "Weekly")
+    }
+
+    @Test("no bar when the setting is off")
+    func hiddenWhenDisabled() {
+        #expect(present([limit(.weeklyAll, 50)], bar: false).bar == nil)
+    }
+
+    @Test("falls back to the worst limit on an account with no weekly window")
+    func fallsBackWithoutWeekly() {
+        let presentation = present([limit(.session, 42)])
+        #expect(presentation.bar?.fraction == 0.42)
+    }
+
+    @Test("no bar at all when there is no snapshot")
+    func noBarWithoutData() {
+        let presentation = MenuBarPresentation.make(
+            state: UsageState(), mode: .sessionPercent,
+            useSeverityColor: true, showWeeklyBar: true)
+        #expect(presentation.bar == nil)
+    }
+
+    @Test("the fraction is clamped to 0…1 so the bar cannot overflow")
+    func clampsFraction() {
+        #expect(present([limit(.weeklyAll, 140)]).bar?.fraction == 1)
+        #expect(present([limit(.weeklyAll, -5)]).bar?.fraction == 0)
+    }
+
+    @Test("goes amber past 80% and red past 90%")
+    func escalatesWithUsage() {
+        #expect(present([limit(.weeklyAll, 50)]).bar?.severity == .normal)
+        #expect(present([limit(.weeklyAll, 79)]).bar?.severity == .normal)
+        #expect(present([limit(.weeklyAll, 82)]).bar?.severity == .warning)
+        #expect(present([limit(.weeklyAll, 95)]).bar?.severity == .critical)
+    }
+
+    @Test("the server can escalate sooner, but never calm things down")
+    func serverCanOnlyEscalate() {
+        // Server says critical at a low percentage — believe it.
+        let early = present([limit(.weeklyAll, 20, severity: .critical)])
+        #expect(early.bar?.severity == .critical)
+
+        // Server says normal at 95% — our own threshold still wins.
+        let late = present([limit(.weeklyAll, 95, severity: .normal)])
+        #expect(late.bar?.severity == .critical)
+    }
+
+    @Test("the icon escalates from the worst limit, not just the displayed one")
+    func iconEscalatesFromWorstLimit() {
+        // Session is quiet; the week is nearly gone. A calm menu bar here
+        // would hide the thing about to stop your work.
+        let presentation = present([limit(.session, 5), limit(.weeklyAll, 93)])
+        #expect(presentation.tint == .critical)
+    }
+
+    @Test("stays uncoloured when the user turned colour off")
+    func respectsColourSetting() {
+        let presentation = present([limit(.weeklyAll, 95)], color: false)
+        #expect(presentation.tint == nil)
+        // The bar keeps its colour regardless — it is the warning.
+        #expect(presentation.bar?.severity == .critical)
+    }
+}
+
+@Suite("Severity escalation")
+struct SeverityEscalationTests {
+
+    @Test("thresholds are 80 for amber and 90 for red")
+    func thresholds() {
+        #expect(Severity.escalating(percent: 0, reported: .normal) == .normal)
+        #expect(Severity.escalating(percent: 79.9, reported: .normal) == .normal)
+        #expect(Severity.escalating(percent: 80, reported: .normal) == .warning)
+        #expect(Severity.escalating(percent: 89.9, reported: .normal) == .warning)
+        #expect(Severity.escalating(percent: 90, reported: .normal) == .critical)
+    }
+
+    @Test("never quieter than the server said")
+    func neverDowngrades() {
+        #expect(Severity.escalating(percent: 10, reported: .warning) == .warning)
+        #expect(Severity.escalating(percent: 10, reported: .critical) == .critical)
+        #expect(Severity.escalating(percent: 85, reported: .critical) == .critical)
+    }
+}

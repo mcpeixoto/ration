@@ -35,8 +35,16 @@ public struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Toggle("Colour the icon when close to a limit", isOn: $settings.useSeverityColor)
-                Text("Turns amber as you approach a limit and red when you reach it.")
+                Toggle("Show a weekly usage bar", isOn: $settings.showWeeklyBar)
+                Text(
+                    "A small bar beside the icon, filling up as the week's allowance "
+                        + "is spent."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Toggle("Colour when close to a limit", isOn: $settings.useSeverityColor)
+                Text("Turns amber past 80% and red past 90%.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

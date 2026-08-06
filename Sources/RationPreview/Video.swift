@@ -12,50 +12,25 @@ import SwiftUI
 @MainActor
 enum Video {
 
-    static let fps = 30
+    static let fps = Timeline.fps
 
     static func render(to directory: URL, appearance: NSAppearance.Name) throws {
         try? FileManager.default.createDirectory(
             at: directory, withIntermediateDirectories: true)
 
         var frame = 0
+        let history = try loadedHistory()
 
-        func write(_ view: some View) {
+        for index in 0..<Timeline.frameCount {
+            let time = Double(index) / Double(Timeline.fps)
             let url = directory.appendingPathComponent(String(format: "frame-%05d.png", frame))
-            renderFrame(view, to: url, appearance: appearance)
+            renderFrame(
+                MacBookScene(
+                    state: Timeline.state(at: time),
+                    history: history,
+                    metricsDays: Timeline.metricsDays(at: time)),
+                to: url, appearance: appearance)
             frame += 1
-        }
-
-        // MARK: Act 1 — the ring sweeps up to the real numbers.
-
-        for step in 0..<(fps * 4) {
-            let t = ease(Double(step) / Double(fps * 4 - 1))
-            write(
-                DemoPanel(tab: .usage) {
-                    UsageDemo(progress: t)
-                })
-        }
-
-        // MARK: Act 2 — the calendar, holding.
-
-        let transcripts = try loadedHistory()
-        for _ in 0..<(fps * 3) {
-            write(
-                DemoPanel(tab: .activity) {
-                    ActivityView(history: transcripts, status: .ready)
-                })
-        }
-
-        // MARK: Act 3 — metrics assemble as history accumulates.
-
-        let totalDays = 90
-        for step in 0..<(fps * 4) {
-            let t = ease(Double(step) / Double(fps * 4 - 1))
-            let days = max(2, Int(t * Double(totalDays)))
-            write(
-                DemoPanel(tab: .metrics) {
-                    MetricsView(history: truncate(transcripts, toLast: days), status: .ready)
-                })
         }
 
         print("wrote \(frame) frames to \(directory.path)")
@@ -104,7 +79,8 @@ enum Video {
         hosting.appearance = NSAppearance(named: appearance)
         // A fixed frame keeps every frame the same size — ffmpeg rejects a
         // sequence whose dimensions wobble.
-        hosting.frame = NSRect(x: 0, y: 0, width: 460, height: 620)
+        hosting.frame = NSRect(
+            x: 0, y: 0, width: Timeline.stage.width, height: Timeline.stage.height)
         hosting.layoutSubtreeIfNeeded()
 
         guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return }

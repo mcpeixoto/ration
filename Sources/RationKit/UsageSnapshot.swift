@@ -232,6 +232,24 @@ public enum Severity: String, Sendable, Equatable, CaseIterable {
         }
     }
 
+    /// How a percentage should be coloured on screen, never quieter than what
+    /// the server reported.
+    ///
+    /// The server's `severity` is authoritative about policy — it knows when a
+    /// limit is about to bite — but it stays `normal` until quite late, which
+    /// is not much use for a glanceable bar. So we escalate on our own
+    /// thresholds too and take whichever is louder. The server can only ever
+    /// make the display more urgent, never less.
+    public static func escalating(percent: Double, reported: Severity) -> Severity {
+        let byPercent: Severity =
+            switch percent {
+            case ..<80: .normal
+            case ..<90: .warning
+            default: .critical
+            }
+        return byPercent.rank > reported.rank ? byPercent : reported
+    }
+
     /// Only used when synthesising limits from the named keys, which carry no
     /// severity of their own.
     static func derived(fromPercent percent: Double) -> Severity {

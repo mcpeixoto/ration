@@ -63,7 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         return MenuBarPresentation.make(
             state: poller.state,
             mode: settings.displayMode,
-            useSeverityColor: settings.useSeverityColor
+            useSeverityColor: settings.useSeverityColor,
+            showWeeklyBar: settings.showWeeklyBar
         )
     }
 
