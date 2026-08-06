@@ -16,16 +16,19 @@ run.
   <img src="docs/images/metrics-dark.png" width="260" alt="Token breakdown by model and project">
 </p>
 
-The menu bar item carries a small bar for the weekly allowance — the limit that
+The menu bar item carries a small vertical gauge for the weekly allowance — the limit that
 creeps up on you, since a session window resets often enough to watch itself.
-It turns amber past 80% and red past 90%, so you get a warning at a glance
-without opening anything.
+It stays monochrome while everything is fine, turns amber past 80% and red past
+90% — so colour in your menu bar always means something.
 
 Three tabs:
 
 - **Usage** — live plan limits, straight from Anthropic. Click any limit to promote it into the ring.
 - **Activity** — a calendar heat map of the last five months, built from your local Claude Code transcripts.
-- **Metrics** — where your tokens went, by model and by project, over 7/30/90 days.
+- **Metrics** — a projection of the current window (*at this rate, do you run
+  out before it resets?*), daily charts of tokens/messages/sessions/cost with a
+  7-day trend, breakdowns by model and project, and when in the day you
+  actually work.
 
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, refreshed in the background.
@@ -141,7 +144,7 @@ More detail in [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md).
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Menu bar shows | Session % | Session, Weekly, Highest, or icon only |
-| Weekly usage bar | On | A small bar beside the icon, filling as the week is spent |
+| Weekly usage bar | On | A small vertical gauge beside the icon, filling as the week is spent |
 | Colour when near a limit | On | Amber past 80%, red past 90% |
 | Check every | 60s | 30s minimum; faster while the panel is open |
 | Notify near a limit | On | Fires once per threshold per window |
@@ -206,6 +209,12 @@ Issues and pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 If Anthropic would prefer this not exist in its current form, please open an
 issue; I will work with you.
+
+## Support
+
+Ration is free and always will be. If it saved you from one mid-task limit
+wall, you can [buy me a coffee](https://buymeacoffee.com/mcpeixoto) — entirely
+optional, and it changes nothing about the app.
 
 ## Licence
 

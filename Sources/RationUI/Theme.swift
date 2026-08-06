@@ -45,6 +45,14 @@ enum Theme {
     /// The neutral fill behind gauges and bars.
     static let track = Color.primary.opacity(0.09)
 
+    /// Swift Charts assigns marks its own palette colours whenever they carry
+    /// a `series` value, and the `.primary` shorthand loses that fight — an
+    /// explicit colour does not. Hence these two.
+    static let rollingAverage = Color(
+        light: Color(white: 0.35), dark: Color(white: 0.80))
+    static let chartRule = Color(
+        light: Color(white: 0.55), dark: Color(white: 0.55))
+
     /// Calendar heat-map fill for a relative intensity of 0…1.
     ///
     /// Zero is the empty-cell colour rather than a very pale orange, so quiet

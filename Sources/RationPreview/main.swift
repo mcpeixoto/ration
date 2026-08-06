@@ -145,13 +145,17 @@ MainActor.assumeIsolated {
         scale: 2, appearance: .darkAqua)
     render(
         TabPreview(title: "Metrics") {
-            MetricsView(history: transcripts.history, status: .ready)
+            MetricsView(
+                history: transcripts.history, status: .ready,
+                snapshot: sampleSnapshot())
         },
         to: outputDirectory.appendingPathComponent("metrics-dark.png"),
         scale: 2, appearance: .darkAqua)
     render(
         TabPreview(title: "Metrics") {
-            MetricsView(history: transcripts.history, status: .ready)
+            MetricsView(
+                history: transcripts.history, status: .ready,
+                snapshot: sampleSnapshot())
         },
         to: outputDirectory.appendingPathComponent("metrics-light.png"),
         scale: 2, appearance: .aqua)

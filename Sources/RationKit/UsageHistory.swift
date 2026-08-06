@@ -14,6 +14,9 @@ public struct DayUsage: Sendable, Equatable, Codable, Identifiable {
     public var billableTokens: Int
     public var cacheReadTokens: Int
     public var webSearches: Int
+    /// Billable tokens by hour of day (24 entries, local time) — the raw
+    /// material for "when do I actually work?".
+    public var tokensByHour: [Int]
     /// Estimated, in USD. See `Pricing`.
     public var cost: Double
 
@@ -28,13 +31,36 @@ public struct DayUsage: Sendable, Equatable, Codable, Identifiable {
         self.billableTokens = 0
         self.cacheReadTokens = 0
         self.webSearches = 0
+        self.tokensByHour = Array(repeating: 0, count: 24)
         self.cost = 0
+    }
+
+    /// Older checkpoints predate `tokensByHour`; decode them as empty rather
+    /// than discarding a whole history for one added field.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        date = try container.decode(Date.self, forKey: .date)
+        tokensByModel = try container.decode([String: Int].self, forKey: .tokensByModel)
+        tokensByProject = try container.decode([String: Int].self, forKey: .tokensByProject)
+        messages = try container.decode(Int.self, forKey: .messages)
+        sessions = try container.decode(Set<String>.self, forKey: .sessions)
+        billableTokens = try container.decode(Int.self, forKey: .billableTokens)
+        cacheReadTokens = try container.decode(Int.self, forKey: .cacheReadTokens)
+        webSearches = try container.decode(Int.self, forKey: .webSearches)
+        cost = try container.decode(Double.self, forKey: .cost)
+        tokensByHour =
+            try container.decodeIfPresent([Int].self, forKey: .tokensByHour)
+            ?? Array(repeating: 0, count: 24)
     }
 
     public var totalTokens: Int { billableTokens + cacheReadTokens }
     public var sessionCount: Int { sessions.count }
 
-    mutating func add(_ event: UsageEvent) {
+    mutating func add(_ event: UsageEvent, calendar: Calendar = .current) {
+        let hour = calendar.component(.hour, from: event.timestamp)
+        if tokensByHour.indices.contains(hour) {
+            tokensByHour[hour] += event.billableTokens
+        }
         tokensByModel[event.model, default: 0] += event.billableTokens
         tokensByProject[event.project, default: 0] += event.billableTokens
         messages += 1
@@ -64,7 +90,7 @@ public struct UsageHistory: Sendable, Equatable, Codable {
     public mutating func add(_ events: [UsageEvent], calendar: Calendar = .current) {
         for event in events {
             let day = calendar.startOfDay(for: event.timestamp)
-            days[day, default: DayUsage(date: day)].add(event)
+            days[day, default: DayUsage(date: day)].add(event, calendar: calendar)
         }
     }
 
@@ -119,6 +145,9 @@ public struct UsageHistory: Sendable, Equatable, Codable {
             for (project, tokens) in day.tokensByProject {
                 totals.tokensByProject[project, default: 0] += tokens
             }
+            for hour in 0..<24 where day.tokensByHour.indices.contains(hour) {
+                totals.tokensByHour[hour] += day.tokensByHour[hour]
+            }
             if day.billableTokens > 0 { totals.activeDays += 1 }
         }
 
@@ -129,6 +158,7 @@ public struct UsageHistory: Sendable, Equatable, Codable {
 
     public struct Totals: Sendable, Equatable {
         public var tokens = 0
+        public var tokensByHour = Array(repeating: 0, count: 24)
         public var cacheReadTokens = 0
         public var messages = 0
         public var sessions = 0
@@ -154,6 +184,12 @@ public struct UsageHistory: Sendable, Equatable, Codable {
 
         public var averageTokensPerActiveDay: Int {
             activeDays > 0 ? tokens / activeDays : 0
+        }
+
+        /// The hour of day with the most output, or `nil` with no data.
+        public var busiestHour: Int? {
+            guard let peak = tokensByHour.max(), peak > 0 else { return nil }
+            return tokensByHour.firstIndex(of: peak)
         }
     }
 

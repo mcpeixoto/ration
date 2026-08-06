@@ -197,9 +197,19 @@ struct MacBookScene: View {
             case .activity:
                 ActivityView(history: history, status: .ready)
             case .metrics:
-                MetricsView(history: truncated, status: .ready)
+                MetricsView(history: truncated, status: .ready, snapshot: demoSnapshot)
             }
         }
+    }
+
+    /// A snapshot mid-week and slightly over pace, so the projection card has
+    /// something interesting to say in the demo.
+    private var demoSnapshot: UsageSnapshot {
+        UsageSnapshot(limits: [
+            UsageLimit(
+                kind: .weeklyAll, group: .weekly, percent: 52, severity: .normal,
+                resetsAt: Date(timeIntervalSinceNow: 3 * 24 * 3600), isActive: true)
+        ])
     }
 
     private var truncated: UsageHistory {

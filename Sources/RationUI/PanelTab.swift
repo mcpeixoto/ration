@@ -88,6 +88,17 @@ struct SegmentedChoice<Option: Hashable>: View {
     @Binding var selection: Option
     let label: (Option) -> String
 
+    init(options: [Option], selection: Binding<Option>, label: @escaping (Option) -> String) {
+        self.options = options
+        self._selection = selection
+        self.label = label
+    }
+
+    /// Convenience for enums that expose their own title.
+    init(options: [Option], selection: Binding<Option>, label keyPath: KeyPath<Option, String>) {
+        self.init(options: options, selection: selection, label: { $0[keyPath: keyPath] })
+    }
+
     @Namespace private var namespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

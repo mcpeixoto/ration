@@ -16,8 +16,9 @@ public struct MenuBarLabel: View {
         self.presentation = presentation
     }
 
-    /// Menu bar items live in a 22pt bar; this leaves room above and below.
-    private let barSize = CGSize(width: 26, height: 4)
+    /// Vertical, so it reads as a level gauge rather than a progress bar and
+    /// costs almost no width in a crowded menu bar.
+    private let barSize = CGSize(width: 5, height: 13)
 
     public var body: some View {
         Group {
@@ -82,36 +83,38 @@ public struct MenuBarLabel: View {
 
 // MARK: - The bar
 
-/// A tiny capsule showing how much of the weekly allowance is gone.
+/// A small vertical gauge showing how much of the weekly allowance is gone.
 ///
-/// Drawn rather than using `ProgressView`, which brings its own padding and
-/// minimum size — neither of which fits a 22pt menu bar.
+/// Fills from the bottom, like a fuel gauge. Drawn rather than using
+/// `ProgressView`, which brings its own padding and minimum size — neither of
+/// which fits a 22pt menu bar.
 struct WeeklyBar: View {
 
     let bar: MenuBarPresentation.Bar
     let size: CGSize
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            Capsule()
-                .fill(Color.primary.opacity(0.25))
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: size.width / 2, style: .continuous)
+                .fill(Color.primary.opacity(0.22))
                 .frame(width: size.width, height: size.height)
 
-            Capsule()
+            RoundedRectangle(cornerRadius: size.width / 2, style: .continuous)
                 .fill(fill)
-                // Keep a sliver visible at very low usage so the bar never
+                // Keep a sliver visible at very low usage so the gauge never
                 // looks broken or empty.
-                .frame(width: max(size.width * bar.fraction, size.height), height: size.height)
+                .frame(width: size.width, height: max(size.height * bar.fraction, size.width))
         }
         .frame(width: size.width, height: size.height)
         .accessibilityHidden(true)
     }
 
-    /// Amber and red are the point of the bar, so they are not optional here —
-    /// unlike the icon tint, which the user can turn off.
+    /// Stays monochrome until it matters. Colour is a warning here, so
+    /// spending it on a perfectly healthy 30% would leave nothing to escalate
+    /// to — the amber and red only mean something if they are rare.
     private var fill: Color {
         switch bar.severity {
-        case .normal: Theme.accent
+        case .normal: Color.primary.opacity(0.75)
         case .warning: Theme.warning
         case .critical: Theme.critical
         }

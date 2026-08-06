@@ -101,7 +101,9 @@ public struct PopoverView: View {
         case .activity:
             ActivityView(history: transcripts.history, status: transcripts.status, now: now)
         case .metrics:
-            MetricsView(history: transcripts.history, status: transcripts.status, now: now)
+            MetricsView(
+                history: transcripts.history, status: transcripts.status,
+                now: now, snapshot: poller.state.snapshot)
         }
     }
 
