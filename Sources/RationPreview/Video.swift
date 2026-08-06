@@ -148,12 +148,15 @@ private struct DemoPanel<Content: View>: View {
             Spacer(minLength: 0)
         }
         .frame(width: 340, height: 540, alignment: .top)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(
+            Color(red: 0.11, green: 0.10, blue: 0.10),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(.white.opacity(0.08), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.45), radius: 24, y: 10)
+        .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DemoBackground())
     }

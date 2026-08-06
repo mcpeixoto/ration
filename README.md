@@ -7,9 +7,13 @@ you have used. No more discovering you hit a limit halfway through a long agent
 run.
 
 <p align="center">
-  <img src="docs/images/popover-dark.png" width="270" alt="Live plan limits">
-  <img src="docs/images/activity-dark.png" width="270" alt="Calendar heat map of past activity">
-  <img src="docs/images/metrics-dark.png" width="270" alt="Token breakdown by model and project">
+  <img src="docs/images/demo.gif" width="320" alt="Ration cycling through its three tabs">
+</p>
+
+<p align="center">
+  <img src="docs/images/popover-dark.png" width="260" alt="Live plan limits">
+  <img src="docs/images/activity-dark.png" width="260" alt="Calendar heat map of past activity">
+  <img src="docs/images/metrics-dark.png" width="260" alt="Token breakdown by model and project">
 </p>
 
 Three tabs:
@@ -157,12 +161,16 @@ open .build/Ration.app
 Two helper scripts round out the workflow:
 
 ```sh
-swift Scripts/make-icon.swift        # regenerates Resources/AppIcon.icns
-swift run RationPreview docs/images  # regenerates the screenshots above
+swift Scripts/make-icon.swift             # regenerates Resources/AppIcon.icns
+swift run RationPreview docs/images       # regenerates the screenshots above
+swift run RationPreview video && \
+  ./Scripts/make-video.sh                 # regenerates the demo video and GIF
 ```
 
-The icon is drawn in code and the screenshots are rendered from the real views,
-so neither is a binary blob that drifts silently out of date.
+The icon is drawn in code, and the screenshots and demo video are rendered
+frame by frame from the real SwiftUI views — the motion in the GIF above is the
+app, not a mockup. Nothing here is a binary blob that drifts silently out of
+date.
 
 Requires Xcode 16 or later. There is no `.xcodeproj` — the whole repo is plain
 text, and `Scripts/bundle.sh` assembles the `.app` around the SwiftPM binary.
