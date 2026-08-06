@@ -10,6 +10,11 @@ public struct PopoverView: View {
     let startSetup: () -> Void
     let quit: () -> Void
 
+    /// Which limit the user promoted into the ring, if any. Resets when the
+    /// panel closes, so the ring returns to their configured default.
+    @State private var focusedLimitID: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     public init(
         poller: UsagePoller,
         settings: Settings,
@@ -25,9 +30,9 @@ public struct PopoverView: View {
     }
 
     public var body: some View {
-        // Re-renders once a second so the reset countdowns tick while the
-        // popover is open. TimelineView stops when the view goes away, so this
-        // costs nothing when the panel is closed.
+        // Re-renders once a second so the reset countdowns tick while the panel
+        // is open. TimelineView stops when the view goes away, so this costs
+        // nothing while the panel is closed.
         TimelineView(.periodic(from: .now, by: 1)) { context in
             VStack(spacing: 0) {
                 header
@@ -43,15 +48,15 @@ public struct PopoverView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
             Text("Ration")
                 .font(.headline)
 
             if let plan = planLabel {
                 Text(plan)
-                    .font(.caption2.weight(.medium))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1.5)
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
                     .background(.quaternary, in: Capsule())
                     .foregroundStyle(.secondary)
             }
@@ -62,15 +67,10 @@ public struct PopoverView: View {
                 poller.refreshNow()
             }
 
-            Button(action: openSettings) {
-                Image(systemName: "gearshape")
-            }
-            .buttonStyle(.borderless)
-            .help("Settings")
-            .accessibilityLabel("Settings")
+            HeaderButton(symbol: "gearshape", help: "Settings", action: openSettings)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
     }
 
     /// `max` → `Max`. Shown as a small capsule beside the title.
@@ -130,14 +130,19 @@ public struct PopoverView: View {
         let hero = heroLimit(in: snapshot)
         let rest = snapshot.limits.filter { $0.id != hero?.id }
 
-        VStack(spacing: 14) {
+        VStack(spacing: 0) {
             if let hero {
-                VStack(spacing: 8) {
-                    LimitRingView(limit: hero)
+                VStack(spacing: 10) {
+                    RingGauge(percent: hero.percent, severity: hero.severity)
+                        // A new id when the focused limit changes makes the ring
+                        // re-run its sweep animation for the newly chosen limit.
+                        .id(hero.id)
+                        .transition(.opacity.combined(with: .scale(scale: 0.94)))
 
-                    VStack(spacing: 2) {
+                    VStack(spacing: 3) {
                         Text(hero.displayName)
-                            .font(.subheadline.weight(.medium))
+                            .font(.subheadline.weight(.semibold))
+
                         if let resetsAt = hero.resetsAt {
                             Text(RelativeTime.sentence(until: resetsAt, from: now))
                                 .font(.caption)
@@ -146,30 +151,53 @@ public struct PopoverView: View {
                         }
                     }
                 }
-                .padding(.top, 14)
+                .padding(.top, 20)
+                .padding(.bottom, 18)
+                .animation(reduceMotion ? nil : .smooth(duration: 0.35), value: hero.id)
             }
 
             if !rest.isEmpty {
-                VStack(spacing: 12) {
+                VStack(spacing: 2) {
                     ForEach(rest) { limit in
-                        LimitRowView(limit: limit, now: now)
+                        LimitRowView(
+                            limit: limit,
+                            now: now,
+                            isSelected: focusedLimitID == limit.id,
+                            onSelect: { focus(limit) }
+                        )
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 4)
+                .padding(.horizontal, 6)
+                .padding(.bottom, 6)
             }
 
             if let spend = snapshot.spend, spend.isEnabled {
+                Divider()
+                    .padding(.horizontal, 16)
                 SpendRowView(spend: spend)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
             }
         }
-        .padding(.bottom, 12)
+        .padding(.bottom, 6)
     }
 
-    /// The limit the user chose to watch, falling back to the worst one.
+    /// Promotes a row into the ring, or drops back to the default if it is
+    /// already there.
+    private func focus(_ limit: UsageLimit) {
+        withAnimation(reduceMotion ? nil : .smooth(duration: 0.35)) {
+            focusedLimitID = focusedLimitID == limit.id ? nil : limit.id
+        }
+    }
+
+    /// The limit the user clicked, else the one they configured, else the worst.
     private func heroLimit(in snapshot: UsageSnapshot) -> UsageLimit? {
-        MenuBarPresentation.select(mode: settings.displayMode, from: snapshot)
+        if let focusedLimitID,
+            let focused = snapshot.limits.first(where: { $0.id == focusedLimitID })
+        {
+            return focused
+        }
+        return MenuBarPresentation.select(mode: settings.displayMode, from: snapshot)
             ?? snapshot.primaryLimit
     }
 
@@ -188,8 +216,8 @@ public struct PopoverView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
     }
 
     @ViewBuilder
@@ -235,7 +263,6 @@ struct SpendRowView: View {
                 .monospacedDigit()
                 .foregroundStyle(spend.severity.color ?? .secondary)
         }
-        .padding(.top, 2)
         .accessibilityElement(children: .combine)
     }
 

@@ -6,12 +6,17 @@ Ration puts a small gauge in your menu bar showing how much of your Claude plan
 you have used. No more discovering you hit a limit halfway through a long agent
 run.
 
-<!-- TODO: screenshot of the menu bar item and popover -->
+<p align="center">
+  <img src="docs/images/popover-dark.png" width="320" alt="Ration's panel in dark mode">
+  <img src="docs/images/popover-light.png" width="320" alt="Ration's panel in light mode">
+</p>
 
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, refreshed in the background.
 - **Quiet.** Optional notifications when you approach a limit, and nothing else.
 - **Private.** No analytics, no telemetry, nothing written to disk.
+
+Click any limit to promote it into the ring.
 
 > Ration is an independent open-source project. It is **not affiliated with,
 > endorsed by, or supported by Anthropic**. "Claude" is a trademark of Anthropic.
@@ -112,10 +117,20 @@ being locked down for everyone.
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-swift test          # 119 tests, no network, no keychain
+swift test          # 120 tests, no network, no keychain
 ./Scripts/bundle.sh # produces .build/Ration.app
 open .build/Ration.app
 ```
+
+Two helper scripts round out the workflow:
+
+```sh
+swift Scripts/make-icon.swift        # regenerates Resources/AppIcon.icns
+swift run RationPreview docs/images  # regenerates the screenshots above
+```
+
+The icon is drawn in code and the screenshots are rendered from the real views,
+so neither is a binary blob that drifts silently out of date.
 
 Requires Xcode 16 or later. There is no `.xcodeproj` — the whole repo is plain
 text, and `Scripts/bundle.sh` assembles the `.app` around the SwiftPM binary.
@@ -123,10 +138,11 @@ text, and `Scripts/bundle.sh` assembles the `.app` around the SwiftPM binary.
 ### Layout
 
 ```
-Sources/RationKit    Pure logic: models, keychain, API client, polling. No UI.
-Sources/RationUI     SwiftUI views and view models.
-Sources/Ration       The executable. Wiring and AppKit lifecycle only.
-Tests/RationKitTests Unit tests with checked-in API fixtures.
+Sources/RationKit     Pure logic: models, keychain, API client, polling. No UI.
+Sources/RationUI      SwiftUI views and view models.
+Sources/Ration        The executable. Wiring and AppKit lifecycle only.
+Sources/RationPreview Dev tool: renders the UI to PNGs. Not shipped.
+Tests/RationKitTests  Unit tests with checked-in API fixtures.
 ```
 
 `RationKit` imports no UI framework, so every decision Ration makes — what to

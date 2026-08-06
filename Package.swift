@@ -18,6 +18,10 @@ let package = Package(
         // Thin executable that wires the two together.
         .executableTarget(name: "Ration", dependencies: ["RationKit", "RationUI"]),
 
+        // Development tool: renders the UI to PNGs for review and for the
+        // README. Not shipped in the app bundle.
+        .executableTarget(name: "RationPreview", dependencies: ["RationKit", "RationUI"]),
+
         .testTarget(
             name: "RationKitTests",
             dependencies: ["RationKit"],

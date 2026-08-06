@@ -1,81 +1,75 @@
 import RationKit
 import SwiftUI
 
-// MARK: - Hero ring
-
-/// The headline gauge: one big ring for whichever limit matters most.
-struct LimitRingView: View {
-
-    let limit: UsageLimit
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Gauge(value: min(max(limit.percent, 0), 100), in: 0...100) {
-            EmptyView()
-        } currentValueLabel: {
-            Text(percentText)
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                // The Apple rolling-digit effect. Skipped under Reduce Motion.
-                .contentTransition(reduceMotion ? .identity : .numericText())
-        }
-        .gaugeStyle(.accessoryCircularCapacity)
-        .tint(limit.severity.accentColor)
-        .scaleEffect(Theme.ringSize / 58)  // the accessory style draws at a fixed 58pt
-        .frame(width: Theme.ringSize, height: Theme.ringSize)
-        .animation(reduceMotion ? nil : .smooth(duration: 0.4), value: limit.percent)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(limit.displayName)
-        .accessibilityValue("\(percentText) used")
-    }
-
-    private var percentText: String {
-        MenuBarPresentation.percentText(limit.percent)
-    }
-}
-
 // MARK: - Secondary row
 
-/// One limit as a labelled bar. Used for everything below the hero ring.
+/// One limit as a labelled bar.
+///
+/// Clicking promotes it into the ring above, so the panel can be steered
+/// without going to Settings.
 struct LimitRowView: View {
 
     let limit: UsageLimit
     let now: Date
+    var isSelected: Bool = false
+    var onSelect: (() -> Void)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(limit.displayName)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
 
+                if isSelected {
+                    Image(systemName: "chevron.up.circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(limit.severity.accentColor)
+                        .transition(.scale.combined(with: .opacity))
+                        .accessibilityHidden(true)
+                }
+
                 Spacer(minLength: 8)
 
+                // No `.numericText()` content transition here, for the same
+                // crispness reason as the ring's readout.
                 Text(MenuBarPresentation.percentText(limit.percent))
                     .font(.subheadline.weight(.medium))
                     .monospacedDigit()
-                    .contentTransition(reduceMotion ? .identity : .numericText())
                     .foregroundStyle(limit.severity.color ?? .secondary)
             }
 
-            ProgressView(value: min(max(limit.percent, 0), 100), total: 100)
-                .progressViewStyle(.linear)
-                .tint(limit.severity.accentColor)
-                .animation(reduceMotion ? nil : .smooth(duration: 0.4), value: limit.percent)
+            LimitBar(percent: limit.percent, severity: limit.severity)
 
             if let resetsAt = limit.resetsAt {
                 Text(RelativeTime.sentence(until: resetsAt, from: now))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .monospacedDigit()
             }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.primary.opacity(isHovering && onSelect != nil ? 0.06 : 0))
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onHover { hovering in
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+        .onTapGesture { onSelect?() }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(limit.displayName)
         .accessibilityValue(accessibilityValue)
+        .accessibilityAddTraits(onSelect != nil ? .isButton : [])
+        .accessibilityHint(onSelect != nil ? "Show this limit in the gauge" : "")
     }
 
     private var accessibilityValue: String {
@@ -89,10 +83,10 @@ struct LimitRowView: View {
 
 // MARK: - Refresh button
 
-/// A refresh button that spins while a fetch is in flight.
+/// Spins while a fetch is in flight.
 ///
-/// Hand-rolled rather than using `.symbolEffect(.rotate)`, which needs
-/// macOS 15; Ration supports 14.
+/// Hand-rolled rather than `.symbolEffect(.rotate)`, which needs macOS 15;
+/// Ration supports 14.
 struct RefreshButton: View {
 
     let isRefreshing: Bool
@@ -100,18 +94,46 @@ struct RefreshButton: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var angle: Double = 0
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
             Image(systemName: "arrow.clockwise")
                 .rotationEffect(.degrees(angle))
+                .foregroundStyle(isHovering ? .primary : .secondary)
         }
         .buttonStyle(.borderless)
         .help("Refresh now")
         .accessibilityLabel("Refresh now")
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.15)) { isHovering = hovering }
+        }
         .onChange(of: isRefreshing) { _, refreshing in
             guard refreshing, !reduceMotion else { return }
-            withAnimation(.linear(duration: 0.8)) { angle += 360 }
+            withAnimation(.easeInOut(duration: 0.7)) { angle += 360 }
+        }
+    }
+}
+
+/// A borderless icon button that responds to hover, for the panel header.
+struct HeaderButton: View {
+
+    let symbol: String
+    let help: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .foregroundStyle(isHovering ? .primary : .secondary)
+        }
+        .buttonStyle(.borderless)
+        .help(help)
+        .accessibilityLabel(help)
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.15)) { isHovering = hovering }
         }
     }
 }
@@ -127,11 +149,16 @@ struct StatusMessageView: View {
     var tint: Color = .secondary
     var action: (title: String, perform: () -> Void)?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hasAppeared = false
+
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(.system(size: 30, weight: .light))
                 .foregroundStyle(tint)
+                .scaleEffect(hasAppeared ? 1 : 0.7)
+                .opacity(hasAppeared ? 1 : 0)
                 .accessibilityHidden(true)
 
             Text(title)
@@ -152,6 +179,13 @@ struct StatusMessageView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
+        .onAppear {
+            guard !reduceMotion else {
+                hasAppeared = true
+                return
+            }
+            withAnimation(.smooth(duration: 0.4)) { hasAppeared = true }
+        }
     }
 }
