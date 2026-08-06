@@ -100,10 +100,10 @@ public struct PopoverView: View {
             content(now: now)
         case .activity:
             ActivityView(history: transcripts.history, status: transcripts.status, now: now)
-        case .metrics:
-            MetricsView(
-                history: transcripts.history, status: transcripts.status,
-                now: now, snapshot: poller.state.snapshot)
+        case .trends:
+            TrendsView(history: transcripts.history, status: transcripts.status, now: now)
+        case .breakdown:
+            BreakdownView(history: transcripts.history, status: transcripts.status, now: now)
         }
     }
 
@@ -198,6 +198,17 @@ public struct PopoverView: View {
                 .padding(.bottom, 6)
             }
 
+            if let projection = WindowProjection(limit: hero ?? snapshot.limits[0], now: now) {
+                Divider().padding(.horizontal, 16)
+                ProjectionCard(
+                    projection: projection,
+                    curve: transcripts.history.windowCurve(for: projection, now: now),
+                    now: now
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+            }
+
             if let spend = snapshot.spend, spend.isEnabled {
                 Divider()
                     .padding(.horizontal, 16)
@@ -237,6 +248,8 @@ public struct PopoverView: View {
                 .foregroundStyle(.secondary)
 
             Spacer()
+
+            CoffeeLink()
 
             Button("Quit", action: quit)
                 .buttonStyle(.borderless)

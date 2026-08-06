@@ -110,4 +110,5 @@ public struct OnboardingView: View {
 enum Links {
     static let repository = "https://github.com/mcpeixoto/ration"
     static let privacy = "https://github.com/mcpeixoto/ration/blob/main/PRIVACY.md"
+    static let coffee = "https://buymeacoffee.com/mcpeixoto"
 }

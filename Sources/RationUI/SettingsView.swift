@@ -160,6 +160,7 @@ public struct SettingsView: View {
             HStack(spacing: 16) {
                 Link("Source", destination: URL(string: Links.repository)!)
                 Link("Privacy", destination: URL(string: Links.privacy)!)
+                Link("Buy me a coffee", destination: URL(string: Links.coffee)!)
             }
             .font(.callout)
 

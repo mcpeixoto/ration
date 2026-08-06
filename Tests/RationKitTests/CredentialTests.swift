@@ -175,6 +175,7 @@ struct SourceTreeTests {
             // Links the user can click to open in their browser. Ration itself
             // never requests these — see `networkingIsConfinedToTheClient`.
             "github.com",
+            "buymeacoffee.com",
         ]
         #expect(
             hosts.subtracting(allowed).isEmpty,

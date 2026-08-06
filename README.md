@@ -13,7 +13,7 @@ run.
 <p align="center">
   <img src="docs/images/popover-dark.png" width="260" alt="Live plan limits">
   <img src="docs/images/activity-dark.png" width="260" alt="Calendar heat map of past activity">
-  <img src="docs/images/metrics-dark.png" width="260" alt="Token breakdown by model and project">
+  <img src="docs/images/trends-dark.png" width="260" alt="Daily usage trends">
 </p>
 
 The menu bar item carries a small vertical gauge for the weekly allowance — the limit that
@@ -21,14 +21,16 @@ creeps up on you, since a session window resets often enough to watch itself.
 It stays monochrome while everything is fine, turns amber past 80% and red past
 90% — so colour in your menu bar always means something.
 
-Three tabs:
+Four tabs:
 
-- **Usage** — live plan limits, straight from Anthropic. Click any limit to promote it into the ring.
-- **Activity** — a calendar heat map of the last five months, built from your local Claude Code transcripts.
-- **Metrics** — a projection of the current window (*at this rate, do you run
-  out before it resets?*), daily charts of tokens/messages/sessions/cost with a
-  7-day trend, breakdowns by model and project, and when in the day you
-  actually work.
+- **Usage** — live plan limits, and a projection of the current window: *at
+  this rate, do you run out before it resets?* Click any limit to promote it
+  into the ring; the projection follows.
+- **Activity** — a calendar heat map of the last five months, plus streaks and
+  which hours of the day you actually work.
+- **Trends** — totals and daily charts over 7/30/90 days, across
+  tokens, messages, sessions, or estimated cost, with a 7-day trend line.
+- **Detail** — where the tokens went, by model and by project.
 
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, refreshed in the background.

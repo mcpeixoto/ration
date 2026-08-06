@@ -37,6 +37,8 @@ public struct ActivityView: View {
                 legend
                 Divider()
                 summary
+                Divider()
+                rhythm
             }
         }
         .padding(.horizontal, 16)
@@ -204,6 +206,36 @@ public struct ActivityView: View {
             Divider().frame(height: 26)
             StatTile(label: "Busiest", value: busiestLabel(totals.busiestDay))
         }
+    }
+
+    /// When in the day the work actually happens. Local history knows this;
+    /// the API never sees it.
+    private var rhythm: some View {
+        let totals = history.total(over: days)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Rhythm")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let hour = totals.busiestHour {
+                    Text("peak \(hourLabel(hour))")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                }
+            }
+            HourHistogram(days: days, hourly: totals.tokensByHour)
+        }
+    }
+
+    private func hourLabel(_ hour: Int) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "ha"
+        var components = DateComponents()
+        components.hour = hour
+        return formatter.string(from: Calendar.current.date(from: components) ?? Date())
+            .lowercased()
     }
 
     private func busiestLabel(_ day: DayUsage?) -> String {

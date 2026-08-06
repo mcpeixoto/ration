@@ -1,13 +1,20 @@
 import SwiftUI
 
-/// The panel's three views.
+/// The panel's four views.
+///
+/// Four rather than three because Metrics grew past what a menu bar panel can
+/// show without scrolling. The split is by question: *how am I doing right
+/// now* (Usage), *when do I work* (Activity), *how is it trending* (Trends),
+/// *what is it going into* (Breakdown).
 public enum PanelTab: String, CaseIterable, Identifiable, Codable {
-    /// Live plan limits — the reason the app exists.
+    /// Live plan limits, and whether the current window survives them.
     case usage
-    /// Calendar heat map of past activity.
+    /// Calendar heat map, streaks, and time-of-day rhythm.
     case activity
-    /// Token and cost breakdowns.
-    case metrics
+    /// Totals and daily charts over a chosen range.
+    case trends
+    /// Where the tokens went — by model and by project.
+    case breakdown
 
     public var id: String { rawValue }
 
@@ -15,7 +22,8 @@ public enum PanelTab: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .usage: "Usage"
         case .activity: "Activity"
-        case .metrics: "Metrics"
+        case .trends: "Trends"
+        case .breakdown: "Detail"
         }
     }
 
@@ -23,7 +31,8 @@ public enum PanelTab: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .usage: "gauge.with.dots.needle.67percent"
         case .activity: "calendar"
-        case .metrics: "chart.bar.fill"
+        case .trends: "chart.line.uptrend.xyaxis"
+        case .breakdown: "chart.pie.fill"
         }
     }
 }
@@ -47,23 +56,19 @@ struct TabSwitcher: View {
                         selection = tab
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: tab.symbol)
-                            .font(.system(size: 9))
-                        Text(tab.title)
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .foregroundStyle(selection == tab ? Color.primary : .secondary)
-                    .background {
-                        if selection == tab {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(.primary.opacity(0.09))
-                                .matchedGeometryEffect(id: "tab", in: namespace)
+                    Text(tab.title)
+                        .font(.caption)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                        .foregroundStyle(selection == tab ? Color.primary : .secondary)
+                        .background {
+                            if selection == tab {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(.primary.opacity(0.09))
+                                    .matchedGeometryEffect(id: "tab", in: namespace)
+                            }
                         }
-                    }
-                    .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tab.title)

@@ -71,10 +71,11 @@ enum Timeline {
 
     /// The tab bar is centred in the panel, so derive each tab from that.
     static var tabY: CGFloat { panelOrigin.y + 62 }
-    private static var tabBarLeading: CGFloat { panelOrigin.x + (panelSize.width - 212) / 2 }
-    static var usageTab: CGPoint { CGPoint(x: tabBarLeading + 32, y: tabY) }
-    static var activityTab: CGPoint { CGPoint(x: tabBarLeading + 104, y: tabY) }
-    static var metricsTab: CGPoint { CGPoint(x: tabBarLeading + 176, y: tabY) }
+    private static var tabBarLeading: CGFloat { panelOrigin.x + 14 }
+    static var usageTab: CGPoint { CGPoint(x: tabBarLeading + 40, y: tabY) }
+    static var activityTab: CGPoint { CGPoint(x: tabBarLeading + 118, y: tabY) }
+    static var trendsTab: CGPoint { CGPoint(x: tabBarLeading + 152, y: tabY) }
+    static var detailTab: CGPoint { CGPoint(x: tabBarLeading + 224, y: tabY) }
 
     static var restingCursor: CGPoint {
         CGPoint(x: stage.width / 2 - 120, y: stage.height - 190)
@@ -106,16 +107,16 @@ enum Timeline {
 
         // 8.0–8.7  cursor to Metrics, click at 8.7
         if time >= 8.0 {
-            state.cursor = point(from: activityTab, to: metricsTab, t: ease(span(time, 8.0, 8.7)))
+            state.cursor = point(from: activityTab, to: trendsTab, t: ease(span(time, 8.0, 8.7)))
         }
-        if time >= 8.75 { state.tab = .metrics }
+        if time >= 8.75 { state.tab = .trends }
         state.clickPulse = max(state.clickPulse, pulse(time, at: 8.75))
 
         // 11.8–13.0  cursor drifts away, leaving the panel on screen
         if time >= 11.8 {
             state.cursor = point(
-                from: metricsTab,
-                to: CGPoint(x: metricsTab.x - 190, y: metricsTab.y + 250),
+                from: trendsTab,
+                to: CGPoint(x: trendsTab.x - 190, y: trendsTab.y + 250),
                 t: ease(span(time, 11.8, 13.0)))
         }
 
@@ -196,8 +197,10 @@ struct MacBookScene: View {
                 SweepingUsage(progress: state.usageProgress)
             case .activity:
                 ActivityView(history: history, status: .ready)
-            case .metrics:
-                MetricsView(history: truncated, status: .ready, snapshot: demoSnapshot)
+            case .trends:
+                TrendsView(history: truncated, status: .ready)
+            case .breakdown:
+                BreakdownView(history: truncated, status: .ready)
             }
         }
     }
@@ -491,19 +494,17 @@ private struct StaticTabs: View {
     var body: some View {
         HStack(spacing: 2) {
             ForEach(PanelTab.allCases) { tab in
-                HStack(spacing: 4) {
-                    Image(systemName: tab.symbol).font(.system(size: 9))
-                    Text(tab.title).font(.caption)
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .foregroundStyle(selection == tab ? Color.primary : .secondary)
-                .background {
-                    if selection == tab {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(.primary.opacity(0.10))
+                Text(tab.title)
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(selection == tab ? Color.primary : .secondary)
+                    .background {
+                        if selection == tab {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(.primary.opacity(0.10))
+                        }
                     }
-                }
             }
         }
         .padding(2)
