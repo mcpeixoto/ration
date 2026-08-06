@@ -65,8 +65,14 @@ func sampleSnapshot() -> UsageSnapshot {
     ])
 }
 
+// `swift run RationPreview video <dir>` emits a frame sequence instead of
+// the still screenshots.
+let isVideo = CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "video"
+
 let outputDirectory = URL(
-    fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "docs/images")
+    fileURLWithPath: CommandLine.arguments.count > (isVideo ? 2 : 1)
+        ? CommandLine.arguments[isVideo ? 2 : 1]
+        : (isVideo ? ".build/video-frames" : "docs/images"))
 try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
 MainActor.assumeIsolated {
@@ -74,6 +80,16 @@ MainActor.assumeIsolated {
     // header buttons render as placeholder glyphs.
     let app = NSApplication.shared
     app.setActivationPolicy(.prohibited)
+
+    if isVideo {
+        do {
+            try Video.render(to: outputDirectory, appearance: .darkAqua)
+        } catch {
+            print("video render failed: \(error)")
+            exit(1)
+        }
+        exit(0)
+    }
 
     let defaults = UserDefaults(suiteName: "com.mcpeixoto.Ration.preview")!
     defaults.removePersistentDomain(forName: "com.mcpeixoto.Ration.preview")

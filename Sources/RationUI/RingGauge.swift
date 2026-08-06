@@ -6,10 +6,15 @@ import SwiftUI
 /// Drawn with real vector strokes at final size rather than by scaling up
 /// SwiftUI's `.accessoryCircularCapacity` gauge, which is laid out for a 58pt
 /// complication and turns blurry the moment you enlarge it.
-struct RingGauge: View {
+public struct RingGauge: View {
 
-    let percent: Double
+    public let percent: Double
     let severity: Severity
+
+    public init(percent: Double, severity: Severity) {
+        self.percent = percent
+        self.severity = severity
+    }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.rationAnimatesEntrance) private var animatesEntrance
@@ -21,7 +26,7 @@ struct RingGauge: View {
 
     private let lineWidth: CGFloat = 11
 
-    var body: some View {
+    public var body: some View {
         ZStack {
             track
             progress
@@ -102,7 +107,7 @@ struct RingGauge: View {
 /// rounded caps, tint, and animation timing.
 struct LimitBar: View {
 
-    let percent: Double
+    public let percent: Double
     let severity: Severity
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

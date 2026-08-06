@@ -7,17 +7,27 @@ import SwiftUI
 ///
 /// Clicking promotes it into the ring above, so the panel can be steered
 /// without going to Settings.
-struct LimitRowView: View {
+public struct LimitRowView: View {
 
     let limit: UsageLimit
     let now: Date
     var isSelected: Bool = false
     var onSelect: (() -> Void)?
 
+    public init(
+        limit: UsageLimit, now: Date, isSelected: Bool = false,
+        onSelect: (() -> Void)? = nil
+    ) {
+        self.limit = limit
+        self.now = now
+        self.isSelected = isSelected
+        self.onSelect = onSelect
+    }
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(limit.displayName)

@@ -11,7 +11,7 @@ public enum PanelTab: String, CaseIterable, Identifiable, Codable {
 
     public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .usage: "Usage"
         case .activity: "Activity"
@@ -19,7 +19,7 @@ public enum PanelTab: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    var symbol: String {
+    public var symbol: String {
         switch self {
         case .usage: "gauge.with.dots.needle.67percent"
         case .activity: "calendar"
