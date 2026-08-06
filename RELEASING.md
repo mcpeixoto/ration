@@ -12,11 +12,48 @@ The Sparkle key is the one that matters most: it means the download host is not
 trusted. Even if GitHub Releases were compromised, an attacker could not make an
 installed copy of Ration accept a modified build.
 
+## Status
+
+| Secret | State |
+| --- | --- |
+| `SPARKLE_PRIVATE_KEY` | ✅ set |
+| `KEYCHAIN_PASSWORD` | ✅ set |
+| `CERTIFICATE_P12` | ❌ needs a Developer ID certificate (see below) |
+| `CERTIFICATE_PASSWORD` | ❌ |
+| `DEVELOPER_ID` | ❌ |
+| `APPLE_ID` | ❌ |
+| `TEAM_ID` | ❌ |
+| `APP_SPECIFIC_PASSWORD` | ❌ |
+
+**The blocker is the certificate, not the secrets.** This Mac currently has an
+*Apple Development* and an *Apple Distribution* certificate. Neither works for
+distributing outside the App Store — that needs a **Developer ID Application**
+certificate, which does not exist yet. Creating one requires signing in to
+your Apple Developer account, so it cannot be automated from here.
+
+### Creating the Developer ID certificate
+
+1. Open **Xcode → Settings → Accounts**, select your team, click **Manage
+   Certificates**, then **+ → Developer ID Application**. (Or create it at
+   developer.apple.com → Certificates → + → Developer ID Application.)
+2. Confirm it landed: `security find-identity -v -p codesigning` should now
+   list a `Developer ID Application: … (TEAMID)` entry.
+3. In **Keychain Access**, right-click that certificate → **Export** → `.p12`,
+   and set a password. That password becomes `CERTIFICATE_PASSWORD`.
+4. `base64 -i certificate.p12 | pbcopy` → paste as `CERTIFICATE_P12`.
+5. `DEVELOPER_ID` is the full string from step 2, quotes included.
+6. `TEAM_ID` is the code in parentheses in that same string.
+7. `APP_SPECIFIC_PASSWORD`: appleid.apple.com → Sign-In and Security →
+   App-Specific Passwords → generate one for "Ration notarisation".
+
+Then `gh secret set NAME -R mcpeixoto/ration` for each, and tag a release.
+
 ## One-time setup
 
-### 1. Sparkle signing key
+### 1. Sparkle signing key — done
 
-A key pair has already been generated and the public half is committed to
+Already generated, exported, and stored as the `SPARKLE_PRIVATE_KEY` secret.
+The public half is committed to
 `Resources/sparkle_public_key.txt` (and baked into every build's `Info.plist`).
 The private half is in your login keychain as **"Private key for signing Sparkle
 updates"**.
