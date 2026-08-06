@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+
+      - name: Show versions
+        run: swift --version
+
+      - name: Build
+        run: swift build --build-tests
+
+      # RationKit tests touch neither the network nor the keychain, so they run
+      # unmodified on a clean runner.
+      - name: Test
+        run: swift test
+
+      - name: Assemble the app bundle
+        run: ./Scripts/bundle.sh release
+
+      - name: Verify the bundle launches as a menu bar app
+        run: |
+          plist=.build/Ration.app/Contents/Info.plist
+          test "$(/usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$plist")" = "true"
+          test -x .build/Ration.app/Contents/MacOS/Ration
+
+      # The security posture in SECURITY.md is only true if it holds for the
+      # binary we actually ship, not just the source.
+      - name: Check the shipped binary reaches only api.anthropic.com
+        run: |
+          hosts=$(strings .build/Ration.app/Contents/MacOS/Ration \
+            | grep -oE 'https?://[A-Za-z0-9.-]+' \
+            | sed -E 's#https?://##' | sort -u \
+            | grep -vE '^(api\.anthropic\.com|github\.com)$' || true)
+          if [ -n "$hosts" ]; then
+            echo "::error::unexpected host(s) in the shipped binary:"
+            echo "$hosts"
+            exit 1
+          fi
+          echo "OK: no unexpected hosts"
+
+  format:
+    name: Format
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check formatting
+        run: swift format lint --recursive --strict Sources Tests

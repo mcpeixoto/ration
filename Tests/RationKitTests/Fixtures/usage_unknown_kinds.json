@@ -1,0 +1,40 @@
+{
+  "limits": [
+    {
+      "kind": "session",
+      "group": "session",
+      "percent": 88,
+      "severity": "warning",
+      "resets_at": "2026-08-06T22:20:00Z",
+      "scope": null,
+      "is_active": true
+    },
+    {
+      "kind": "monthly_quantum_flux",
+      "group": "monthly",
+      "percent": 12,
+      "severity": "normal",
+      "resets_at": "2026-09-01T00:00:00Z",
+      "scope": null,
+      "is_active": false
+    },
+    {
+      "kind": "weekly_scoped",
+      "group": "weekly",
+      "percent": 97,
+      "severity": "critical",
+      "resets_at": "2026-08-09T01:00:00Z",
+      "scope": { "model": { "id": "claude-opus-5", "display_name": "Opus" }, "surface": null },
+      "is_active": true
+    },
+    {
+      "kind": "brand_new_thing",
+      "group": "some_future_group",
+      "percent": 5,
+      "severity": "chartreuse",
+      "resets_at": null,
+      "scope": null,
+      "is_active": false
+    }
+  ]
+}

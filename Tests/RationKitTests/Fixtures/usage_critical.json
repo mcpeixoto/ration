@@ -1,0 +1,29 @@
+{
+  "limits": [
+    {
+      "kind": "session",
+      "group": "session",
+      "percent": 100,
+      "severity": "critical",
+      "resets_at": "2026-08-06T22:20:00Z",
+      "scope": null,
+      "is_active": true
+    },
+    {
+      "kind": "weekly_all",
+      "group": "weekly",
+      "percent": 83,
+      "severity": "warning",
+      "resets_at": "2026-08-09T01:00:00Z",
+      "scope": null,
+      "is_active": false
+    }
+  ],
+  "spend": {
+    "used": { "amount_minor": 1250, "currency": "USD", "exponent": 2 },
+    "limit": { "amount_minor": 5000, "currency": "USD", "exponent": 2 },
+    "percent": 25,
+    "severity": "normal",
+    "enabled": true
+  }
+}

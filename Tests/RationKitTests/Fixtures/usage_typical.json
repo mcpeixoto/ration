@@ -1,0 +1,70 @@
+{
+  "five_hour": {
+    "utilization": 32.0,
+    "resets_at": "2026-08-06T22:20:00.980592+00:00",
+    "limit_dollars": null,
+    "used_dollars": null,
+    "remaining_dollars": null
+  },
+  "seven_day": {
+    "utilization": 51.0,
+    "resets_at": "2026-08-09T01:00:00.980617+00:00",
+    "limit_dollars": null,
+    "used_dollars": null,
+    "remaining_dollars": null
+  },
+  "seven_day_oauth_apps": null,
+  "seven_day_opus": null,
+  "seven_day_sonnet": null,
+  "seven_day_cowork": null,
+  "tangelo": null,
+  "iguana_necktie": null,
+  "extra_usage": {
+    "is_enabled": false,
+    "monthly_limit": null,
+    "used_credits": null,
+    "utilization": null,
+    "currency": null,
+    "user_disabled": true,
+    "spend_limit_reached": false,
+    "credits_ever_enabled": true
+  },
+  "spend": {
+    "used": { "amount_minor": 0, "currency": "USD", "exponent": 2 },
+    "limit": null,
+    "percent": 0,
+    "severity": "normal",
+    "enabled": false,
+    "can_purchase_credits": false
+  },
+  "member_dashboard_available": false,
+  "limits": [
+    {
+      "kind": "session",
+      "group": "session",
+      "percent": 32,
+      "severity": "normal",
+      "resets_at": "2026-08-06T22:20:00.980592+00:00",
+      "scope": null,
+      "is_active": false
+    },
+    {
+      "kind": "weekly_all",
+      "group": "weekly",
+      "percent": 51,
+      "severity": "normal",
+      "resets_at": "2026-08-09T01:00:00.980617+00:00",
+      "scope": null,
+      "is_active": true
+    },
+    {
+      "kind": "weekly_scoped",
+      "group": "weekly",
+      "percent": 3,
+      "severity": "normal",
+      "resets_at": "2026-08-09T00:59:59.951865+00:00",
+      "scope": { "model": { "id": null, "display_name": "Fable" }, "surface": null },
+      "is_active": false
+    }
+  ]
+}
