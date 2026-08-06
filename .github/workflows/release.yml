@@ -4,6 +4,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0). Defaults to the current ref."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -14,6 +19,16 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # A dispatch checks out a branch; check out the tag being released so
+          # the built binary matches what the tag points at.
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      # One place decides the tag, so a manual re-run produces the same URLs a
+      # tag push would.
+      - name: Resolve the release tag
+        run: echo "RELEASE_TAG=${{ inputs.tag || github.ref_name }}" >> "$GITHUB_ENV"
 
       - name: Select the newest Xcode
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
@@ -80,7 +95,7 @@ jobs:
           [ -n "$SIGNATURE" ] || { echo "::error::signing produced no signature"; exit 1; }
 
           LENGTH="$(stat -f%z "$DMG")"
-          URL="https://github.com/mcpeixoto/ration/releases/download/${GITHUB_REF_NAME}/Ration-${VERSION}.dmg"
+          URL="https://github.com/mcpeixoto/ration/releases/download/${RELEASE_TAG}/Ration-${VERSION}.dmg"
           PUBDATE="$(date -R)"
 
           # Prepend this release to the feed, keeping older entries so people
@@ -107,7 +122,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "appcast unchanged"
           else
-            git commit -m "chore: appcast for ${GITHUB_REF_NAME}"
+            git commit -m "chore: appcast for ${RELEASE_TAG}"
             git push origin main
           fi
 
@@ -119,11 +134,11 @@ jobs:
           DMG=".build/Ration-${VERSION}.dmg"
           SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
 
-          gh release create "${GITHUB_REF_NAME}" "$DMG" \
+          gh release create "${RELEASE_TAG}" "$DMG" \
             --title "Ration ${VERSION}" \
             --generate-notes \
             --notes-start-tag "$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')" || \
-          gh release create "${GITHUB_REF_NAME}" "$DMG" \
+          gh release create "${RELEASE_TAG}" "$DMG" \
             --title "Ration ${VERSION}" --generate-notes
 
           echo "### Cask update" >> "$GITHUB_STEP_SUMMARY"
