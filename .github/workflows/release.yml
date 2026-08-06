@@ -15,8 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app
+      - name: Select the newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Allow the workflow to push the appcast
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Test
         run: swift test

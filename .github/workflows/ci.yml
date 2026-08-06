@@ -16,11 +16,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app
-
-      - name: Show versions
-        run: swift --version
+      # Don't pin an exact Xcode path — runner images rename it every release.
+      # Take the newest installed, and fail loudly if it is too old for the
+      # Swift 6 language mode this package uses.
+      - name: Select the newest Xcode
+        run: |
+          latest="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          echo "Using $latest"
+          sudo xcode-select -s "$latest"
+          swift --version
 
       - name: Build
         run: swift build --build-tests
