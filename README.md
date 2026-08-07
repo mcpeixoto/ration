@@ -43,12 +43,14 @@ Four tabs:
 
 ## Install
 
-```sh
-brew install --cask mcpeixoto/tap/ration
-```
+[**Download Ration 0.1.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.1.0.dmg)
+— open the DMG and drag `Ration.app` to Applications.
 
-Or [download the latest release](https://github.com/mcpeixoto/ration/releases/latest),
-unzip, and drag `Ration.app` to your Applications folder.
+Signed with a Developer ID and notarised by Apple, so it opens without a
+Gatekeeper warning. It updates itself from then on.
+
+A Homebrew cask is coming; the formula in `Casks/` is ready but the tap is not
+published yet.
 
 ### Requirements
 
