@@ -5,9 +5,14 @@
     <link>https://raw.githubusercontent.com/mcpeixoto/ration/main/appcast.xml</link>
     <description>Updates for Ration, a menu bar meter for Claude usage.</description>
     <language>en</language>
-    <!-- No releases published yet. The release workflow prepends a signed
-         <item> here on every tag; an entry without a valid EdDSA signature is
-         refused by Sparkle, so this file is deliberately empty until the first
-         real release rather than carrying a placeholder. -->
+    <item>
+      <title>Version 0.1.0</title>
+      <pubDate>Fri, 07 Aug 2026 03:09:55 +0000</pubDate>
+      <sparkle:version>1</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/mcpeixoto/ration/releases/tag/v0.1.0</link>
+      <enclosure url="https://github.com/mcpeixoto/ration/releases/download/v0.1.0/Ration-0.1.0.dmg" length="3081869" type="application/octet-stream" sparkle:edSignature="Kl5e0Qq5YXrkJhqu598iDGdIwOCWZtuws03uMySiTtmd+Mv0tdoOKOZNRuBhOuggnArfJ0OutYIFCX7Ek6oIBg==" />
+    </item>
   </channel>
 </rss>
