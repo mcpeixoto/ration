@@ -64,7 +64,7 @@ old they are instead of presenting them as live.
 
 ## Install
 
-[**Download Ration 0.1.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.1.0.dmg)
+[**Download Ration 0.2.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.2.0.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
