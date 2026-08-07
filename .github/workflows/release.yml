@@ -115,6 +115,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           cp appcast.xml /tmp/appcast.xml
+          # Discard the working-tree edit before switching branches: git
+          # refuses to check out over a modified file, and we already hold the
+          # only copy that matters in /tmp.
+          git checkout -- appcast.xml 2>/dev/null || true
           git fetch origin main
           git checkout -B main origin/main
           cp /tmp/appcast.xml appcast.xml
@@ -134,12 +138,14 @@ jobs:
           DMG=".build/Ration-${VERSION}.dmg"
           SHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
 
-          gh release create "${RELEASE_TAG}" "$DMG" \
-            --title "Ration ${VERSION}" \
-            --generate-notes \
-            --notes-start-tag "$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')" || \
-          gh release create "${RELEASE_TAG}" "$DMG" \
-            --title "Ration ${VERSION}" --generate-notes
+          # Idempotent: create the release, or attach the build to the
+          # existing one if this tag has been released before.
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" "$DMG" --clobber
+          else
+            gh release create "${RELEASE_TAG}" "$DMG" \
+              --title "Ration ${VERSION}" --generate-notes
+          fi
 
           echo "### Cask update" >> "$GITHUB_STEP_SUMMARY"
           echo '```ruby' >> "$GITHUB_STEP_SUMMARY"
