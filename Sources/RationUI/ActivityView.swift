@@ -7,11 +7,20 @@ public struct ActivityView: View {
     let history: UsageHistory
     let status: TranscriptStore.Status
     let now: Date
+    /// Whose history this is, for the empty state. The rest of the view is
+    /// provider-agnostic — tokens are tokens once they are in the history.
+    let provider: Provider
 
-    public init(history: UsageHistory, status: TranscriptStore.Status, now: Date = Date()) {
+    public init(
+        history: UsageHistory,
+        status: TranscriptStore.Status,
+        now: Date = Date(),
+        provider: Provider = .claude
+    ) {
         self.history = history
         self.status = status
         self.now = now
+        self.provider = provider
     }
 
     /// Roughly five months — as many weeks as fit the panel without crowding.
@@ -30,7 +39,7 @@ public struct ActivityView: View {
                 StatusMessageView(
                     symbol: "calendar",
                     title: "No history yet",
-                    message: "Once you have used Claude Code, your activity appears here."
+                    message: "Once you have used \(provider.toolName), your activity appears here."
                 )
             } else {
                 heatMap

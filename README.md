@@ -1,10 +1,10 @@
 # Ration
 
-Your Claude usage, in the macOS menu bar.
+Your AI coding usage, in the macOS menu bar.
 
-Ration puts a small gauge in your menu bar showing how much of your Claude plan
-you have used. No more discovering you hit a limit halfway through a long agent
-run.
+Ration puts a small gauge in your menu bar showing how much of your plan you
+have used — for **Claude Code** and **Codex**. No more discovering you hit a
+limit halfway through a long agent run.
 
 <p align="center">
   <img src="docs/images/demo.gif" width="320" alt="Ration cycling through its three tabs">
@@ -35,11 +35,32 @@ Four tabs:
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, refreshed in the background.
 - **Quiet.** Optional notifications when you approach a limit, and nothing else.
-- **Private.** No analytics, no telemetry. Two hosts, both listed below, and nothing else.
+- **Private.** No analytics, no telemetry. Two hosts, both listed below, and nothing else — **adding Codex added no third one.**
 - **Self-updating.** Signed updates via Sparkle; nothing to re-download by hand.
 
 > Ration is an independent open-source project. It is **not affiliated with,
-> endorsed by, or supported by Anthropic**. "Claude" is a trademark of Anthropic.
+> endorsed by, or supported by Anthropic or OpenAI**. "Claude" is a trademark of
+> Anthropic; "Codex" is a trademark of OpenAI.
+
+## Supported tools
+
+| Tool | Plan gauge | History | How |
+|---|---|---|---|
+| **Claude Code** | yes | yes | one request to `api.anthropic.com`, using the token Claude Code already stored |
+| **Codex CLI** | yes | yes | entirely from `~/.codex/sessions` — no request, no credential |
+| Cursor | no | no | its usage lives behind a login on its website; Ration will not read your browser cookies |
+| GitHub Copilot | no | no | quota is only readable over the network, with a token Ration would have to mint and store itself |
+| Gemini CLI | no | no | quota is only readable over the network; nothing usable is written to disk |
+
+The last three are listed in **Settings → Tools** with that explanation, rather
+than quietly omitted. If one of them starts writing its usage to disk, it
+becomes a twenty-line adapter — the seam is already there.
+
+Codex is the interesting case: it stamps its own rate limits into every session
+log it writes, so Ration reads the gauge and the history out of the same files.
+That is why a second provider cost zero new network hosts. The trade is
+freshness — those numbers age while Codex is not running, so the panel says how
+old they are instead of presenting them as live.
 
 ## Install
 
@@ -55,10 +76,11 @@ published yet.
 ### Requirements
 
 - macOS 14 (Sonoma) or later
-- [Claude Code](https://claude.com/claude-code), signed in
+- At least one supported tool: [Claude Code](https://claude.com/claude-code)
+  signed in, or Codex CLI with at least one session
 
-Ration does not sign you in and has no account of its own. It reads the session
-Claude Code already has.
+Ration does not sign you in and has no account of its own. It reads what your
+tools already have.
 
 ## How it works
 
@@ -71,13 +93,31 @@ Claude Code already has.
    which is the same endpoint `/usage` uses inside Claude Code.
 4. It draws the resulting percentages in your menu bar.
 
-**History (the Activity and Metrics tabs).** Claude Code writes a transcript of
-every session to `~/.claude/projects/**/*.jsonl`. Ration reads the token counts
-out of those files — and only the token counts. Your prompts, Claude's replies,
-and the contents of files you opened are never decoded, never retained, and
-never leave your machine. The first scan reads the whole corpus in the
-background (a few seconds for a gigabyte); after that it reads only the bytes
-appended since the last check.
+**Codex, entirely from disk.** Codex CLI writes its sessions to
+`~/.codex/sessions/**/rollout-*.jsonl`, and stamps its *own rate limits* into
+every `token_count` record it writes — the percentage used, the window length,
+and when it resets. So Ration reads the Codex gauge and the Codex history out of
+the same files, with no request and no credential. It never opens Codex's
+credential store; it does not need to, because even the plan tier is in the
+session log. A test fails the build if any source file so much as names those
+files.
+
+The trade is freshness: a figure Codex wrote three hours ago is three hours old.
+Ration timestamps the snapshot from the record rather than from the read, so the
+panel says *"As of 3h ago"* instead of showing a stale number as live.
+
+**History (the Activity, Trends and Detail tabs).** Both tools write a
+transcript of every session — Claude Code to `~/.claude/projects/**/*.jsonl`,
+Codex to `~/.codex/sessions/**/rollout-*.jsonl`. Ration reads the token counts
+out of those files, and only the token counts. Your prompts, the replies, and
+the contents of files you opened are never decoded, never retained, and never
+leave your machine. The first scan reads the whole corpus in the background (a
+few seconds for a gigabyte); after that it reads only the bytes appended since
+the last check.
+
+Each tool gets its own history, and the panel shows one at a time. Merging them
+would produce a confidently wrong number: a Claude token and a Codex token are
+not the same unit, and adding them up implies they are.
 
 That is the whole program.
 
@@ -115,8 +155,11 @@ idle and read nothing.
 
 - Read your refresh token, your MCP server logins, or anything else in that
   keychain blob.
-- Read your prompts, Claude's replies, or file contents out of your transcripts —
-  only `usage`, `model`, `timestamp`, `cwd`, and `sessionId`.
+- Touch any other tool's credentials. Codex keeps its login in a plain file that
+  Ration could read; it never does, and a test fails the build if a source file
+  even mentions it.
+- Read your prompts, the replies, or file contents out of your transcripts —
+  only token counts, model, timestamp, project, and session id.
 - Write to your keychain, ever.
 - Refresh, rotate, or invalidate your session. Only Claude Code does that. If
   your session expires, Ration says so and waits.
@@ -138,8 +181,13 @@ Turn automatic checks off in Settings if you'd rather update by hand.
 These are enforced by tests, not just promised in a README — see
 [`Tests/RationKitTests/CredentialTests.swift`](Tests/RationKitTests/CredentialTests.swift),
 which fails the build if a second network host appears in the source tree, if
-networking leaks outside `LimitsClient.swift`, or if anything reads the refresh
-token.
+networking leaks outside `LimitsClient.swift`, if the keychain is touched outside
+`Credential.swift`, if anything reads a refresh token, or if any source file
+names another tool's credential file.
+
+Those assertions did not have to be loosened to add Codex — the host allow-list
+is character-for-character what it was in 0.1.0. That is the point of reading a
+provider from disk: the second tool arrived with no new attack surface at all.
 
 More detail in [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md).
 

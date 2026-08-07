@@ -16,6 +16,38 @@ struct PreviewLimitsClient: LimitsClient {
 }
 
 /// A scratch directory so a preview run never touches the real checkpoint.
+/// A provider whose numbers come from a fixture rather than from the machine.
+///
+/// Used for both halves of the preview registry, so the renders are identical
+/// on any Mac regardless of which tools happen to be installed on it.
+struct PreviewUsageSource: UsageSource {
+    let provider: Provider
+    let snapshot: UsageSnapshot
+
+    func availability() -> ProviderAvailability { .ready }
+    func fetchUsage() async throws -> UsageSnapshot { snapshot }
+}
+
+/// The registry the preview renders against.
+///
+/// Claude is populated; Codex exists so the provider switcher appears in the
+/// screenshots, which is the point of having one.
+@MainActor
+func previewRegistry(snapshot: UsageSnapshot, transcripts: TranscriptStore) -> ProviderRegistry {
+    ProviderRegistry(entries: [
+        ProviderRegistry.Entry(
+            provider: .claude,
+            poller: UsagePoller(
+                source: PreviewUsageSource(provider: .claude, snapshot: snapshot)),
+            history: transcripts),
+        ProviderRegistry.Entry(
+            provider: .codex,
+            poller: UsagePoller(
+                source: PreviewUsageSource(provider: .codex, snapshot: snapshot)),
+            history: transcripts),
+    ])
+}
+
 func temporaryPreviewSupport() -> URL {
     let url = FileManager.default.temporaryDirectory
         .appending(path: "ration-preview-\(UUID().uuidString)")

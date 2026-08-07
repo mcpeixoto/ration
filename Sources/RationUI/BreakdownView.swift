@@ -7,11 +7,20 @@ public struct BreakdownView: View {
     let history: UsageHistory
     let status: TranscriptStore.Status
     let now: Date
+    /// Whose history this is, for the empty state. The rest of the view is
+    /// provider-agnostic — tokens are tokens once they are in the history.
+    let provider: Provider
 
-    public init(history: UsageHistory, status: TranscriptStore.Status, now: Date = Date()) {
+    public init(
+        history: UsageHistory,
+        status: TranscriptStore.Status,
+        now: Date = Date(),
+        provider: Provider = .claude
+    ) {
         self.history = history
         self.status = status
         self.now = now
+        self.provider = provider
     }
 
     @AppStorage("metricsRange") private var rangeDays = 30
@@ -29,7 +38,7 @@ public struct BreakdownView: View {
                 StatusMessageView(
                     symbol: "chart.pie",
                     title: "No history yet",
-                    message: "Breakdowns appear once you have used Claude Code."
+                    message: "Breakdowns appear once you have used \(provider.toolName)."
                 )
             } else {
                 SegmentedChoice(

@@ -96,15 +96,14 @@ MainActor.assumeIsolated {
     let settings = Settings(defaults: defaults)
     settings.hasCompletedOnboarding = true
 
-    let poller = UsagePoller(
-        credentialStore: PreviewCredentialStore(),
-        client: PreviewLimitsClient(snapshot: sampleSnapshot()))
-
     let transcripts = TranscriptStore(
         root: sampleTranscriptRoot(), supportDirectory: temporaryPreviewSupport())
 
+    let registry = previewRegistry(snapshot: sampleSnapshot(), transcripts: transcripts)
+    let poller = registry.primaryEntry!.poller
+
     let popover = PopoverView(
-        poller: poller, settings: settings, transcripts: transcripts,
+        registry: registry, settings: settings,
         openSettings: {}, startSetup: {}, quit: {})
 
     // Drive one refresh so the poller holds the sample snapshot. The poller is

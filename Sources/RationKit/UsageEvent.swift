@@ -76,6 +76,23 @@ extension UsageEvent {
     public static func displayName(forModel model: String) -> String {
         // Synthetic entries appear in transcripts for local, non-API turns.
         guard !model.hasPrefix("<") else { return "Other" }
+        // Codex attributes a turn only once its context line has been read; an
+        // incremental read that started mid-turn may not have seen one yet.
+        guard model != "unknown" else { return "Unknown" }
+
+        // OpenAI identifiers are already the marketed name: the dashes separate
+        // a version from a codename, not a family from a dotted version, so the
+        // rule below would render `gpt-5.6-sol` as "Gpt 5.6.sol".
+        if model.hasPrefix("gpt-") {
+            var parts = model.dropFirst("gpt-".count).split(separator: "-").map(String.init)
+            guard !parts.isEmpty else { return model }
+            let version = parts.removeFirst()
+            let codename =
+                parts
+                .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+                .joined(separator: " ")
+            return codename.isEmpty ? "GPT-\(version)" : "GPT-\(version) \(codename)"
+        }
 
         var name = model
         for prefix in ["claude-", "anthropic.", "us.anthropic."] where name.hasPrefix(prefix) {

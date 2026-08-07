@@ -4,9 +4,8 @@ import SwiftUI
 /// The panel that drops down from the menu bar.
 public struct PopoverView: View {
 
-    @Bindable var poller: UsagePoller
+    @Bindable var registry: ProviderRegistry
     @Bindable var settings: Settings
-    @Bindable var transcripts: TranscriptStore
     let openSettings: () -> Void
     let startSetup: () -> Void
     let quit: () -> Void
@@ -15,23 +14,33 @@ public struct PopoverView: View {
     /// panel closes, so the ring returns to their configured default.
     @State private var focusedLimitID: String?
     @State private var tab: PanelTab = .usage
+    /// Which provider the panel is showing. Starts at the one in the menu bar
+    /// so opening the panel explains the number that made you open it.
+    @State private var selection: Provider?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(
-        poller: UsagePoller,
+        registry: ProviderRegistry,
         settings: Settings,
-        transcripts: TranscriptStore,
         openSettings: @escaping () -> Void,
         startSetup: @escaping () -> Void,
         quit: @escaping () -> Void
     ) {
-        self.poller = poller
+        self.registry = registry
         self.settings = settings
-        self.transcripts = transcripts
         self.openSettings = openSettings
         self.startSetup = startSetup
         self.quit = quit
     }
+
+    /// The entry being shown, falling back to whatever is available.
+    private var entry: ProviderRegistry.Entry? {
+        selection.flatMap(registry.entry(for:)) ?? registry.primaryEntry
+    }
+
+    private var provider: Provider { entry?.provider ?? .claude }
+    private var poller: UsagePoller? { entry?.poller }
+    private var transcripts: TranscriptStore? { entry?.history }
 
     public var body: some View {
         // Re-renders once a second so the reset countdowns tick while the panel
@@ -41,9 +50,22 @@ public struct PopoverView: View {
             VStack(spacing: 0) {
                 header
 
+                // A switcher with one position is furniture, so it only appears
+                // once there is a genuine choice to make.
+                if isSetUp, registry.visible.count > 1 {
+                    ProviderSwitcher(
+                        providers: registry.visible.map(\.provider),
+                        selection: Binding(
+                            get: { provider },
+                            set: { selection = $0 })
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+                }
+
                 // The tab bar only appears once setup is done — before that
                 // there is nothing behind any of the tabs.
-                if settings.hasCompletedOnboarding {
+                if isSetUp {
                     TabSwitcher(selection: $tab)
                         .padding(.horizontal, 14)
                         .padding(.bottom, 10)
@@ -56,6 +78,13 @@ public struct PopoverView: View {
             }
             .frame(width: Theme.popoverWidth)
         }
+        .onAppear { selection = selection ?? settings.primaryProvider }
+    }
+
+    /// Onboarding only gates the provider whose first read raises a system
+    /// prompt. Everything else is read from files the user already owns.
+    private var isSetUp: Bool {
+        settings.hasCompletedOnboarding || !(poller?.promptsForPermission ?? false)
     }
 
     // MARK: Header
@@ -76,8 +105,8 @@ public struct PopoverView: View {
 
             Spacer()
 
-            RefreshButton(isRefreshing: poller.state.status == .refreshing) {
-                poller.refreshNow()
+            RefreshButton(isRefreshing: poller?.state.status == .refreshing) {
+                poller?.refreshNow()
             }
 
             HeaderButton(symbol: "gearshape", help: "Settings", action: openSettings)
@@ -88,22 +117,28 @@ public struct PopoverView: View {
 
     /// `max` → `Max`. Shown as a small capsule beside the title.
     private var planLabel: String? {
-        poller.planName?.capitalized
+        poller?.planName?.capitalized
     }
 
     // MARK: Content
 
     @ViewBuilder
     private func tabContent(now: Date) -> some View {
+        // Every tab is scoped to the selected provider. Merging histories would
+        // be worse than useless: a token of Claude and a token of Codex are not
+        // the same unit, so a combined total is a confidently wrong number.
+        let history = transcripts?.history ?? UsageHistory()
+        let status = transcripts?.status ?? .ready
+
         switch tab {
         case .usage:
             content(now: now)
         case .activity:
-            ActivityView(history: transcripts.history, status: transcripts.status, now: now)
+            ActivityView(history: history, status: status, now: now, provider: provider)
         case .trends:
-            TrendsView(history: transcripts.history, status: transcripts.status, now: now)
+            TrendsView(history: history, status: status, now: now, provider: provider)
         case .breakdown:
-            BreakdownView(history: transcripts.history, status: transcripts.status, now: now)
+            BreakdownView(history: history, status: status, now: now, provider: provider)
         }
     }
 
@@ -111,25 +146,40 @@ public struct PopoverView: View {
     /// a failed refresh should never replace a working gauge with an error page.
     @ViewBuilder
     private func content(now: Date) -> some View {
-        if !settings.hasCompletedOnboarding {
+        if let poller {
+            usage(poller: poller, now: now)
+        } else {
+            StatusMessageView(
+                symbol: "questionmark.circle",
+                title: "Nothing to show",
+                message: "No supported tool was found on this Mac."
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func usage(poller: UsagePoller, now: Date) -> some View {
+        if !isSetUp {
             StatusMessageView(
                 symbol: "hand.wave",
                 title: "Finish setting up",
                 message:
-                    "Ration needs your permission to read the Claude Code session stored in your keychain.",
+                    "Ration needs your permission to read the \(provider.toolName) session stored in your keychain.",
                 action: ("Set up Ration", startSetup)
             )
+        } else if case .quotaNotReadable(let reason) = poller.availability {
+            ProviderUnavailableView(provider: provider, reason: reason)
         } else if poller.state.status == .signedOut {
             StatusMessageView(
                 symbol: "person.crop.circle.badge.exclamationmark",
                 title: "Signed out",
                 message:
-                    "Ration reads the session Claude Code already has. Open Claude Code and sign in, then try again.",
+                    "Ration reads the session \(provider.toolName) already has. Open \(provider.toolName) and sign in, then try again.",
                 tint: .orange,
                 action: ("Try again", { poller.refreshNow() })
             )
         } else if let snapshot = poller.state.snapshot, !snapshot.limits.isEmpty {
-            limits(snapshot: snapshot, now: now)
+            limits(snapshot: snapshot, poller: poller, now: now)
         } else if poller.state.snapshot != nil {
             StatusMessageView(
                 symbol: "gauge.with.dots.needle.0percent",
@@ -138,10 +188,10 @@ public struct PopoverView: View {
             )
         } else if case .failed(let error) = poller.state.status {
             StatusMessageView(
-                symbol: "wifi.slash",
-                title: "Can't reach Anthropic",
+                symbol: errorSymbol(for: error),
+                title: errorTitle(for: error),
                 message: error.errorDescription ?? "Something went wrong.",
-                action: ("Retry", { poller.refreshNow() })
+                action: error.isRetryable ? ("Retry", { poller.refreshNow() }) : nil
             )
         } else {
             StatusMessageView(
@@ -152,8 +202,24 @@ public struct PopoverView: View {
         }
     }
 
+    /// A provider read from files cannot fail to be *reached*, so offering
+    /// "can't reach the network" for one would be nonsense.
+    private func errorSymbol(for error: LimitsError) -> String {
+        switch error {
+        case .noData, .unavailable: "tray"
+        default: "wifi.slash"
+        }
+    }
+
+    private func errorTitle(for error: LimitsError) -> String {
+        switch error {
+        case .noData, .unavailable: "Nothing recorded yet"
+        default: "Can't reach \(provider.displayName)"
+        }
+    }
+
     @ViewBuilder
-    private func limits(snapshot: UsageSnapshot, now: Date) -> some View {
+    private func limits(snapshot: UsageSnapshot, poller: UsagePoller, now: Date) -> some View {
         let hero = heroLimit(in: snapshot)
         let rest = snapshot.limits.filter { $0.id != hero?.id }
 
@@ -201,8 +267,10 @@ public struct PopoverView: View {
             if let projection = WindowProjection(limit: hero ?? snapshot.limits[0], now: now) {
                 Divider().padding(.horizontal, 16)
                 ProjectionCard(
+                    provider: provider,
                     projection: projection,
-                    curve: transcripts.history.windowCurve(for: projection, now: now),
+                    curve: (transcripts?.history ?? UsageHistory())
+                        .windowCurve(for: projection, now: now),
                     now: now
                 )
                 .padding(.horizontal, 16)
@@ -260,16 +328,41 @@ public struct PopoverView: View {
         .padding(.vertical, 9)
     }
 
+    /// How old a snapshot may be before the panel stops presenting it as
+    /// current. Generous, because a provider read from files only updates while
+    /// that tool is running, and a quiet afternoon is not a fault.
+    private static let freshFor: TimeInterval = 30 * 60
+
     @ViewBuilder
     private func statusText(now: Date) -> some View {
-        if poller.state.isStale {
+        if poller?.state.isStale == true {
             Label("Showing older numbers", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
                 .labelStyle(.titleAndIcon)
                 .imageScale(.small)
-        } else if let snapshot = poller.state.snapshot {
-            Text("Updated \(updatedText(snapshot.fetchedAt, now: now))")
+        } else if let snapshot = poller?.state.snapshot {
+            let age = now.timeIntervalSince(snapshot.fetchedAt)
+
+            // A number that has not moved in hours must not read as live. This
+            // is the failure mode that matters for a file-backed provider:
+            // Codex stamps its quota into its session log, so the figure ages
+            // whenever Codex is not running.
+            if age > Self.freshFor {
+                Label(
+                    "As of \(updatedText(snapshot.fetchedAt, now: now))",
+                    systemImage: "clock.badge.exclamationmark"
+                )
+                .foregroundStyle(.orange)
+                .labelStyle(.titleAndIcon)
+                .imageScale(.small)
                 .monospacedDigit()
+                .help(
+                    "\(provider.displayName) records its usage as it runs, so this is the "
+                        + "most recent figure it wrote.")
+            } else {
+                Text("Updated \(updatedText(snapshot.fetchedAt, now: now))")
+                    .monospacedDigit()
+            }
         } else {
             Text("Not updated yet")
         }
@@ -277,9 +370,13 @@ public struct PopoverView: View {
 
     private func updatedText(_ date: Date, now: Date) -> String {
         let elapsed = Int(now.timeIntervalSince(date))
-        if elapsed < 5 { return "just now" }
-        if elapsed < 60 { return "\(elapsed)s ago" }
-        return "\(elapsed / 60)m ago"
+        switch elapsed {
+        case ..<5: return "just now"
+        case ..<60: return "\(elapsed)s ago"
+        case ..<3600: return "\(elapsed / 60)m ago"
+        case ..<86400: return "\(elapsed / 3600)h ago"
+        default: return "\(elapsed / 86400)d ago"
+        }
     }
 }
 

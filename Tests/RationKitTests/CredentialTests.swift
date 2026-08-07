@@ -238,6 +238,47 @@ struct SourceTreeTests {
                 "\(file.url.lastPathComponent) references refreshToken")
         }
     }
+
+    /// Codex keeps its credentials in a plain file, mode 0600, with no keychain
+    /// and no prompt in the way. Ration could read them; it has no reason to.
+    /// Everything it shows for Codex — the token counts, the quota percentages,
+    /// the reset times, even the plan tier — is in the session logs.
+    ///
+    /// So the invariant is not "handle those credentials carefully", it is
+    /// "never go near them", and this is what holds the line.
+    @Test("no source file reads another tool's credential store")
+    func credentialsOfOtherToolsAreNeverTouched() throws {
+        // Deliberately includes the file name itself: a comment explaining that
+        // we do not read it is still a reference to it, and the way this
+        // guarantee erodes is one convenience at a time.
+        let forbidden = [
+            "auth.json", "access_token", "id_token", "refresh_token",
+            ".codex/auth", "oauth_creds", "Cookies.binarycookies",
+            "WorkosCursorSessionToken",
+        ]
+
+        for file in try swiftFiles() {
+            for needle in forbidden {
+                #expect(
+                    !file.contents.contains(needle),
+                    "\(file.url.lastPathComponent) references \(needle)")
+            }
+        }
+    }
+
+    /// The keychain is Claude's alone. Any second provider reaching for one
+    /// would mean a second permission prompt, which is exactly the kind of
+    /// change that should have to be made deliberately.
+    @Test("only the Anthropic credential store touches the keychain")
+    func keychainAccessIsConfinedToOneFile() throws {
+        for file in try swiftFiles() where file.url.lastPathComponent != "Credential.swift" {
+            for symbol in ["SecItemCopyMatching", "kSecClass", "SecItemAdd", "SecItemUpdate"] {
+                #expect(
+                    !file.contents.contains(symbol),
+                    "\(file.url.lastPathComponent) reaches into the keychain")
+            }
+        }
+    }
 }
 
 @Suite("Version consistency")

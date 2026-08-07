@@ -246,16 +246,16 @@ struct PricingTests {
     }
 
     @Test("computes a turn's cost from its token mix")
-    func costArithmetic() {
+    func costArithmetic() throws {
         // 1M input + 1M output on Opus 5 = $5 + $25.
         let event = UsageEvent(
             timestamp: Date(), model: "claude-opus-5", project: "p", sessionID: "s",
             inputTokens: 1_000_000, outputTokens: 1_000_000, cacheReadTokens: 0)
-        #expect(abs(Pricing.cost(of: event) - 30) < 0.0001)
+        #expect(abs(try #require(Pricing.cost(of: event)) - 30) < 0.0001)
     }
 
     @Test("cache reads are far cheaper than fresh input")
-    func cacheReadsAreCheap() {
+    func cacheReadsAreCheap() throws {
         let cached = UsageEvent(
             timestamp: Date(), model: "claude-opus-5", project: "p", sessionID: "s",
             inputTokens: 0, outputTokens: 0, cacheReadTokens: 1_000_000)
@@ -263,16 +263,52 @@ struct PricingTests {
             timestamp: Date(), model: "claude-opus-5", project: "p", sessionID: "s",
             inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0)
 
-        #expect(abs(Pricing.cost(of: cached) - 0.5) < 0.0001)
-        #expect(Pricing.cost(of: fresh) > Pricing.cost(of: cached) * 9)
+        let cachedCost = try #require(Pricing.cost(of: cached))
+        let freshCost = try #require(Pricing.cost(of: fresh))
+
+        #expect(abs(cachedCost - 0.5) < 0.0001)
+        #expect(freshCost > cachedCost * 9)
     }
 
-    @Test("an unpriced model contributes nothing rather than a guess")
-    func unknownModelCostsNothing() {
+    /// `nil`, not zero. A model with no published rate must not be costed at
+    /// nothing, or the total silently under-reports the moment a provider ships
+    /// something this table has not caught up with.
+    @Test("an unpriced model has no cost, rather than a cost of zero")
+    func unknownModelHasNoCost() {
         let event = UsageEvent(
             timestamp: Date(), model: "<synthetic>", project: "p", sessionID: "s",
             inputTokens: 1_000_000, outputTokens: 1_000_000, cacheReadTokens: 0)
-        #expect(Pricing.cost(of: event) == 0)
+        #expect(Pricing.cost(of: event) == nil)
+    }
+
+    @Test("sets aside the tokens it could not price, instead of dropping them")
+    func uncostedTokensAreRecorded() {
+        var history = UsageHistory()
+        history.add([
+            UsageEvent(
+                timestamp: Date(), model: "claude-opus-5", project: "p", sessionID: "s",
+                inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0),
+            UsageEvent(
+                timestamp: Date(), model: "some-future-model", project: "p", sessionID: "s",
+                inputTokens: 500_000, outputTokens: 0, cacheReadTokens: 0),
+        ])
+
+        let totals = history.total(over: history.sortedDays)
+        #expect(abs(totals.cost - 5) < 0.0001)
+        #expect(totals.uncostedTokens == 500_000)
+        // The unpriced tokens still count as usage; only the estimate omits them.
+        #expect(totals.tokens == 1_500_000)
+    }
+
+    @Test("prices the models Codex runs")
+    func openAIRates() throws {
+        let rate = try #require(Pricing.rate(forModel: "gpt-5.5"))
+        #expect(rate.input == 1.25)
+        #expect(rate.output == 10)
+        // OpenAI charges no premium to write to the cache, and has one tier.
+        #expect(rate.cacheWrite5m == 0)
+        #expect(rate.cacheWrite1h == 0)
+        #expect(rate.cacheRead == rate.input * 0.1)
     }
 
     @Test("every rate is positive and output costs more than input")

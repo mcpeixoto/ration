@@ -60,8 +60,14 @@ private func snapshot(_ percent: Double) -> UsageSnapshot {
 
 /// Lets the poller's `Task` run to its first suspension without racing on
 /// wall-clock time.
+///
+/// Generously over-yields on purpose. How many scheduler hops one refresh costs
+/// depends on how deep the `UsageSource` behind the poller is — a source that
+/// reads a file suspends a different number of times from one that awaits a
+/// request — and that is not something these tests should be pinning. Yields
+/// are free; a count tuned to today's call depth is a trap for the next change.
 private func settle() async {
-    for _ in 0..<10 {
+    for _ in 0..<200 {
         await Task.yield()
     }
 }

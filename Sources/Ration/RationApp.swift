@@ -12,9 +12,8 @@ struct RationApp: App {
     var body: some Scene {
         MenuBarExtra {
             PopoverView(
-                poller: appDelegate.poller,
+                registry: appDelegate.registry,
                 settings: appDelegate.settings,
-                transcripts: appDelegate.transcripts,
                 openSettings: {
                     NSApp.activate(ignoringOtherApps: true)
                     openSettings()
@@ -30,11 +29,17 @@ struct RationApp: App {
         }
         .menuBarExtraStyle(.window)
         .onChange(of: appDelegate.settings.pollInterval) { _, _ in
-            appDelegate.poller.updateSchedule(appDelegate.settings.schedule)
+            appDelegate.registry.updateSchedule(appDelegate.settings.schedule)
+        }
+        .onChange(of: appDelegate.settings.primaryProvider) { _, provider in
+            appDelegate.registry.primary = provider
         }
 
         Settings {
-            SettingsView(settings: appDelegate.settings, updater: appDelegate.updater)
+            SettingsView(
+                settings: appDelegate.settings,
+                registry: appDelegate.registry,
+                updater: appDelegate.updater)
         }
     }
 }
@@ -45,23 +50,30 @@ struct RationApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     let settings = Settings()
-    let poller: UsagePoller
-    let transcripts = TranscriptStore()
+    let registry: ProviderRegistry
     let updater = UpdateController()
     private let notifier = Notifier()
 
     private var onboardingWindow: NSWindow?
 
     override init() {
-        self.poller = UsagePoller(schedule: settings.schedule)
+        self.registry = ProviderRegistry.standard(schedule: settings.schedule)
         super.init()
+        registry.primary = settings.primaryProvider
     }
 
     /// What the menu bar item should look like right now.
+    ///
+    /// One provider's numbers, not everyone's: the menu bar is shared with every
+    /// other app on the machine and an item that widens per installed tool is a
+    /// bad neighbour.
     var presentation: MenuBarPresentation {
-        guard settings.hasCompletedOnboarding else { return .setupRequired }
+        guard let entry = registry.primaryEntry else { return .setupRequired }
+        guard settings.hasCompletedOnboarding || !entry.poller.promptsForPermission else {
+            return .setupRequired
+        }
         return MenuBarPresentation.make(
-            state: poller.state,
+            state: entry.poller.state,
             mode: settings.displayMode,
             useSeverityColor: settings.useSeverityColor,
             showWeeklyBar: settings.showWeeklyBar
@@ -71,11 +83,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
-        poller.onStateChange = { [weak self] state in
-            guard let self else { return }
-            if let snapshot = state.snapshot {
+        for entry in registry.entries {
+            let provider = entry.provider
+            entry.poller.onStateChange = { [weak self] state in
+                guard let self, let snapshot = state.snapshot else { return }
                 Task {
-                    await self.notifier.handle(snapshot, enabled: self.settings.notifyOnThresholds)
+                    await self.notifier.handle(
+                        snapshot, from: provider, enabled: self.settings.notifyOnThresholds)
                 }
             }
         }
@@ -83,13 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         observeSleepAndWake()
 
         // The first keychain read triggers a system permission prompt. Explain
-        // it before it appears, rather than after.
-        if settings.hasCompletedOnboarding {
-            poller.start()
-            startHistory()
-        } else {
-            showOnboarding()
-        }
+        // it before it appears, rather than after. Providers read from the
+        // user's own files start regardless — they ask nobody for anything.
+        registry.start(allowingPrompts: settings.hasCompletedOnboarding)
+        if !settings.hasCompletedOnboarding { showOnboarding() }
     }
 
     // MARK: Sleep and wake
@@ -102,13 +113,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         center.addObserver(
             forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.poller.suspend() }
+            MainActor.assumeIsolated { self?.registry.suspend() }
         }
 
         center.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.poller.resume() }
+            MainActor.assumeIsolated { self?.registry.resume() }
         }
     }
 
@@ -150,16 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private func completeOnboarding() {
         settings.hasCompletedOnboarding = true
         onboardingWindow?.close()
-        poller.start()
-        startHistory()
-    }
-
-    /// Loads the cached history immediately, then scans for anything new.
-    /// Reading transcripts needs no permission — they are the user's own files
-    /// in their own home directory.
-    private func startHistory() {
-        transcripts.loadCheckpoint()
-        transcripts.refresh()
+        registry.start(allowingPrompts: true)
     }
 }
 

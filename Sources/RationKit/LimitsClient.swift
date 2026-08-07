@@ -9,6 +9,11 @@ public enum LimitsError: Error, Equatable, LocalizedError {
     case serverError(status: Int)
     case transport(message: String)
     case decoding(message: String)
+    /// This provider has nothing to report and never will — it is installed,
+    /// but its usage is not readable the way Ration reads things.
+    case unavailable(reason: String)
+    /// Installed, readable in principle, but nothing has been written yet.
+    case noData(reason: String)
 
     public var errorDescription: String? {
         switch self {
@@ -26,13 +31,21 @@ public enum LimitsError: Error, Equatable, LocalizedError {
             "Could not reach Anthropic: \(message)"
         case .decoding(let message):
             "Could not read the usage response: \(message)"
+        case .unavailable(let reason), .noData(let reason):
+            reason
         }
     }
 
     /// Everything except an outright rejection is worth retrying. An expired
     /// token will not fix itself, so polling stops until Claude Code refreshes it.
+    ///
+    /// `unavailable` is likewise permanent: retrying a provider whose usage is
+    /// not readable would burn a poll every minute to learn the same thing.
     public var isRetryable: Bool {
-        self != .unauthorized
+        switch self {
+        case .unauthorized, .unavailable: false
+        default: true
+        }
     }
 }
 
@@ -126,9 +139,60 @@ public struct AnthropicLimitsClient: LimitsClient {
     }
 }
 
+// MARK: - Source
+
+/// Claude's usage, as a `UsageSource`.
+///
+/// Owns the keychain read as well as the request, because the two belong
+/// together: the token is read, used once, and never held anywhere else. Every
+/// other provider Ration supports is read from files, so this is the only
+/// source that touches a credential at all.
+public struct AnthropicUsageSource: UsageSource {
+
+    public var provider: Provider { .claude }
+
+    private let credentialStore: any CredentialStore
+    private let client: any LimitsClient
+
+    public init(
+        credentialStore: any CredentialStore = CachingCredentialStore(),
+        client: any LimitsClient = AnthropicLimitsClient()
+    ) {
+        self.credentialStore = credentialStore
+        self.client = client
+    }
+
+    /// Always `ready`. Unlike the file-backed providers there is nothing on disk
+    /// to look for, and probing the keychain here would fire the permission
+    /// prompt from a method documented not to.
+    public func availability() -> ProviderAvailability { .ready }
+
+    /// The keychain item belongs to Claude Code, so macOS asks before letting
+    /// Ration read it. That prompt is what onboarding exists to explain.
+    public var promptsForPermission: Bool { true }
+
+    public func fetchUsage() async throws -> UsageSnapshot {
+        let credential = try credentialStore.credential()
+
+        // Claude Code normally refreshes well before this. If it has not, say so
+        // rather than firing a request we know will be rejected.
+        guard !credential.isExpired else { throw LimitsError.unauthorized }
+
+        do {
+            let snapshot = try await client.fetchUsage(token: credential.accessToken)
+            return snapshot.withPlan(credential.subscriptionType)
+        } catch LimitsError.unauthorized {
+            // A rejected token means Claude Code has probably rotated it, so
+            // drop the cached copy and read the keychain again next time.
+            (credentialStore as? CachingCredentialStore)?.invalidate()
+            throw LimitsError.unauthorized
+        }
+    }
+}
+
 // MARK: - Version
 
 public enum Ration {
     /// Kept in step with the VERSION file by Scripts/bundle.sh.
-    public static let version = "0.1.0"
+    public static let version = "0.2.0"
 }

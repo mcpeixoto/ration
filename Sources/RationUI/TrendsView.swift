@@ -11,11 +11,20 @@ public struct TrendsView: View {
     let history: UsageHistory
     let status: TranscriptStore.Status
     let now: Date
+    /// Whose history this is, for the empty state. The rest of the view is
+    /// provider-agnostic — tokens are tokens once they are in the history.
+    let provider: Provider
 
-    public init(history: UsageHistory, status: TranscriptStore.Status, now: Date = Date()) {
+    public init(
+        history: UsageHistory,
+        status: TranscriptStore.Status,
+        now: Date = Date(),
+        provider: Provider = .claude
+    ) {
         self.history = history
         self.status = status
         self.now = now
+        self.provider = provider
     }
 
     @AppStorage("metricsRange") private var rangeDays = 30
@@ -35,7 +44,7 @@ public struct TrendsView: View {
                 StatusMessageView(
                     symbol: "chart.line.uptrend.xyaxis",
                     title: "No history yet",
-                    message: "Trends appear once you have used Claude Code."
+                    message: "Trends appear once you have used \(provider.toolName)."
                 )
             } else {
                 SegmentedChoice(
@@ -68,7 +77,18 @@ public struct TrendsView: View {
                     Divider().frame(height: 24)
                     StatTile(label: "Active days", value: "\(totals.activeDays)")
                     Divider().frame(height: 24)
-                    StatTile(label: "Est. cost", value: Format.cost(totals.cost))
+                    // A "≥" rather than a quietly-too-low number: some models
+                    // have no published rate, and their tokens are excluded.
+                    StatTile(
+                        label: totals.uncostedTokens > 0 ? "Est. cost (partial)" : "Est. cost",
+                        value: totals.uncostedTokens > 0
+                            ? "≥ \(Format.cost(totals.cost))" : Format.cost(totals.cost)
+                    )
+                    .help(
+                        totals.uncostedTokens > 0
+                            ? "Excludes \(Format.tokens(totals.uncostedTokens)) tokens from models with no published rate."
+                            : "What this usage would have cost on the pay-as-you-go API."
+                    )
                 }
             }
         }

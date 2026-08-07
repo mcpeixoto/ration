@@ -18,13 +18,33 @@ public struct UsageSnapshot: Sendable, Equatable {
     /// Pay-as-you-go credit spend, when the account has credits enabled.
     public let spend: Spend?
 
-    /// When this snapshot was fetched. Used for staleness display.
+    /// When these numbers were true.
+    ///
+    /// For a provider read over the network that is the moment of the request.
+    /// For one read from files it is the timestamp *written in the file*, which
+    /// may be hours old — see `isStale`. Setting it to "now" would make a stale
+    /// number look live, which is the one thing a usage meter must never do.
     public let fetchedAt: Date
 
-    public init(limits: [UsageLimit], spend: Spend? = nil, fetchedAt: Date = Date()) {
+    /// The plan tier, for display only: `max`, `plus`, `pro`. Never sent anywhere.
+    public let planName: String?
+
+    public init(
+        limits: [UsageLimit],
+        spend: Spend? = nil,
+        fetchedAt: Date = Date(),
+        planName: String? = nil
+    ) {
         self.limits = limits.sorted(by: UsageLimit.displayOrder)
         self.spend = spend
         self.fetchedAt = fetchedAt
+        self.planName = planName
+    }
+
+    /// Attaches a plan name learned somewhere other than the response body —
+    /// Claude's comes from the keychain item, not from the usage payload.
+    public func withPlan(_ name: String?) -> UsageSnapshot {
+        UsageSnapshot(limits: limits, spend: spend, fetchedAt: fetchedAt, planName: name)
     }
 
     /// The limit worth showing in the menu bar: whichever is closest to being hit.
@@ -64,6 +84,13 @@ public struct UsageLimit: Sendable, Equatable, Identifiable {
     /// Whether this is the limit currently constraining the account.
     public let isActive: Bool
 
+    /// How long the whole window lasts, when the provider says so.
+    ///
+    /// Anthropic reports only when a window next resets, so its lengths are
+    /// inferred from the kind. Codex states the length outright, which is the
+    /// better answer: a window nobody hardcoded still projects correctly.
+    public let windowLength: TimeInterval?
+
     /// Stable across refreshes, so SwiftUI animates rows instead of replacing them.
     public var id: String {
         if let model = scope?.modelDisplayName {
@@ -79,7 +106,8 @@ public struct UsageLimit: Sendable, Equatable, Identifiable {
         severity: Severity,
         resetsAt: Date?,
         scope: Scope? = nil,
-        isActive: Bool = false
+        isActive: Bool = false,
+        windowLength: TimeInterval? = nil
     ) {
         self.kind = kind
         self.group = group
@@ -88,6 +116,7 @@ public struct UsageLimit: Sendable, Equatable, Identifiable {
         self.resetsAt = resetsAt
         self.scope = scope
         self.isActive = isActive
+        self.windowLength = windowLength
     }
 
     /// What to call this limit in the UI.

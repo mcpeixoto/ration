@@ -9,15 +9,18 @@ import SwiftUI
 /// on day six of a week and alarming on day one.
 public struct ProjectionCard: View {
 
+    let provider: Provider
     let projection: WindowProjection
     let curve: [(date: Date, percent: Double)]
     let now: Date
 
     public init(
+        provider: Provider = .claude,
         projection: WindowProjection,
         curve: [(date: Date, percent: Double)],
         now: Date = Date()
     ) {
+        self.provider = provider
         self.projection = projection
         self.curve = curve
         self.now = now
@@ -143,8 +146,8 @@ public struct ProjectionCard: View {
 
     private var footnote: some View {
         Text(
-            "Shape from your local history, scaled to the percentage Anthropic reports. "
-                + "The dashed line assumes you keep going at the current rate."
+            "Shape from your local history, scaled to the percentage \(provider.displayName) "
+                + "reports. The dashed line assumes you keep going at the current rate."
         )
         .font(.system(size: 9))
         .foregroundStyle(.tertiary)

@@ -18,6 +18,7 @@ public final class Settings {
         static let notifyOnThresholds = "notifyOnThresholds"
         static let showWeeklyBar = "showWeeklyBar"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
+        static let primaryProvider = "primaryProvider"
     }
 
     private let defaults: UserDefaults
@@ -40,6 +41,17 @@ public final class Settings {
         self.notifyOnThresholds =
             defaults.object(forKey: Key.notifyOnThresholds) as? Bool ?? true
         self.hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding)
+        self.primaryProvider =
+            defaults.string(forKey: Key.primaryProvider).flatMap(Provider.named) ?? .claude
+    }
+
+    /// Which provider the menu bar reports.
+    ///
+    /// Only one, deliberately: the menu bar is shared with every other app on
+    /// the machine, and an item that grows with each tool installed is a bad
+    /// neighbour. The panel shows them all.
+    public var primaryProvider: Provider {
+        didSet { defaults.set(primaryProvider.id, forKey: Key.primaryProvider) }
     }
 
     public var displayMode: MenuBarDisplayMode {

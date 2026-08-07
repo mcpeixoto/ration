@@ -52,12 +52,22 @@ public struct WindowProjection: Sendable, Equatable {
         }
     }
 
+    /// A stated length always beats an inferred one.
+    ///
+    /// This is what lets a provider introduce a window Ration has never heard of
+    /// — a fortnightly quota, say — and still get a projection, instead of
+    /// falling into `.other` and silently losing the card.
+    static func length(of limit: UsageLimit) -> TimeInterval? {
+        if let stated = limit.windowLength, stated > 0 { return stated }
+        return length(of: limit.kind)
+    }
+
     /// Returns `nil` when a projection would be meaningless: no reset time, an
     /// unknown window length, a window that has already elapsed, or one so
     /// fresh that the rate is pure noise.
     public init?(limit: UsageLimit, now: Date = Date()) {
         guard let resetsAt = limit.resetsAt,
-            let windowLength = Self.length(of: limit.kind)
+            let windowLength = Self.length(of: limit)
         else { return nil }
 
         let remaining = resetsAt.timeIntervalSince(now)

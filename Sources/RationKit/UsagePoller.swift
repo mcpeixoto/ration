@@ -13,17 +13,26 @@ public final class UsagePoller {
     public private(set) var state = UsageState()
     public private(set) var isRunning = false
 
-    /// The plan name from the keychain (`max`, `pro`, …), for display only.
-    /// Never sent anywhere.
+    /// The plan tier (`max`, `plus`, …), for display only. Never sent anywhere.
+    /// Kept across a failed refresh so the capsule does not flicker.
     public private(set) var planName: String?
+
+    /// Which tool this poller is metering.
+    public var provider: Provider { source.provider }
+
+    /// Whether starting this poller can raise a system permission dialog.
+    public var promptsForPermission: Bool { source.promptsForPermission }
+
+    /// Whether this provider has anything to poll for. Re-read on every refresh,
+    /// so a tool installed while Ration is running is picked up.
+    public private(set) var availability: ProviderAvailability = .ready
 
     /// How often to re-check after the session has expired, in case Claude Code
     /// has refreshed the token in the meantime. Slow on purpose: every attempt
     /// while signed out is a request we expect to fail.
     public static let recoveryInterval: TimeInterval = 300
 
-    private let credentialStore: any CredentialStore
-    private let client: any LimitsClient
+    private let source: any UsageSource
     private var schedule: PollSchedule
     private var isMenuOpen = false
     private var loop: Task<Void, Never>?
@@ -32,14 +41,22 @@ public final class UsagePoller {
     /// Set before `start()`.
     public var onStateChange: (@MainActor (UsageState) -> Void)?
 
-    public init(
+    public init(source: any UsageSource, schedule: PollSchedule = PollSchedule()) {
+        self.source = source
+        self.schedule = schedule
+        self.availability = source.availability()
+    }
+
+    /// Claude, assembled from its parts. Kept as its own initialiser because
+    /// tests substitute the credential store and the client independently.
+    public convenience init(
         credentialStore: any CredentialStore = CachingCredentialStore(),
         client: any LimitsClient = AnthropicLimitsClient(),
         schedule: PollSchedule = PollSchedule()
     ) {
-        self.credentialStore = credentialStore
-        self.client = client
-        self.schedule = schedule
+        self.init(
+            source: AnthropicUsageSource(credentialStore: credentialStore, client: client),
+            schedule: schedule)
     }
 
     // No `deinit` cancellation: `deinit` is nonisolated and cannot touch
@@ -130,39 +147,17 @@ public final class UsagePoller {
 
     private func refresh() async {
         state.beginRefresh()
+        availability = source.availability()
 
-        let credential: Credential
         do {
-            credential = try credentialStore.credential()
+            let snapshot = try await source.fetchUsage()
+            // Only overwrite a known plan with another known one: a provider
+            // that reports usage but not tier should not blank the capsule.
+            planName = snapshot.planName ?? planName
+            state.recordSuccess(snapshot)
         } catch let error as CredentialError {
             state.recordCredentialFailure(error)
-            onStateChange?(state)
-            return
-        } catch {
-            state.recordCredentialFailure(.malformed)
-            onStateChange?(state)
-            return
-        }
-
-        planName = credential.subscriptionType
-
-        // Claude Code normally refreshes well before this. If it has not, say
-        // so rather than firing a request we know will be rejected.
-        guard !credential.isExpired else {
-            state.recordFailure(.unauthorized)
-            onStateChange?(state)
-            return
-        }
-
-        do {
-            let snapshot = try await client.fetchUsage(token: credential.accessToken)
-            state.recordSuccess(snapshot)
         } catch let error as LimitsError {
-            // A rejected token means Claude Code has probably rotated it, so
-            // drop the cached copy and read the keychain again next time.
-            if error == .unauthorized {
-                (credentialStore as? CachingCredentialStore)?.invalidate()
-            }
             state.recordFailure(error)
         } catch {
             state.recordFailure(.transport(message: error.localizedDescription))

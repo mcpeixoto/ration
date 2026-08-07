@@ -19,6 +19,11 @@ public struct DayUsage: Sendable, Equatable, Codable, Identifiable {
     public var tokensByHour: [Int]
     /// Estimated, in USD. See `Pricing`.
     public var cost: Double
+    /// Tokens from models with no known rate, which `cost` therefore excludes.
+    ///
+    /// Kept so the UI can qualify the estimate instead of presenting an
+    /// incomplete number as a complete one.
+    public var uncostedTokens: Int
 
     public var id: Date { date }
 
@@ -33,10 +38,11 @@ public struct DayUsage: Sendable, Equatable, Codable, Identifiable {
         self.webSearches = 0
         self.tokensByHour = Array(repeating: 0, count: 24)
         self.cost = 0
+        self.uncostedTokens = 0
     }
 
-    /// Older checkpoints predate `tokensByHour`; decode them as empty rather
-    /// than discarding a whole history for one added field.
+    /// Older checkpoints predate `tokensByHour` and `uncostedTokens`; decode
+    /// them as empty rather than discarding a whole history for one added field.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         date = try container.decode(Date.self, forKey: .date)
@@ -51,6 +57,7 @@ public struct DayUsage: Sendable, Equatable, Codable, Identifiable {
         tokensByHour =
             try container.decodeIfPresent([Int].self, forKey: .tokensByHour)
             ?? Array(repeating: 0, count: 24)
+        uncostedTokens = try container.decodeIfPresent(Int.self, forKey: .uncostedTokens) ?? 0
     }
 
     public var totalTokens: Int { billableTokens + cacheReadTokens }
@@ -68,7 +75,12 @@ public struct DayUsage: Sendable, Equatable, Codable, Identifiable {
         billableTokens += event.billableTokens
         cacheReadTokens += event.cacheReadTokens
         webSearches += event.webSearches
-        cost += Pricing.cost(of: event)
+
+        if let priced = Pricing.cost(of: event) {
+            cost += priced
+        } else {
+            uncostedTokens += event.billableTokens
+        }
     }
 }
 
@@ -136,6 +148,7 @@ public struct UsageHistory: Sendable, Equatable, Codable {
             totals.cacheReadTokens += day.cacheReadTokens
             totals.messages += day.messages
             totals.cost += day.cost
+            totals.uncostedTokens += day.uncostedTokens
             totals.webSearches += day.webSearches
             sessions.formUnion(day.sessions)
 
@@ -164,6 +177,9 @@ public struct UsageHistory: Sendable, Equatable, Codable {
         public var sessions = 0
         public var webSearches = 0
         public var cost: Double = 0
+        /// Tokens the estimate could not include. Non-zero means `cost` is a
+        /// floor, not a total.
+        public var uncostedTokens: Int = 0
         public var activeDays = 0
         public var tokensByModel: [String: Int] = [:]
         public var tokensByProject: [String: Int] = [:]

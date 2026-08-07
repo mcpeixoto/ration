@@ -4,10 +4,16 @@ import SwiftUI
 public struct SettingsView: View {
 
     @Bindable var settings: Settings
+    let registry: ProviderRegistry?
     let updater: (any UpdateControlling)?
 
-    public init(settings: Settings, updater: (any UpdateControlling)? = nil) {
+    public init(
+        settings: Settings,
+        registry: ProviderRegistry? = nil,
+        updater: (any UpdateControlling)? = nil
+    ) {
         self.settings = settings
+        self.registry = registry
         self.updater = updater
     }
 
@@ -15,6 +21,10 @@ public struct SettingsView: View {
         TabView {
             general
                 .tabItem { Label("General", systemImage: "gearshape") }
+            if let registry {
+                ProvidersSettingsView(registry: registry, settings: settings)
+                    .tabItem { Label("Tools", systemImage: "square.stack.3d.up") }
+            }
             about
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
