@@ -44,7 +44,8 @@ public final class ProviderRegistry {
 
     public init(entries: [Entry], primary: Provider = .claude) {
         self.entries = entries
-        self.primary = entries.contains { $0.provider == primary }
+        self.primary =
+            entries.contains { $0.provider == primary }
             ? primary
             : entries.first?.provider ?? .claude
     }

@@ -97,7 +97,8 @@ struct CodexRolloutParsingTests {
     /// real corpus is over 95% of all input.
     @Test("subtracts cached reads from input, because Codex counts them inside it")
     func cachedTokensAreNotDoubleCounted() throws {
-        let event = try #require(parse([contextLine(), countsLine(input: 16859, cached: 11008)]).first)
+        let event = try #require(
+            parse([contextLine(), countsLine(input: 16859, cached: 11008)]).first)
 
         #expect(event.inputTokens == 5851)
         #expect(event.cacheReadTokens == 11008)
@@ -107,7 +108,8 @@ struct CodexRolloutParsingTests {
 
     @Test("does not add reasoning tokens to output, since they are part of it")
     func reasoningIsNotAddedTwice() throws {
-        let event = try #require(parse([contextLine(), countsLine(output: 350, reasoning: 117)]).first)
+        let event = try #require(
+            parse([contextLine(), countsLine(output: 350, reasoning: 117)]).first)
         #expect(event.outputTokens == 350)
     }
 

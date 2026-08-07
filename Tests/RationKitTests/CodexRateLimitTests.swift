@@ -218,6 +218,7 @@ struct CodexTailReadTests {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        #expect(CodexUsageSource(root: dir).availability() == .noData(reason: "No Codex sessions yet."))
+        #expect(
+            CodexUsageSource(root: dir).availability() == .noData(reason: "No Codex sessions yet."))
     }
 }

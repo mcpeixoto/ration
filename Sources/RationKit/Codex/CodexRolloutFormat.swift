@@ -35,7 +35,8 @@ public struct CodexRolloutFormat: TranscriptFormat {
             roots.append(root.deletingLastPathComponent().appending(path: "archived_sessions"))
         }
 
-        return roots
+        return
+            roots
             .flatMap { jsonlFiles(under: $0) }
             .filter { $0.lastPathComponent.hasPrefix("rollout-") }
     }
@@ -78,7 +79,8 @@ public struct CodexRolloutFormat: TranscriptFormat {
 
     /// Remembers the model and project a `turn_context` announces, so the
     /// `token_count` lines that follow it can be attributed.
-    private static func absorbContext(_ line: Data.SubSequence, into carried: inout FileCheckpoint) {
+    private static func absorbContext(_ line: Data.SubSequence, into carried: inout FileCheckpoint)
+    {
         guard
             let root = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
             let payload = root["payload"] as? [String: Any]
