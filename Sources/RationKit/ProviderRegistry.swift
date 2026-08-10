@@ -32,28 +32,47 @@ public final class ProviderRegistry {
 
     public private(set) var entries: [Entry]
 
+    /// Providers the user has turned off in Settings → Accounts.
+    ///
+    /// The *disabled* set is stored rather than the enabled one so that an
+    /// empty set is the correct fresh-install state, and a provider added in a
+    /// later release arrives switched on instead of silently hidden.
+    public private(set) var disabled: Set<Provider.ID>
+
     /// Which provider owns the menu bar. Persisted by the app layer.
     public var primary: Provider {
         didSet {
             guard !visible.contains(where: { $0.provider == primary }) else { return }
             // Selected a provider that has since vanished — fall back rather
             // than showing an empty menu bar item.
-            primary = visible.first?.provider ?? .claude
+            let fallback = visible.first?.provider ?? .claude
+            // `@Observable` re-invokes didSet on a self-reentrant write, even
+            // one that assigns the same value; when nothing is visible the
+            // fallback keeps resolving to the same provider, so bail once it
+            // stops changing anything instead of recursing forever.
+            guard fallback != primary else { return }
+            primary = fallback
         }
     }
 
-    public init(entries: [Entry], primary: Provider = .claude) {
+    public init(
+        entries: [Entry],
+        primary: Provider = .claude,
+        disabled: Set<Provider.ID> = []
+    ) {
         self.entries = entries
+        self.disabled = disabled
         self.primary =
             entries.contains { $0.provider == primary }
             ? primary
             : entries.first?.provider ?? .claude
     }
 
-    /// The providers worth putting in front of the user: installed, whatever
-    /// else is true of them. A tool you do not use is not an error to report.
+    /// The providers worth putting in front of the user: installed, not turned
+    /// off, whatever else is true of them. A tool you do not use is not an
+    /// error to report.
     public var visible: [Entry] {
-        entries.filter { $0.availability.isVisible }
+        entries.filter { $0.availability.isVisible && !disabled.contains($0.id) }
     }
 
     /// Those that can actually show a gauge and a history.
@@ -65,8 +84,40 @@ public final class ProviderRegistry {
         entries.first { $0.provider == provider }
     }
 
+    public func isEnabled(_ provider: Provider) -> Bool {
+        !disabled.contains(provider.id)
+    }
+
+    /// Turns a provider on or off.
+    ///
+    /// Takes effect now rather than at next launch: a poller just disabled is
+    /// stopped and told to forget what it cached, and one just enabled starts
+    /// polling. Hiding the provider that owns the menu bar promotes the next
+    /// one, which `primary`'s own fallback handles.
+    public func setEnabled(_ enabled: Bool, for provider: Provider) {
+        guard enabled != isEnabled(provider) else { return }
+
+        if enabled {
+            disabled.remove(provider.id)
+            if let entry = entry(for: provider), entry.availability.hasQuota {
+                entry.poller.start()
+                entry.history?.refresh()
+            }
+        } else {
+            disabled.insert(provider.id)
+            entry(for: provider)?.poller.disable()
+        }
+
+        // Re-run the fallback: the menu bar's provider may have just been
+        // hidden, or the only visible one may have just come back.
+        let current = primary
+        primary = current
+    }
+
+    /// Resolved against `visible`, not `entries`: a provider the user turned
+    /// off must not come back through the menu bar's own lookup.
     public var primaryEntry: Entry? {
-        entry(for: primary) ?? visible.first
+        visible.first { $0.provider == primary } ?? visible.first
     }
 
     // MARK: Lifecycle
@@ -112,28 +163,34 @@ public final class ProviderRegistry {
     ///
     /// Claude is a network read; Codex is read from its own session files;
     /// the rest are listed honestly and metered by nobody.
-    public static func standard(schedule: PollSchedule = PollSchedule()) -> ProviderRegistry {
-        ProviderRegistry(entries: [
-            Entry(
-                provider: .claude,
-                poller: UsagePoller(source: AnthropicUsageSource(), schedule: schedule),
-                history: TranscriptStore(provider: .claude, format: ClaudeTranscriptFormat())),
-            Entry(
-                provider: .codex,
-                poller: UsagePoller(source: CodexUsageSource(), schedule: schedule),
-                history: TranscriptStore(provider: .codex, format: CodexRolloutFormat())),
-            Entry(
-                provider: .cursor,
-                poller: UsagePoller(source: DetectOnlyUsageSource.cursor(), schedule: schedule),
-                history: nil),
-            Entry(
-                provider: .copilot,
-                poller: UsagePoller(source: DetectOnlyUsageSource.copilot(), schedule: schedule),
-                history: nil),
-            Entry(
-                provider: .gemini,
-                poller: UsagePoller(source: DetectOnlyUsageSource.gemini(), schedule: schedule),
-                history: nil),
-        ])
+    public static func standard(
+        schedule: PollSchedule = PollSchedule(),
+        disabled: Set<Provider.ID> = []
+    ) -> ProviderRegistry {
+        ProviderRegistry(
+            entries: [
+                Entry(
+                    provider: .claude,
+                    poller: UsagePoller(source: AnthropicUsageSource(), schedule: schedule),
+                    history: TranscriptStore(provider: .claude, format: ClaudeTranscriptFormat())),
+                Entry(
+                    provider: .codex,
+                    poller: UsagePoller(source: CodexUsageSource(), schedule: schedule),
+                    history: TranscriptStore(provider: .codex, format: CodexRolloutFormat())),
+                Entry(
+                    provider: .cursor,
+                    poller: UsagePoller(source: DetectOnlyUsageSource.cursor(), schedule: schedule),
+                    history: nil),
+                Entry(
+                    provider: .copilot,
+                    poller: UsagePoller(
+                        source: DetectOnlyUsageSource.copilot(), schedule: schedule),
+                    history: nil),
+                Entry(
+                    provider: .gemini,
+                    poller: UsagePoller(source: DetectOnlyUsageSource.gemini(), schedule: schedule),
+                    history: nil),
+            ],
+            disabled: disabled)
     }
 }
