@@ -40,12 +40,16 @@ public final class ProviderRegistry {
     public private(set) var disabled: Set<Provider.ID>
 
     /// Which provider owns the menu bar. Persisted by the app layer.
+    ///
+    /// Resolved against `metered`, not `visible`: the menu bar can only show a
+    /// gauge, so promoting a tool Ration cannot meter would leave it stuck on
+    /// "Loading usage…" forever.
     public var primary: Provider {
         didSet {
-            guard !visible.contains(where: { $0.provider == primary }) else { return }
+            guard !metered.contains(where: { $0.provider == primary }) else { return }
             // Selected a provider that has since vanished — fall back rather
             // than showing an empty menu bar item.
-            let fallback = visible.first?.provider ?? .claude
+            let fallback = metered.first?.provider ?? .claude
             // `@Observable` re-invokes didSet on a self-reentrant write, even
             // one that assigns the same value; when nothing is visible the
             // fallback keeps resolving to the same provider, so bail once it
@@ -101,6 +105,11 @@ public final class ProviderRegistry {
             disabled.remove(provider.id)
             if let entry = entry(for: provider), entry.availability.hasQuota {
                 entry.poller.start()
+                // Same pair as `start()`, and in the same order: a provider
+                // disabled at launch never loaded its checkpoint, so refreshing
+                // without it would re-read every transcript from byte 0 —
+                // minutes of scanning to arrive at numbers already on disk.
+                entry.history?.loadCheckpoint()
                 entry.history?.refresh()
             }
         } else {
@@ -114,10 +123,22 @@ public final class ProviderRegistry {
         primary = current
     }
 
-    /// Resolved against `visible`, not `entries`: a provider the user turned
-    /// off must not come back through the menu bar's own lookup.
+    /// Resolved against `metered`, not `entries`: a provider the user turned
+    /// off must not come back through the menu bar's own lookup, and one whose
+    /// quota Ration cannot read has no number to put there in the first place.
     public var primaryEntry: Entry? {
-        visible.first { $0.provider == primary } ?? visible.first
+        metered.first { $0.provider == primary } ?? metered.first
+    }
+
+    /// Whether the user has turned off every account Ration could meter, as
+    /// opposed to there being none installed to begin with.
+    ///
+    /// Two different dead ends needing two different sentences: the first is
+    /// fixed in Settings → Accounts, the second by installing a tool. Lives
+    /// here rather than in the app layer so it can be tested without launching
+    /// one — and because the panel and the Accounts tab ask the same question.
+    public var isEverythingHidden: Bool {
+        metered.isEmpty && entries.contains { $0.availability.hasQuota }
     }
 
     // MARK: Lifecycle

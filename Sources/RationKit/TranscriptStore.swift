@@ -88,6 +88,11 @@ public final class TranscriptStore {
     }
 
     public func loadCheckpoint() {
+        // A scan already under way is adding events into `history` as it goes.
+        // Swapping that out from under it would count everything read so far
+        // twice, so the scan in flight wins — it ends at the same numbers.
+        guard scanTask == nil else { return }
+
         guard let data = try? Data(contentsOf: checkpointURL),
             let stored = try? JSONDecoder().decode(Checkpoint.self, from: data)
         else { return }

@@ -298,8 +298,11 @@ struct CodexRolloutParsingTests {
         defer { try? FileManager.default.removeItem(at: support) }
 
         // Shaped like a pre-versioning checkpoint: no `version` key at all.
+        // `days` is keyed by `Date`, so it encodes as a flat array rather than
+        // an object — spelling it as one would make this decode fail and the
+        // test pass for the wrong reason.
         let legacy = """
-            {"history":{"days":{}},"files":{"/x.jsonl":{"offset":999}},\
+            {"history":{"days":[]},"files":{"/x.jsonl":{"offset":999}},\
             "savedAt":\(Date().timeIntervalSinceReferenceDate)}
             """
         try Data(legacy.utf8).write(to: support.appending(path: "history-codex.json"))

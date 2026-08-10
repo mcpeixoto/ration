@@ -60,7 +60,7 @@ struct AccountsSettingsView: View {
                         ))
                 }
 
-                if registry.visible.isEmpty {
+                if registry.isEverythingHidden {
                     Text(
                         "Every account is off. Ration is not reading anything, "
                             + "and the menu bar shows no usage."

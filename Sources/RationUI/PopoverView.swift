@@ -153,7 +153,7 @@ public struct PopoverView: View {
     private func content(now: Date) -> some View {
         if let poller {
             usage(poller: poller, now: now)
-        } else if registry.entries.contains(where: { $0.availability.isVisible }) {
+        } else if registry.isEverythingHidden {
             StatusMessageView(
                 symbol: "eye.slash",
                 title: "Everything is hidden",

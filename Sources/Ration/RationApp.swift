@@ -35,6 +35,12 @@ struct RationApp: App {
             appDelegate.registry.primary = provider
         }
         .onChange(of: appDelegate.registry.primary) { _, provider in
+            // Only while the registry actually has a menu bar to hand to
+            // someone. With every account hidden it falls back to a provider
+            // the user never chose, and persisting that would quietly overwrite
+            // the choice they did make — re-enabling later would land them on
+            // Claude with no record they had ever picked anything else.
+            guard appDelegate.registry.primaryEntry != nil else { return }
             appDelegate.settings.primaryProvider = provider
         }
 
@@ -76,9 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         guard let entry = registry.primaryEntry else {
             // Two different dead ends, and they need different sentences: one
             // is fixed in the Accounts tab, the other by installing a tool.
-            return registry.entries.contains { $0.availability.isVisible }
-                ? .allHidden
-                : .setupRequired
+            return registry.isEverythingHidden ? .allHidden : .setupRequired
         }
         guard settings.hasCompletedOnboarding || !entry.poller.promptsForPermission else {
             return .setupRequired
