@@ -214,10 +214,24 @@ being locked down for everyone.
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-swift test          # 167 tests, no network, no keychain
+swift test          # 235 tests, no network, no keychain
 ./Scripts/bundle.sh # produces .build/Ration.app
 open .build/Ration.app
 ```
+
+To install your own build into `/Applications` instead of running it out of
+`.build`:
+
+```sh
+./Scripts/install.sh                      # builds, installs, launches
+DEVELOPER_ID="Developer ID Application: You (TEAMID)" \
+  ./Scripts/install.sh                    # ...and signs it on the way
+```
+
+It quits any running copy first, since a bundle cannot be replaced while it is
+executing. Notarisation is not part of this path and does not need to be: a
+locally built app never crosses a quarantine boundary, so Gatekeeper never asks
+about it. The DMG in Releases is the notarised one.
 
 Two helper scripts round out the workflow:
 
