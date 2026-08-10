@@ -108,6 +108,12 @@ private struct AccountRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if !source.isEmpty {
+                    Text(source)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Spacer(minLength: 8)
@@ -141,6 +147,22 @@ private struct AccountRow: View {
             return "Ready."
         default:
             return entry.availability.explanation ?? "Ready."
+        }
+    }
+
+    /// What Ration reads to produce the row above — shown regardless of the
+    /// toggle, because a user deciding whether to turn an account off is
+    /// exactly who needs to know what reading it entails.
+    private var source: String {
+        switch entry.provider {
+        case .claude:
+            return "Reads the Claude Code session in your keychain, and asks "
+                + "api.anthropic.com for your limits."
+        case .codex:
+            return "Reads the session files Codex already writes to disk. "
+                + "No request, no credential."
+        default:
+            return ""
         }
     }
 }
