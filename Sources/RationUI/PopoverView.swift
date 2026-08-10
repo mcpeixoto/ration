@@ -34,8 +34,13 @@ public struct PopoverView: View {
     }
 
     /// The entry being shown, falling back to whatever is available.
+    ///
+    /// Resolved against `visible`, not `entries`: a provider hidden while the
+    /// panel was pointed at it must fall through to `primaryEntry` rather than
+    /// keep rendering its stale, no-longer-polled state.
     private var entry: ProviderRegistry.Entry? {
-        selection.flatMap(registry.entry(for:)) ?? registry.primaryEntry
+        selection.flatMap { provider in registry.visible.first { $0.provider == provider } }
+            ?? registry.primaryEntry
     }
 
     private var provider: Provider { entry?.provider ?? .claude }
