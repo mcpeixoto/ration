@@ -52,7 +52,7 @@ Four tabs:
 | GitHub Copilot | no | no | quota is only readable over the network, with a token Ration would have to mint and store itself |
 | Gemini CLI | no | no | quota is only readable over the network; nothing usable is written to disk |
 
-The last three are listed in **Settings → Tools** with that explanation, rather
+The last three are listed in **Settings → Accounts** with that explanation, rather
 than quietly omitted. If one of them starts writing its usage to disk, it
 becomes a twenty-line adapter — the seam is already there.
 

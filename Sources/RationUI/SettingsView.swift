@@ -22,8 +22,8 @@ public struct SettingsView: View {
             general
                 .tabItem { Label("General", systemImage: "gearshape") }
             if let registry {
-                ProvidersSettingsView(registry: registry, settings: settings)
-                    .tabItem { Label("Tools", systemImage: "square.stack.3d.up") }
+                AccountsSettingsView(registry: registry, settings: settings)
+                    .tabItem { Label("Accounts", systemImage: "person.2") }
             }
             about
                 .tabItem { Label("About", systemImage: "info.circle") }
