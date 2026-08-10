@@ -38,5 +38,10 @@ let package = Package(
             dependencies: ["RationKit"],
             resources: [.copy("Fixtures")]
         ),
+
+        .testTarget(
+            name: "RationUITests",
+            dependencies: ["RationUI"]
+        ),
     ]
 )

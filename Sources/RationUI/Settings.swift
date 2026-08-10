@@ -19,6 +19,7 @@ public final class Settings {
         static let showWeeklyBar = "showWeeklyBar"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
         static let primaryProvider = "primaryProvider"
+        static let disabledProviders = "disabledProviders"
     }
 
     private let defaults: UserDefaults
@@ -43,6 +44,12 @@ public final class Settings {
         self.hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding)
         self.primaryProvider =
             defaults.string(forKey: Key.primaryProvider).flatMap(Provider.named) ?? .claude
+        // Ids from a future release are dropped rather than kept: an unknown
+        // provider cannot be shown in the Accounts tab, so a set holding one
+        // would be impossible to clear from the UI.
+        self.disabledProviders = Set(
+            (defaults.stringArray(forKey: Key.disabledProviders) ?? [])
+                .filter { Provider.named($0) != nil })
     }
 
     /// Which provider the menu bar reports.
@@ -52,6 +59,20 @@ public final class Settings {
     /// neighbour. The panel shows them all.
     public var primaryProvider: Provider {
         didSet { defaults.set(primaryProvider.id, forKey: Key.primaryProvider) }
+    }
+
+    /// Providers the user turned off in Settings → Accounts.
+    ///
+    /// Hidden means hidden *and* unread: the registry stops polling them. The
+    /// disabled set is stored rather than the enabled one so a fresh install
+    /// stores nothing, and a provider added in a later release arrives
+    /// switched on instead of silently hidden.
+    ///
+    /// Sorted on the way out purely so the stored value is stable and diffable.
+    public var disabledProviders: Set<String> {
+        didSet {
+            defaults.set(disabledProviders.sorted(), forKey: Key.disabledProviders)
+        }
     }
 
     public var displayMode: MenuBarDisplayMode {
