@@ -148,6 +148,15 @@ public struct PopoverView: View {
     private func content(now: Date) -> some View {
         if let poller {
             usage(poller: poller, now: now)
+        } else if registry.entries.contains(where: { $0.availability.isVisible }) {
+            StatusMessageView(
+                symbol: "eye.slash",
+                title: "Everything is hidden",
+                message:
+                    "You have turned off every account, so Ration is not reading anything. "
+                    + "Turn one back on to see your usage.",
+                action: ("Open Accounts", openSettings)
+            )
         } else {
             StatusMessageView(
                 symbol: "questionmark.circle",

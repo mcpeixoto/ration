@@ -34,6 +34,9 @@ struct RationApp: App {
         .onChange(of: appDelegate.settings.primaryProvider) { _, provider in
             appDelegate.registry.primary = provider
         }
+        .onChange(of: appDelegate.registry.primary) { _, provider in
+            appDelegate.settings.primaryProvider = provider
+        }
 
         Settings {
             SettingsView(
@@ -57,7 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private var onboardingWindow: NSWindow?
 
     override init() {
-        self.registry = ProviderRegistry.standard(schedule: settings.schedule)
+        self.registry = ProviderRegistry.standard(
+            schedule: settings.schedule,
+            disabled: settings.disabledProviders)
         super.init()
         registry.primary = settings.primaryProvider
     }
@@ -68,7 +73,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     /// other app on the machine and an item that widens per installed tool is a
     /// bad neighbour.
     var presentation: MenuBarPresentation {
-        guard let entry = registry.primaryEntry else { return .setupRequired }
+        guard let entry = registry.primaryEntry else {
+            // Two different dead ends, and they need different sentences: one
+            // is fixed in the Accounts tab, the other by installing a tool.
+            return registry.entries.contains { $0.availability.isVisible }
+                ? .allHidden
+                : .setupRequired
+        }
         guard settings.hasCompletedOnboarding || !entry.poller.promptsForPermission else {
             return .setupRequired
         }
