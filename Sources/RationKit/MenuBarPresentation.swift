@@ -180,6 +180,18 @@ extension MenuBarPresentation {
         tooltip: "Finish setting up Ration to see your usage."
     )
 
+    /// Every account has been turned off in Settings → Accounts.
+    ///
+    /// Deliberately not `setupRequired`: "you hid everything" and "no supported
+    /// tool was found" are different sentences pointing at different fixes.
+    public static let allHidden = MenuBarPresentation(
+        title: nil,
+        symbolName: "eye.slash",
+        tint: nil,
+        accessibilityLabel: "Ration: all accounts hidden",
+        tooltip: "Every account is hidden. Turn one on in Settings → Accounts."
+    )
+
     // MARK: Pieces
 
     public static func select(mode: MenuBarDisplayMode, from snapshot: UsageSnapshot) -> UsageLimit?

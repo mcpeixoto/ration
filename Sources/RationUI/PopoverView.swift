@@ -34,8 +34,13 @@ public struct PopoverView: View {
     }
 
     /// The entry being shown, falling back to whatever is available.
+    ///
+    /// Resolved against `visible`, not `entries`: a provider hidden while the
+    /// panel was pointed at it must fall through to `primaryEntry` rather than
+    /// keep rendering its stale, no-longer-polled state.
     private var entry: ProviderRegistry.Entry? {
-        selection.flatMap(registry.entry(for:)) ?? registry.primaryEntry
+        selection.flatMap { provider in registry.visible.first { $0.provider == provider } }
+            ?? registry.primaryEntry
     }
 
     private var provider: Provider { entry?.provider ?? .claude }
@@ -148,6 +153,15 @@ public struct PopoverView: View {
     private func content(now: Date) -> some View {
         if let poller {
             usage(poller: poller, now: now)
+        } else if registry.isEverythingHidden {
+            StatusMessageView(
+                symbol: "eye.slash",
+                title: "Everything is hidden",
+                message:
+                    "You have turned off every account, so Ration is not reading anything. "
+                    + "Turn one back on to see your usage.",
+                action: ("Open Accounts", openSettings)
+            )
         } else {
             StatusMessageView(
                 symbol: "questionmark.circle",

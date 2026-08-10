@@ -395,6 +395,29 @@ struct MenuBarWeeklyBarTests {
     }
 }
 
+@Suite("All hidden")
+struct AllHiddenPresentationTests {
+
+    @Test("shows an icon and nothing else")
+    func isIconOnly() {
+        let presentation = MenuBarPresentation.allHidden
+
+        #expect(presentation.title == nil)
+        #expect(presentation.tint == nil)
+        #expect(presentation.bar == nil)
+    }
+
+    @Test("is not the same thing as needing setup")
+    func differsFromSetupRequired() {
+        #expect(MenuBarPresentation.allHidden != MenuBarPresentation.setupRequired)
+    }
+
+    @Test("says where to turn an account back on")
+    func pointsAtTheAccountsTab() {
+        #expect(MenuBarPresentation.allHidden.tooltip.contains("Accounts"))
+    }
+}
+
 @Suite("Severity escalation")
 struct SeverityEscalationTests {
 

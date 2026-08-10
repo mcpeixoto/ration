@@ -264,3 +264,61 @@ struct UsagePollerTests {
         #expect(observed.contains(.ready))
     }
 }
+
+// MARK: - Forgetting
+
+/// Counts how many times the underlying store was actually consulted, so a
+/// test can tell a cache hit from a real read.
+private final class CountingCredentialStore: CredentialStore, @unchecked Sendable {
+
+    private let lock = NSLock()
+    private var count = 0
+
+    var reads: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func credential() throws -> Credential {
+        lock.lock()
+        defer { lock.unlock() }
+        count += 1
+        return Credential(
+            accessToken: "token",
+            expiresAt: Date(timeIntervalSinceNow: 3600),
+            subscriptionType: "max",
+            rateLimitTier: nil)
+    }
+}
+
+@Suite("Forgetting a source")
+struct SourceForgetTests {
+
+    @Test("a cached credential is served without re-reading the store")
+    func cachesBetweenReads() throws {
+        let counting = CountingCredentialStore()
+        let caching = CachingCredentialStore(wrapping: counting)
+
+        _ = try caching.credential()
+        _ = try caching.credential()
+
+        #expect(counting.reads == 1)
+    }
+
+    @Test("forgetting drops the cached credential, so the next read hits the store")
+    func forgetInvalidatesCache() throws {
+        let counting = CountingCredentialStore()
+        let caching = CachingCredentialStore(wrapping: counting)
+        let source = AnthropicUsageSource(credentialStore: caching)
+
+        _ = try caching.credential()
+        #expect(counting.reads == 1)
+
+        source.forget()
+        _ = try caching.credential()
+
+        #expect(counting.reads == 2)
+    }
+
+}

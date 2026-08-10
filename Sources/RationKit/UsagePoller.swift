@@ -80,6 +80,16 @@ public final class UsagePoller {
         isRunning = false
     }
 
+    /// Stops polling *and* drops whatever the source cached.
+    ///
+    /// Deliberately distinct from `suspend()`, which is for sleep: waking from
+    /// sleep should not have to re-earn a keychain prompt, but turning a
+    /// provider off should.
+    public func disable() {
+        suspend()
+        source.forget()
+    }
+
     /// Resumes after sleep with an immediate refresh, because whatever is on
     /// screen is by definition out of date.
     public func resume() {

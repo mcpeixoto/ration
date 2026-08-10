@@ -96,10 +96,6 @@ struct SourceForgetTests {
         #expect(counting.reads == 2)
     }
 
-    @Test("a source with nothing cached tolerates being asked to forget")
-    func forgetIsHarmlessByDefault() {
-        DetectOnlyUsageSource.cursor().forget()
-    }
 }
 ```
 
@@ -164,10 +160,10 @@ In `Sources/RationKit/UsagePoller.swift`, add immediately after `suspend()`:
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `swift test --filter SourceForgetTests`
-Expected: PASS, 3 tests.
+Expected: PASS, 2 tests.
 
 Then run: `swift test`
-Expected: PASS, 238 tests.
+Expected: PASS, 237 tests.
 
 - [ ] **Step 7: Commit**
 
@@ -476,7 +472,7 @@ Run: `swift test --filter ProviderRegistry`
 Expected: PASS, 8 tests.
 
 Then run: `swift test`
-Expected: PASS, 246 tests.
+Expected: PASS, 245 tests.
 
 - [ ] **Step 8: Commit**
 
@@ -702,7 +698,7 @@ Run: `swift test --filter DisabledProvidersSettingsTests`
 Expected: PASS, 4 tests.
 
 Then run: `swift test`
-Expected: PASS, 253 tests.
+Expected: PASS, 252 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -933,7 +929,7 @@ Run: `swift build`
 Expected: build succeeds.
 
 Run: `swift test`
-Expected: PASS, 253 tests.
+Expected: PASS, 252 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -1031,7 +1027,7 @@ Run: `swift build`
 Expected: build succeeds.
 
 Run: `swift test`
-Expected: PASS, 253 tests.
+Expected: PASS, 252 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -1059,7 +1055,7 @@ Expected: no output, exit 0.
 - [ ] **Step 3: Full suite**
 
 Run: `swift test`
-Expected: PASS, 253 tests.
+Expected: PASS, 252 tests.
 
 - [ ] **Step 4: Run it for real**
 
@@ -1078,8 +1074,10 @@ Open Settings → Accounts. Confirm by hand:
 ```bash
 git add -A
 git commit -m "style: swift-format the Accounts tab work"
-git push origin main
 ```
+
+The work is on the `accounts-tab` branch. Landing it on `main` happens after
+the final whole-branch review, not here.
 
 ---
 

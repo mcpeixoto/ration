@@ -188,6 +188,12 @@ public struct AnthropicUsageSource: UsageSource {
             throw LimitsError.unauthorized
         }
     }
+
+    /// The cached credential is the only thing this source keeps between
+    /// polls. Dropping it means the next read goes to the keychain again.
+    public func forget() {
+        (credentialStore as? CachingCredentialStore)?.invalidate()
+    }
 }
 
 // MARK: - Version

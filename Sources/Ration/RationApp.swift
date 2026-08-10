@@ -34,6 +34,15 @@ struct RationApp: App {
         .onChange(of: appDelegate.settings.primaryProvider) { _, provider in
             appDelegate.registry.primary = provider
         }
+        .onChange(of: appDelegate.registry.primary) { _, provider in
+            // Only while the registry actually has a menu bar to hand to
+            // someone. With every account hidden it falls back to a provider
+            // the user never chose, and persisting that would quietly overwrite
+            // the choice they did make — re-enabling later would land them on
+            // Claude with no record they had ever picked anything else.
+            guard appDelegate.registry.primaryEntry != nil else { return }
+            appDelegate.settings.primaryProvider = provider
+        }
 
         Settings {
             SettingsView(
@@ -57,7 +66,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private var onboardingWindow: NSWindow?
 
     override init() {
-        self.registry = ProviderRegistry.standard(schedule: settings.schedule)
+        self.registry = ProviderRegistry.standard(
+            schedule: settings.schedule,
+            disabled: settings.disabledProviders)
         super.init()
         registry.primary = settings.primaryProvider
     }
@@ -68,7 +79,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     /// other app on the machine and an item that widens per installed tool is a
     /// bad neighbour.
     var presentation: MenuBarPresentation {
-        guard let entry = registry.primaryEntry else { return .setupRequired }
+        guard let entry = registry.primaryEntry else {
+            // Two different dead ends, and they need different sentences: one
+            // is fixed in the Accounts tab, the other by installing a tool.
+            return registry.isEverythingHidden ? .allHidden : .setupRequired
+        }
         guard settings.hasCompletedOnboarding || !entry.poller.promptsForPermission else {
             return .setupRequired
         }

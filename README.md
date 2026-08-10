@@ -52,7 +52,7 @@ Four tabs:
 | GitHub Copilot | no | no | quota is only readable over the network, with a token Ration would have to mint and store itself |
 | Gemini CLI | no | no | quota is only readable over the network; nothing usable is written to disk |
 
-The last three are listed in **Settings → Tools** with that explanation, rather
+The last three are listed in **Settings → Accounts** with that explanation, rather
 than quietly omitted. If one of them starts writing its usage to disk, it
 becomes a twenty-line adapter — the seam is already there.
 
@@ -196,6 +196,7 @@ More detail in [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md).
 | Setting | Default | Notes |
 | --- | --- | --- |
 | Menu bar shows | Session % | Session, Weekly, Highest, or icon only |
+| Accounts | All on | Turn a tool off and it is hidden everywhere — and not read at all |
 | Weekly usage bar | On | A small vertical gauge beside the icon, filling as the week is spent |
 | Colour when near a limit | On | Amber past 80%, red past 90% |
 | Check every | 60s | 30s minimum; faster while the panel is open |
@@ -214,7 +215,7 @@ being locked down for everyone.
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-swift test          # 235 tests, no network, no keychain
+swift test          # 262 tests, no network, no keychain
 ./Scripts/bundle.sh # produces .build/Ration.app
 open .build/Ration.app
 ```

@@ -32,10 +32,21 @@ public protocol UsageSource: Sendable {
     /// behind it — a provider read from the user's own files needs no consent
     /// ceremony.
     var promptsForPermission: Bool { get }
+
+    /// Drop anything held in memory between polls.
+    ///
+    /// Called when the user turns a provider off. Polling stops on its own —
+    /// a hidden provider leaves `metered` — but a source holding a cached
+    /// credential would keep holding it for as long as the app runs, and
+    /// "hidden and not read" would be only half true.
+    func forget()
 }
 
 extension UsageSource {
     public var promptsForPermission: Bool { false }
+
+    /// Most sources cache nothing between polls, so forgetting costs nothing.
+    public func forget() {}
 }
 
 // MARK: - Detect-only
