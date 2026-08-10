@@ -78,9 +78,19 @@ credential cache.
 
 ### 3. Hiding the provider that owns the menu bar
 
-No new logic. `primary`'s existing `didSet` falls back to `visible.first` when
-the selected provider is no longer visible, so hiding the menu bar's account
-promotes the next one automatically.
+No new logic. `primary`'s existing `didSet` falls back when the selected
+provider is no longer available, so hiding the menu bar's account promotes the
+next one automatically.
+
+**Amended during review:** the fallback resolves against `metered`, not
+`visible`. §5 keeps Cursor, Copilot and Gemini listed and visible with no
+toggle, so on any Mac with one of them installed `visible` is never empty —
+§4 would be unreachable, and the menu bar would promote a tool that has no
+gauge to show and sit on "Loading usage…" forever. The Accounts tab and the
+panel's switcher still resolve `visible` independently, so those tools stay
+listed exactly as described. §4's discriminator follows: it lives on the
+registry as `isEverythingHidden` and asks whether any *meterable* provider is
+installed, rather than any installed provider at all.
 
 ### 4. Hiding every account
 
