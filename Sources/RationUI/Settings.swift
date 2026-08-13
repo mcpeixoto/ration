@@ -20,6 +20,7 @@ public final class Settings {
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
         static let primaryProvider = "primaryProvider"
         static let disabledProviders = "disabledProviders"
+        static let hasAppliedLoginItemDefault = "hasAppliedLoginItemDefault"
     }
 
     private let defaults: UserDefaults
@@ -134,4 +135,21 @@ public final class Settings {
     }
 
     public var launchAtLoginError: String?
+
+    /// Turns launch at login on the first time a build runs, and never again.
+    ///
+    /// A menu bar gauge that is not running tells you nothing, so the useful
+    /// default is on. It is applied once and recorded, so switching it off in
+    /// Settings — or in System Settings — sticks rather than being re-enabled
+    /// on the next launch.
+    ///
+    /// Registration fails for unsigned or ad-hoc bundles. That is recorded too:
+    /// retrying every launch would just re-throw the same error, and a properly
+    /// signed build gets its chance on first run.
+    public func applyLoginItemDefaultIfNeeded() {
+        guard !defaults.bool(forKey: Key.hasAppliedLoginItemDefault) else { return }
+        defaults.set(true, forKey: Key.hasAppliedLoginItemDefault)
+        guard SMAppService.mainApp.status != .enabled else { return }
+        launchesAtLogin = true
+    }
 }

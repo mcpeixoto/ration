@@ -98,6 +98,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
+        // On by default, once. A gauge that is not running warns nobody.
+        settings.applyLoginItemDefaultIfNeeded()
+
         for entry in registry.entries {
             let provider = entry.provider
             entry.poller.onStateChange = { [weak self] state in

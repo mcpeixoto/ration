@@ -99,10 +99,24 @@ PLIST
 # you get a password prompt. If a stable identity is available, use it — set
 # RATION_SIGN_IDENTITY, or create a self-signed "Ration Development"
 # certificate via Keychain Access > Certificate Assistant.
+#
+# Preference order: an explicit RATION_SIGN_IDENTITY, then a self-signed
+# "Ration Development" certificate, then whatever Apple identity the machine
+# already carries. Any of them is stable across builds, which is the only
+# property that matters here — the keychain grant survives a rebuild.
 IDENTITY="${RATION_SIGN_IDENTITY:-}"
-if [ -z "$IDENTITY" ] && security find-identity -v -p codesigning 2>/dev/null \
-        | grep -q "Ration Development"; then
-    IDENTITY="Ration Development"
+if [ -z "$IDENTITY" ]; then
+    AVAILABLE=$(security find-identity -v -p codesigning 2>/dev/null || true)
+    for CANDIDATE in "Ration Development" "Developer ID Application" "Apple Development"; do
+        MATCH=$(printf '%s\n' "$AVAILABLE" | grep -m1 -F "$CANDIDATE" || true)
+        if [ -n "$MATCH" ]; then
+            # find-identity prints `  N) <hash> "<name>"`; the hash is
+            # unambiguous even when several certificates share a prefix.
+            IDENTITY=$(printf '%s\n' "$MATCH" | awk '{print $2}')
+            echo "==> Using signing identity: $CANDIDATE ($IDENTITY)"
+            break
+        fi
+    done
 fi
 
 if [ -n "$IDENTITY" ]; then
