@@ -1,10 +1,10 @@
 cask "ration" do
-  version "0.2.0"
+  version "0.3.0"
   sha256 :no_check # replaced by the release workflow with the real DMG digest
 
   url "https://github.com/mcpeixoto/ration/releases/download/v#{version}/Ration-#{version}.dmg"
   name "Ration"
-  desc "Menu bar meter for Claude Code and Codex usage limits"
+  desc "Menu bar meter for Claude Code, Codex, and Cursor usage limits"
   homepage "https://github.com/mcpeixoto/ration"
 
   depends_on macos: ">= :sonoma"

@@ -48,23 +48,24 @@ jobs:
       # binary we actually ship, not just the source.
       #
       # Two categories, and the difference matters:
-      #   - api.anthropic.com is the one host Ration *sends a request to*, and
-      #     the only one that ever sees a credential.
+      #   - api.anthropic.com is one host Ration *sends a request to*, and
+      #     the one that sees the Claude Code token.
+      #   - api2.cursor.sh is the other, and sees the Cursor session token.
       #   - github.com / raw.githubusercontent.com carry signed update checks,
       #     with no credential and no usage data.
       #   - buymeacoffee.com is a link the user can click. Ration never
       #     requests it; the string is in the binary because the button has to
       #     know where to send the browser.
       #
-      # Supporting a second provider added nothing to this list: Codex is read
-      # from disk. If a host ever appears here, that is a real change to what
-      # the app does and it should have to be argued for in a diff.
+      # Codex is read from disk and added nothing to this list. Cursor did:
+      # its plan percentage is not on disk, so the host is a real change and
+      # has to appear here.
       - name: Check the shipped binary reaches only its known hosts
         run: |
           hosts=$(strings .build/Ration.app/Contents/MacOS/Ration \
             | grep -oE 'https?://[A-Za-z0-9.-]+' \
             | sed -E 's#https?://##' | sort -u \
-            | grep -vE '^(api\.anthropic\.com|github\.com|raw\.githubusercontent\.com|buymeacoffee\.com)$' || true)
+            | grep -vE '^(api\.anthropic\.com|api2\.cursor\.sh|github\.com|raw\.githubusercontent\.com|buymeacoffee\.com)$' || true)
           if [ -n "$hosts" ]; then
             echo "::error::unexpected host(s) in the shipped binary:"
             echo "$hosts"
