@@ -4,14 +4,13 @@ import SwiftUI
 /// The account behind every tool Ration knows about, and a switch for each one
 /// it can actually meter.
 ///
-/// Listing tools it cannot meter is deliberate. "Where is Cursor?" deserves an
-/// answer in the app rather than in an issue thread, and the answer — its usage
-/// lives behind a login on its website, and Ration will not read your browser's
-/// cookies to get it — is a design decision worth stating out loud.
+/// Listing tools it cannot meter is deliberate. Copilot and Gemini keep their
+/// quota behind a login Ration will not mint, and the Accounts tab says so
+/// rather than quietly omitting them.
 ///
 /// There is deliberately no way to add a *second* account of the same tool.
-/// Claude Code and Codex each store only the account you are signed into, and
-/// Ration reads what they stored rather than keeping credentials of its own.
+/// Each tool stores only the account you are signed into, and Ration reads
+/// what they stored rather than keeping credentials of its own.
 struct AccountsSettingsView: View {
 
     @Bindable var registry: ProviderRegistry
@@ -35,7 +34,7 @@ struct AccountsSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Picker("Menu bar shows", selection: $settings.primaryProvider) {
+                Picker("Panel opens on", selection: $settings.primaryProvider) {
                     ForEach(selectable) { provider in
                         Text(provider.displayName).tag(provider)
                     }
@@ -43,8 +42,8 @@ struct AccountsSettingsView: View {
                 .disabled(selectable.count < 2)
 
                 Text(
-                    "The menu bar reports one account. The panel shows them all — "
-                        + "switch at the top of it."
+                    "The menu bar reports every account that is on. The panel "
+                        + "opens on this one — switch at the top of it."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -161,6 +160,9 @@ private struct AccountRow: View {
         case .codex:
             return "Reads the session files Codex already writes to disk. "
                 + "No request, no credential."
+        case .cursor:
+            return "Reads the session Cursor already stored on disk, and asks "
+                + "api2.cursor.sh for your limits."
         default:
             return ""
         }

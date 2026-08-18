@@ -157,9 +157,10 @@ public struct SettingsView: View {
             }
 
             Text(
-                "Ration reads the Claude Code session already stored in your keychain "
-                    + "and asks Anthropic how much of your plan you have used. "
-                    + "It collects no analytics and stores nothing on disk."
+                "Ration reads the sessions your tools already stored — Claude Code "
+                    + "in the keychain, Cursor on disk, Codex in its session files — "
+                    + "and shows how much of each plan you have used. "
+                    + "It collects no analytics and stores nothing of yours on disk."
             )
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -174,7 +175,7 @@ public struct SettingsView: View {
             }
             .font(.callout)
 
-            Text("Not affiliated with or endorsed by Anthropic.")
+            Text("Not affiliated with Anthropic, OpenAI, or Anysphere.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .padding(.top, 2)

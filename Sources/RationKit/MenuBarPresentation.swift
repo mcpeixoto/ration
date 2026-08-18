@@ -92,13 +92,24 @@ extension MenuBarPresentation {
     ///   - useSeverityColor: Whether to tint at warning and critical. Off by
     ///     default, because a coloured menu bar is a strong opinion to impose.
     ///   - now: Injected for testable relative times.
+    ///   - provider: The tool this item is for. Names the signed-out tooltip
+    ///     and, when `useIdentitySymbol` is set, the glyph so two accounts in
+    ///     the tray can be told apart.
+    ///   - useIdentitySymbol: Use the provider's own symbol instead of the
+    ///     gauge needle. The tray turns this on once more than one account is
+    ///     showing, because three identical gauges would be unreadable.
     public static func make(
         state: UsageState,
         mode: MenuBarDisplayMode,
         useSeverityColor: Bool,
         showWeeklyBar: Bool = false,
-        now: Date = Date()
+        now: Date = Date(),
+        provider: Provider? = nil,
+        useIdentitySymbol: Bool = false
     ) -> MenuBarPresentation {
+
+        let tool = provider?.toolName ?? "the tool"
+        let name = provider?.displayName
 
         // Signed out: never show a number we cannot stand behind.
         if state.status == .signedOut {
@@ -106,8 +117,8 @@ extension MenuBarPresentation {
                 title: nil,
                 symbolName: "person.crop.circle.badge.exclamationmark",
                 tint: useSeverityColor ? .warning : nil,
-                accessibilityLabel: "Ration: signed out",
-                tooltip: "Sign in with Claude Code to see your usage."
+                accessibilityLabel: name.map { "Ration: \($0) signed out" } ?? "Ration: signed out",
+                tooltip: "Sign in with \(tool) to see your usage."
             )
         }
 
@@ -148,12 +159,20 @@ extension MenuBarPresentation {
             .map { Severity.escalating(percent: $0.percent, reported: $0.severity) }
             .max { $0.rank < $1.rank } ?? .normal
 
+        let glyph =
+            (useIdentitySymbol ? provider?.symbolName : nil)
+            ?? symbolName(forPercent: limit.percent)
+        let spoken =
+            name.map { "\($0), \(limit.displayName): \(Self.percentText(limit.percent)) used" }
+            ?? "\(limit.displayName): \(Self.percentText(limit.percent)) used"
+
         return MenuBarPresentation(
             title: title,
-            symbolName: symbolName(forPercent: limit.percent),
+            symbolName: glyph,
             tint: useSeverityColor && severity != .normal ? severity : nil,
-            accessibilityLabel: "\(limit.displayName): \(Self.percentText(limit.percent)) used",
-            tooltip: tooltip(for: snapshot, state: state, now: now),
+            accessibilityLabel: spoken,
+            tooltip: tooltip(
+                for: snapshot, state: state, now: now, providerName: name),
             bar: showWeeklyBar ? weeklyBar(from: snapshot) : nil
         )
     }
@@ -221,7 +240,12 @@ extension MenuBarPresentation {
         }
     }
 
-    static func tooltip(for snapshot: UsageSnapshot, state: UsageState, now: Date) -> String {
+    static func tooltip(
+        for snapshot: UsageSnapshot,
+        state: UsageState,
+        now: Date,
+        providerName: String? = nil
+    ) -> String {
         var lines = snapshot.limits.map { limit -> String in
             if let resets = limit.resetsAt {
                 return
@@ -230,10 +254,67 @@ extension MenuBarPresentation {
             return "\(limit.displayName): \(percentText(limit.percent))"
         }
 
+        if let providerName {
+            lines.insert(providerName, at: 0)
+        }
         if state.isStale {
             lines.append("Last update failed — showing older numbers.")
         }
         return lines.joined(separator: "\n")
+    }
+}
+
+/// The whole menu bar item: one presentation per account that is on.
+///
+/// A single account keeps the original gauge-and-number look. Two or more sit
+/// side by side, each named by its own symbol so they can be told apart. Empty
+/// is either `setupRequired` or `allHidden`, which are different sentences.
+public struct MenuBarStrip: Sendable, Equatable {
+
+    public let items: [MenuBarPresentation]
+
+    public init(items: [MenuBarPresentation]) {
+        self.items = items
+    }
+
+    public static let setupRequired = MenuBarStrip(items: [.setupRequired])
+    public static let allHidden = MenuBarStrip(items: [.allHidden])
+
+    public var accessibilityLabel: String {
+        items.map(\.accessibilityLabel).joined(separator: ", ")
+    }
+
+    /// One account that is on, in the order the caller listed them.
+    ///
+    /// A provider whose first read would raise a permission dialog is skipped
+    /// until onboarding is done, so the tray can still show Codex or Cursor
+    /// while Claude is waiting on the keychain prompt.
+    public static func make(
+        accounts: [(provider: Provider, state: UsageState, promptsForPermission: Bool)],
+        mode: MenuBarDisplayMode,
+        useSeverityColor: Bool,
+        showWeeklyBar: Bool,
+        hasCompletedOnboarding: Bool,
+        isEverythingHidden: Bool,
+        now: Date = Date()
+    ) -> MenuBarStrip {
+        let shown = accounts.filter { hasCompletedOnboarding || !$0.promptsForPermission }
+        guard !shown.isEmpty else {
+            return isEverythingHidden ? .allHidden : .setupRequired
+        }
+
+        let named = shown.count > 1
+        let items = shown.map { account in
+            MenuBarPresentation.make(
+                state: account.state,
+                mode: mode,
+                useSeverityColor: useSeverityColor,
+                showWeeklyBar: showWeeklyBar,
+                now: now,
+                provider: account.provider,
+                useIdentitySymbol: named)
+        }
+        return MenuBarStrip(items: items)
     }
 }
 

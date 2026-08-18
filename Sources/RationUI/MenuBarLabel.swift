@@ -1,7 +1,7 @@
 import RationKit
 import SwiftUI
 
-/// The menu bar item: gauge glyph, optional percentage, optional weekly bar.
+/// The menu bar item: one gauge (or more) for every account that is on.
 ///
 /// macOS renders menu bar label images as templates, which strips colour. So
 /// whenever the item needs colour — a tint, or the bar — the whole label is
@@ -10,10 +10,14 @@ import SwiftUI
 /// which keeps text crisper and adapts to menu bar transparency.
 public struct MenuBarLabel: View {
 
-    let presentation: MenuBarPresentation
+    let strip: MenuBarStrip
+
+    public init(strip: MenuBarStrip) {
+        self.strip = strip
+    }
 
     public init(presentation: MenuBarPresentation) {
-        self.presentation = presentation
+        self.strip = MenuBarStrip(items: [presentation])
     }
 
     /// Vertical, so it reads as a level gauge rather than a progress bar and
@@ -28,18 +32,27 @@ public struct MenuBarLabel: View {
                 plainLabel
             }
         }
-        .accessibilityLabel(presentation.accessibilityLabel)
+        .accessibilityLabel(strip.accessibilityLabel)
     }
 
     /// Colour survives only through the bitmap path.
     private var needsColor: Bool {
-        presentation.tint != nil || presentation.bar != nil
+        strip.items.contains { $0.tint != nil || $0.bar != nil }
     }
 
     // MARK: Content
 
     @ViewBuilder
     private var content: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(strip.items.enumerated()), id: \.offset) { _, item in
+                itemContent(item)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func itemContent(_ presentation: MenuBarPresentation) -> some View {
         HStack(spacing: 4) {
             Image(systemName: presentation.symbolName)
 
@@ -53,6 +66,8 @@ public struct MenuBarLabel: View {
                 WeeklyBar(bar: bar, size: barSize)
             }
         }
+        .foregroundStyle(presentation.tint?.color ?? .primary)
+        .help(presentation.tooltip)
     }
 
     private var plainLabel: some View {
@@ -62,18 +77,15 @@ public struct MenuBarLabel: View {
     // MARK: Bitmap path
 
     private func renderedImage() -> NSImage {
-        let renderer = ImageRenderer(
-            content:
-                content
-                .foregroundStyle(presentation.tint?.color ?? .primary)
-        )
+        let renderer = ImageRenderer(content: content)
         // Render at the screen's pixel density so text stays sharp.
         renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
 
         guard let image = renderer.nsImage else {
             return NSImage(
-                systemSymbolName: presentation.symbolName,
-                accessibilityDescription: presentation.accessibilityLabel) ?? NSImage()
+                systemSymbolName: strip.items.first?.symbolName
+                    ?? "gauge.with.dots.needle.0percent",
+                accessibilityDescription: strip.accessibilityLabel) ?? NSImage()
         }
         // Not a template: we want our colours, not the menu bar's.
         image.isTemplate = false

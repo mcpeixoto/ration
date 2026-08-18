@@ -15,7 +15,10 @@ let package = Package(
     ],
     targets: [
         // Pure logic. No SwiftUI, no AppKit. Fully unit-testable.
-        .target(name: "RationKit"),
+        .target(
+            name: "RationKit",
+            linkerSettings: [.linkedLibrary("sqlite3")]
+        ),
 
         // SwiftUI views and view models.
         .target(name: "RationUI", dependencies: ["RationKit"]),
@@ -36,7 +39,8 @@ let package = Package(
         .testTarget(
             name: "RationKitTests",
             dependencies: ["RationKit"],
-            resources: [.copy("Fixtures")]
+            resources: [.copy("Fixtures")],
+            linkerSettings: [.linkedLibrary("sqlite3")]
         ),
 
         .testTarget(

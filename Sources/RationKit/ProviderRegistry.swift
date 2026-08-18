@@ -182,8 +182,9 @@ public final class ProviderRegistry {
 
     /// The full set Ration ships with.
     ///
-    /// Claude is a network read; Codex is read from its own session files;
-    /// the rest are listed honestly and metered by nobody.
+    /// Claude and Cursor are network reads of a token the tool already stored;
+    /// Codex is read from its own session files; Copilot and Gemini are listed
+    /// honestly and metered by nobody.
     public static func standard(
         schedule: PollSchedule = PollSchedule(),
         disabled: Set<Provider.ID> = []
@@ -200,7 +201,7 @@ public final class ProviderRegistry {
                     history: TranscriptStore(provider: .codex, format: CodexRolloutFormat())),
                 Entry(
                     provider: .cursor,
-                    poller: UsagePoller(source: DetectOnlyUsageSource.cursor(), schedule: schedule),
+                    poller: UsagePoller(source: CursorUsageSource(), schedule: schedule),
                     history: nil),
                 Entry(
                     provider: .copilot,

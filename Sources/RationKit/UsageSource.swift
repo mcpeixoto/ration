@@ -53,11 +53,9 @@ extension UsageSource {
 
 /// A provider Ration can see but cannot meter.
 ///
-/// Cursor, Copilot and Gemini all keep their plan usage behind a network call —
-/// in Cursor's case behind a browser session cookie. Reading any of those would
-/// mean new hosts, and for one of them Ration minting and storing a credential
-/// of its own. Ration does not do that, so these providers are listed honestly
-/// with the reason rather than quietly omitted or half-implemented.
+/// Copilot and Gemini keep their plan usage behind a network call that would
+/// mean minting a credential of Ration's own. Ration does not do that, so they
+/// are listed honestly with the reason rather than quietly omitted.
 public struct DetectOnlyUsageSource: UsageSource {
 
     public let provider: Provider
@@ -87,17 +85,6 @@ extension DetectOnlyUsageSource {
 
     private static func home(_ path: String) -> URL {
         URL(fileURLWithPath: NSHomeDirectory()).appending(path: path)
-    }
-
-    public static func cursor() -> DetectOnlyUsageSource {
-        DetectOnlyUsageSource(
-            provider: .cursor,
-            markerPath: home("Library/Application Support/Cursor"),
-            reason: """
-                Cursor keeps your plan usage on its website, behind the session \
-                cookie in your browser. Ration will not read your browser's \
-                cookies, so there is no gauge to show.
-                """)
     }
 
     public static func copilot() -> DetectOnlyUsageSource {

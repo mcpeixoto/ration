@@ -25,7 +25,7 @@ struct RationApp: App {
             // Computed rather than cached: `poller` and `settings` are
             // @Observable, so SwiftUI re-evaluates this when either changes and
             // a settings change is reflected without waiting for the next poll.
-            MenuBarLabel(presentation: appDelegate.presentation)
+            MenuBarLabel(strip: appDelegate.presentation)
         }
         .menuBarExtraStyle(.window)
         .onChange(of: appDelegate.settings.pollInterval) { _, _ in
@@ -75,23 +75,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     /// What the menu bar item should look like right now.
     ///
-    /// One provider's numbers, not everyone's: the menu bar is shared with every
-    /// other app on the machine and an item that widens per installed tool is a
-    /// bad neighbour.
-    var presentation: MenuBarPresentation {
-        guard let entry = registry.primaryEntry else {
-            // Two different dead ends, and they need different sentences: one
-            // is fixed in the Accounts tab, the other by installing a tool.
-            return registry.isEverythingHidden ? .allHidden : .setupRequired
-        }
-        guard settings.hasCompletedOnboarding || !entry.poller.promptsForPermission else {
-            return .setupRequired
-        }
-        return MenuBarPresentation.make(
-            state: entry.poller.state,
+    /// Every account that is on, in registry order. A single account keeps the
+    /// original gauge; two or more sit side by side, each with its own symbol.
+    var presentation: MenuBarStrip {
+        MenuBarStrip.make(
+            accounts: registry.metered.map {
+                ($0.provider, $0.poller.state, $0.poller.promptsForPermission)
+            },
             mode: settings.displayMode,
             useSeverityColor: settings.useSeverityColor,
-            showWeeklyBar: settings.showWeeklyBar
+            showWeeklyBar: settings.showWeeklyBar,
+            hasCompletedOnboarding: settings.hasCompletedOnboarding,
+            isEverythingHidden: registry.isEverythingHidden
         )
     }
 

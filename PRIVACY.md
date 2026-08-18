@@ -4,22 +4,22 @@ Ration collects nothing.
 
 ## What leaves your machine
 
-One request, when Ration refreshes Claude's limits:
+One request when Ration refreshes Claude's limits, and one when it refreshes
+Cursor's:
 
 ```
 GET https://api.anthropic.com/api/oauth/usage
 Authorization: Bearer <your Claude Code access token>
-anthropic-beta: oauth-2025-04-20
-User-Agent: Ration/<version> (github.com/mcpeixoto/ration)
 ```
 
-That is the only request that carries your token, and `api.anthropic.com` is
-the only host it goes to.
+```
+POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage
+Authorization: Bearer <your Cursor access token>
+```
 
-**Codex makes no request at all.** Codex CLI records its own rate limits into
-the session files it writes, so Ration reads the gauge from disk. Supporting a
-second tool added zero network traffic — the host allow-list in the tests is
-unchanged from the version that only knew about Claude.
+Each token is sent only to the host that issued it. Codex makes no request at
+all: Codex CLI records its own rate limits into the session files it writes, so
+Ration reads the gauge from disk.
 
 Ration also checks for its own updates:
 
@@ -39,9 +39,9 @@ means no request is ever made.
 
 There is no analytics endpoint, no crash reporter, and no telemetry of any
 kind. This is enforced by tests: one fails the build if an unexpected host
-appears in the source tree, one fails if networking appears outside
-`LimitsClient.swift`, and one pins the update feed so it cannot be redirected
-without the change showing up in a diff.
+appears in the source tree, one fails if networking appears outside the client
+files, and one pins the update feed so it cannot be redirected without the
+change showing up in a diff.
 
 ## What Ration reads
 
@@ -59,11 +59,16 @@ From the macOS keychain item `Claude Code-credentials`, created by Claude Code:
 This is the only keychain item Ration reads, and a test fails the build if
 keychain calls appear anywhere but the one file that makes them.
 
-**No other tool's credentials are read at all.** Codex stores its login in a
+**Codex's credentials are not read at all.** Codex stores its login in a
 plain file in your home directory — no keychain, no prompt, nothing standing in
 the way. Ration never opens it. It does not need to: the plan tier it displays
-comes from the session log along with everything else. A test fails the build if
-any source file so much as names that file, or Cursor's cookie jar, or Gemini's
+comes from the session log along with everything else.
+
+**Cursor's session is read, read-only.** The Cursor app stores an access token
+in a local sqlite file. Ration copies that file, reads the access token and the
+cached plan name, and sends the token only to `api2.cursor.sh`. It never reads
+a refresh secret and never opens the browser cookie jar. A test fails the build
+if any source file names that cookie jar, Codex's credential file, or Gemini's
 credential file.
 
 Ration never reads your conversations, prompts, files, or project history.
@@ -121,7 +126,7 @@ On disk, in `UserDefaults` (`com.mcpeixoto.Ration`):
 - Your chosen refresh interval
 - Whether notifications are on
 - Whether you have completed the welcome screen
-- Which tool the menu bar reports
+- Which tool the panel opens on
 
 And a local history cache per tool, in
 `~/Library/Application Support/Ration/history-<tool>.json`: per-day token totals

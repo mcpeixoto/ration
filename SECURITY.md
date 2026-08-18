@@ -37,43 +37,45 @@ Ration has no code to exchange a refresh token or mint a new session. When the
 token expires it stops polling and shows a "signed out" state until Claude Code
 refreshes it. **Ration cannot invalidate your session or lock you out.**
 
-### 3b. No other tool's credentials, at all
+### 3b. No other tool's credentials, except the one Cursor already stored
 
-Ration supports more than one tool, and reads exactly one credential.
+Ration reads two credentials, both of which the underlying tool already wrote:
 
-Codex CLI keeps its login in a plain file in your home directory — not the
-keychain, no prompt, nothing in the way. Ration never opens it. Everything it
-displays for Codex, including the plan tier, comes from the session logs Codex
-writes alongside it.
+- Claude Code's access token, from the keychain item it created.
+- Cursor's access token, from the sqlite file the Cursor app created.
+
+It never writes either. It never reads a refresh secret. It never opens Codex's
+credential file, Cursor's cookie jar, or Gemini's credential file.
 
 `credentialsOfOtherToolsAreNeverTouched` fails the build if any file under
-`Sources/` so much as *names* that credential file, or Cursor's cookie jar, or
-Gemini's credential file. The list of forbidden strings deliberately includes the
-file names themselves: a comment explaining that we do not read something is
-still a reference to it, and this guarantee is the kind that erodes one
+`Sources/` so much as *names* Codex's credential file, Cursor's cookie jar, or
+Gemini's credential file. The list of forbidden strings deliberately includes
+the file names themselves: a comment explaining that we do not read something
+is still a reference to it, and this guarantee is the kind that erodes one
 convenience at a time.
 
 `keychainAccessIsConfinedToOneFile` fails if keychain calls appear anywhere but
 `Credential.swift`, so a second provider cannot quietly introduce a second
-permission prompt.
+permission prompt. Cursor's token is not in the keychain, which is why adding
+it did not add a prompt.
 
-### 4. One credentialed host
+### 4. Two credentialed hosts
 
-Your token goes to exactly one place: `api.anthropic.com`.
+Claude's token goes to `api.anthropic.com`. Cursor's token goes to
+`api2.cursor.sh`. Each token is sent only to the host that issued it.
 
-**Adding a second provider added no third host.** The allow-list below is
-character-for-character what it was in 0.1.0, when Ration only knew about
-Claude. That is not a coincidence — it is why Codex is read from disk rather
-than from the endpoint its CLI talks to. If a future provider cannot be
-supported without a new host, that will be a visible change to this file and to
-the test, not a footnote.
+Codex added no host: it is read from disk. Cursor could not be, so this file
+and the host-allow tests changed in the same commit that added it.
 
-`noUnexpectedHosts` fails if any host other than that (or the project's own
-GitHub links, which are user-clickable) appears under `Sources/`.
+`noUnexpectedHosts` fails if any host other than those two (or the project's
+own GitHub links, which are user-clickable) appears under `Sources/`.
 `networkingIsConfinedToTheClient` fails if `URLSession`, `URLRequest`,
 `NSURLConnection`, or `CFSocket` appears in any file other than
-`LimitsClient.swift`. `clientHasOneEndpoint` fails if `LimitsClient.swift`
-constructs any URL other than `https://api.anthropic.com/api/oauth/usage`.
+`LimitsClient.swift` and `CursorClient.swift`.
+`clientHasOneEndpoint` fails if `LimitsClient.swift` constructs any URL other
+than `https://api.anthropic.com/api/oauth/usage`.
+`cursorClientHasKnownEndpoints` fails if `CursorClient.swift` constructs any
+URL other than its two dashboard endpoints.
 
 Ration does contact a second host — `raw.githubusercontent.com` for the update
 feed, and `github.com` to download a release you chose to install. Those
@@ -119,8 +121,10 @@ git clone https://github.com/mcpeixoto/ration.git
 cd ration
 swift test
 
-# The whole security surface is two files:
-wc -l Sources/RationKit/Credential.swift Sources/RationKit/LimitsClient.swift
+# The whole security surface:
+wc -l Sources/RationKit/Credential.swift \
+      Sources/RationKit/LimitsClient.swift \
+      Sources/RationKit/Cursor/*.swift
 
 # Confirm what the shipped binary can reach:
 strings /Applications/Ration.app/Contents/MacOS/Ration | grep -E 'https?://'

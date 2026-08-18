@@ -18,7 +18,7 @@ public enum LimitsError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .unauthorized:
-            "Your Claude Code session has expired. Open Claude Code to sign in again."
+            "Your session has expired. Open the tool to sign in again."
         case .rateLimited(let retryAfter):
             if let retryAfter {
                 "Too many requests. Retrying in \(Int(retryAfter))s."
@@ -26,9 +26,9 @@ public enum LimitsError: Error, Equatable, LocalizedError {
                 "Too many requests. Retrying shortly."
             }
         case .serverError(let status):
-            "Anthropic returned an error (\(status)). Retrying."
+            "The usage service returned an error (\(status)). Retrying."
         case .transport(let message):
-            "Could not reach Anthropic: \(message)"
+            "Could not reach the usage service: \(message)"
         case .decoding(let message):
             "Could not read the usage response: \(message)"
         case .unavailable(let reason), .noData(let reason):
@@ -200,5 +200,5 @@ public struct AnthropicUsageSource: UsageSource {
 
 public enum Ration {
     /// Kept in step with the VERSION file by Scripts/bundle.sh.
-    public static let version = "0.2.0"
+    public static let version = "0.3.0"
 }

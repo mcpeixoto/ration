@@ -170,8 +170,9 @@ struct SourceTreeTests {
         }
 
         let allowed: Set<String> = [
-            // The one host Ration sends requests to.
+            // The hosts Ration sends requests to.
             "api.anthropic.com",
+            "api2.cursor.sh",
             // Links the user can click to open in their browser. Ration itself
             // never requests these — see `networkingIsConfinedToTheClient`.
             "github.com",
@@ -182,25 +183,26 @@ struct SourceTreeTests {
             "unexpected host(s) in source: \(hosts.subtracting(allowed))")
     }
 
-    /// Every request Ration's *own* code makes originates in one file.
+    /// Every request Ration's *own* code makes originates in the client files.
     ///
     /// Sparkle also makes requests — update checks against the appcast, and the
     /// release download — but it does so from its own framework, not from code
     /// in this repository. `updateFeedIsTheExpectedHost` covers that half.
-    @Test("all first-party networking is confined to LimitsClient")
+    @Test("all first-party networking is confined to the client files")
     func networkingIsConfinedToTheClient() throws {
-        for file in try swiftFiles() where file.url.lastPathComponent != "LimitsClient.swift" {
+        let allowed = Set(["LimitsClient.swift", "CursorClient.swift"])
+        for file in try swiftFiles() where !allowed.contains(file.url.lastPathComponent) {
             for symbol in ["URLSession", "URLRequest", "NSURLConnection", "CFSocket"] {
                 #expect(
                     !file.contents.contains(symbol),
-                    "\(file.url.lastPathComponent) performs networking outside LimitsClient")
+                    "\(file.url.lastPathComponent) performs networking outside the client files")
             }
         }
     }
 
-    /// The update feed is the one host besides Anthropic that the shipped app
-    /// contacts. It is set in `Scripts/bundle.sh` rather than Swift, so pin it
-    /// here — a silent change of update host is exactly the kind of thing this
+    /// The update feed is a host besides Anthropic and Cursor that the shipped
+    /// app contacts. It is set in `Scripts/bundle.sh` rather than Swift, so pin
+    /// it here — a silent change of update host is exactly the kind of thing this
     /// repository's promises should not allow.
     @Test("the update feed points at the project's own repository")
     func updateFeedIsTheExpectedHost() throws {
@@ -228,6 +230,27 @@ struct SourceTreeTests {
         }
 
         #expect(urls == ["https://api.anthropic.com/api/oauth/usage"])
+    }
+
+    @Test("the Cursor client targets exactly its two known URLs")
+    func cursorClientHasKnownEndpoints() throws {
+        let client = try #require(
+            try swiftFiles().first { $0.url.lastPathComponent == "CursorClient.swift" })
+
+        #expect(
+            client.contents.contains(
+                "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage"))
+        #expect(client.contents.contains("https://api2.cursor.sh/auth/usage"))
+
+        let pattern = try NSRegularExpression(pattern: #"https?://([A-Za-z0-9.-]+)"#)
+        let range = NSRange(client.contents.startIndex..., in: client.contents)
+        var hosts: Set<String> = []
+        for match in pattern.matches(in: client.contents, range: range) {
+            if let hostRange = Range(match.range(at: 1), in: client.contents) {
+                hosts.insert(String(client.contents[hostRange]))
+            }
+        }
+        #expect(hosts == ["api2.cursor.sh"])
     }
 
     @Test("no source file mentions a refresh token field")

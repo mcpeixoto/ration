@@ -180,7 +180,7 @@ struct MenuBarStateTests {
         let presentation = present(state([], signedOut: true))
         #expect(presentation.title == nil)
         #expect(presentation.symbolName.contains("person"))
-        #expect(presentation.tooltip.contains("Claude Code"))
+        #expect(presentation.tooltip.contains("Sign in"))
     }
 
     @Test("the very first load shows a placeholder, not a zero")
@@ -415,6 +415,107 @@ struct AllHiddenPresentationTests {
     @Test("says where to turn an account back on")
     func pointsAtTheAccountsTab() {
         #expect(MenuBarPresentation.allHidden.tooltip.contains("Accounts"))
+    }
+}
+
+@Suite("Menu bar strip")
+struct MenuBarStripTests {
+
+    @Test("one account keeps the gauge glyph")
+    func singleAccountUsesGauge() {
+        let strip = MenuBarStrip.make(
+            accounts: [
+                (
+                    provider: .claude, state: state([limit(.session, 32)]),
+                    promptsForPermission: false
+                )
+            ],
+            mode: .sessionPercent,
+            useSeverityColor: false,
+            showWeeklyBar: false,
+            hasCompletedOnboarding: true,
+            isEverythingHidden: false)
+
+        #expect(strip.items.count == 1)
+        #expect(strip.items[0].title == "32%")
+        #expect(strip.items[0].symbolName.contains("gauge"))
+    }
+
+    @Test("two accounts sit side by side, each named by its own symbol")
+    func multipleAccountsUseIdentitySymbols() {
+        let strip = MenuBarStrip.make(
+            accounts: [
+                (
+                    provider: .claude, state: state([limit(.session, 32)]),
+                    promptsForPermission: false
+                ),
+                (
+                    provider: .cursor, state: state([limit(.weeklyAll, 71)]),
+                    promptsForPermission: false
+                ),
+            ],
+            mode: .highestPercent,
+            useSeverityColor: false,
+            showWeeklyBar: false,
+            hasCompletedOnboarding: true,
+            isEverythingHidden: false)
+
+        #expect(strip.items.map(\.title) == ["32%", "71%"])
+        #expect(
+            strip.items.map(\.symbolName) == [
+                Provider.claude.symbolName, Provider.cursor.symbolName,
+            ])
+        #expect(strip.accessibilityLabel.contains("Claude"))
+        #expect(strip.accessibilityLabel.contains("Cursor"))
+    }
+
+    @Test("skips a provider that would prompt until onboarding is done")
+    func skipsPromptingProvidersBeforeOnboarding() {
+        let strip = MenuBarStrip.make(
+            accounts: [
+                (
+                    provider: .claude, state: state([limit(.session, 10)]),
+                    promptsForPermission: true
+                ),
+                (
+                    provider: .cursor, state: state([limit(.weeklyAll, 40)]),
+                    promptsForPermission: false
+                ),
+            ],
+            mode: .highestPercent,
+            useSeverityColor: false,
+            showWeeklyBar: false,
+            hasCompletedOnboarding: false,
+            isEverythingHidden: false)
+
+        #expect(strip.items.count == 1)
+        #expect(strip.items[0].title == "40%")
+    }
+
+    @Test("everything hidden is the muted icon, not setup")
+    func hiddenIsNotSetup() {
+        let strip = MenuBarStrip.make(
+            accounts: [],
+            mode: .sessionPercent,
+            useSeverityColor: false,
+            showWeeklyBar: false,
+            hasCompletedOnboarding: true,
+            isEverythingHidden: true)
+
+        #expect(strip == .allHidden)
+        #expect(strip != .setupRequired)
+    }
+
+    @Test("names the tool in a signed-out tooltip")
+    func signedOutNamesTheTool() {
+        let presentation = MenuBarPresentation.make(
+            state: state([], signedOut: true),
+            mode: .sessionPercent,
+            useSeverityColor: false,
+            provider: .cursor)
+
+        #expect(presentation.tooltip.contains("Cursor"))
+        #expect(!presentation.tooltip.contains("Claude Code"))
     }
 }
 

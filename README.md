@@ -3,7 +3,7 @@
 Your AI coding usage, in the macOS menu bar.
 
 Ration puts a small gauge in your menu bar showing how much of your plan you
-have used — for **Claude Code** and **Codex**. No more discovering you hit a
+have used — for **Claude Code**, **Codex**, and **Cursor**. No more discovering you hit a
 limit halfway through a long agent run.
 
 <p align="center">
@@ -16,10 +16,12 @@ limit halfway through a long agent run.
   <img src="docs/images/trends-dark.png" width="260" alt="Daily usage trends">
 </p>
 
-The menu bar item carries a small vertical gauge for the weekly allowance — the limit that
-creeps up on you, since a session window resets often enough to watch itself.
-It stays monochrome while everything is fine, turns amber past 80% and red past
-90% — so colour in your menu bar always means something.
+The menu bar reports every account that is on. A single tool keeps the original
+gauge; two or more sit side by side, each with its own symbol. A small vertical
+bar tracks the weekly allowance — the limit that creeps up on you, since a
+session window resets often enough to watch itself. It stays monochrome while
+everything is fine, turns amber past 80% and red past 90% — so colour in your
+menu bar always means something.
 
 Four tabs:
 
@@ -33,14 +35,15 @@ Four tabs:
 - **Detail** — where the tokens went, by model and by project.
 
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
-- **Live.** Reads the same numbers `/usage` shows inside Claude Code, refreshed in the background.
+- **Live.** Reads the same numbers `/usage` shows inside Claude Code, and the
+  same plan Cursor's dashboard shows, refreshed in the background.
 - **Quiet.** Optional notifications when you approach a limit, and nothing else.
-- **Private.** No analytics, no telemetry. Two hosts, both listed below, and nothing else — **adding Codex added no third one.**
+- **Private.** No analytics, no telemetry. Three hosts, all listed below, and nothing else.
 - **Self-updating.** Signed updates via Sparkle; nothing to re-download by hand.
 
 > Ration is an independent open-source project. It is **not affiliated with,
-> endorsed by, or supported by Anthropic or OpenAI**. "Claude" is a trademark of
-> Anthropic; "Codex" is a trademark of OpenAI.
+> endorsed by, or supported by Anthropic, OpenAI, or Anysphere**. "Claude" is a trademark of
+> Anthropic; "Codex" is a trademark of OpenAI; "Cursor" is a trademark of Anysphere.
 
 ## Supported tools
 
@@ -48,19 +51,19 @@ Four tabs:
 |---|---|---|---|
 | **Claude Code** | yes | yes | one request to `api.anthropic.com`, using the token Claude Code already stored |
 | **Codex CLI** | yes | yes | entirely from `~/.codex/sessions` — no request, no credential |
-| Cursor | no | no | its usage lives behind a login on its website; Ration will not read your browser cookies |
+| **Cursor** | yes | no | the session Cursor already stored on disk, then one request to `api2.cursor.sh` |
 | GitHub Copilot | no | no | quota is only readable over the network, with a token Ration would have to mint and store itself |
 | Gemini CLI | no | no | quota is only readable over the network; nothing usable is written to disk |
 
-The last three are listed in **Settings → Accounts** with that explanation, rather
-than quietly omitted. If one of them starts writing its usage to disk, it
-becomes a twenty-line adapter — the seam is already there.
+The last two are listed in **Settings → Accounts** with that explanation, rather
+than quietly omitted. Cursor's plan percentage is not on disk — unlike Codex —
+so metering it meant a second host. That change is pinned in the tests.
 
 Codex is the interesting case: it stamps its own rate limits into every session
-log it writes, so Ration reads the gauge and the history out of the same files.
-That is why a second provider cost zero new network hosts. The trade is
-freshness — those numbers age while Codex is not running, so the panel says how
-old they are instead of presenting them as live.
+log it writes, so Ration reads the gauge and the history out of the same files,
+with no request and no credential. The trade is freshness — those numbers age
+while Codex is not running, so the panel says how old they are instead of
+presenting them as live.
 
 ## Install
 
@@ -77,7 +80,7 @@ published yet.
 
 - macOS 14 (Sonoma) or later
 - At least one supported tool: [Claude Code](https://claude.com/claude-code)
-  signed in, or Codex CLI with at least one session
+  signed in, Codex CLI with at least one session, or Cursor signed in
 
 Ration does not sign you in and has no account of its own. It reads what your
 tools already have.
@@ -106,14 +109,22 @@ The trade is freshness: a figure Codex wrote three hours ago is three hours old.
 Ration timestamps the snapshot from the record rather than from the read, so the
 panel says *"As of 3h ago"* instead of showing a stale number as live.
 
-**History (the Activity, Trends and Detail tabs).** Both tools write a
-transcript of every session — Claude Code to `~/.claude/projects/**/*.jsonl`,
+**Cursor, from the session the app already stored.** Cursor keeps its login in
+a local sqlite file (not the keychain, and not your browser cookies). Ration
+reads the access token and the cached plan name, then calls
+`POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage`
+— the same dashboard numbers the Cursor website shows. It never reads a
+refresh secret, and it never opens Cursor's cookie jar.
+
+**History (the Activity, Trends and Detail tabs).** Claude Code and Codex write
+a transcript of every session — Claude Code to `~/.claude/projects/**/*.jsonl`,
 Codex to `~/.codex/sessions/**/rollout-*.jsonl`. Ration reads the token counts
 out of those files, and only the token counts. Your prompts, the replies, and
 the contents of files you opened are never decoded, never retained, and never
 leave your machine. The first scan reads the whole corpus in the background (a
 few seconds for a gigabyte); after that it reads only the bytes appended since
-the last check.
+the last check. Cursor's agent transcripts are not read; there is no history
+tab for Cursor yet.
 
 Each tool gets its own history, and the panel shows one at a time. Merging them
 would produce a confidently wrong number: a Claude token and a Codex token are
@@ -144,25 +155,25 @@ idle and read nothing.
 
 **It does:**
 
-- Read one keychain item, read-only.
-- Send your token to exactly one host, `api.anthropic.com`, and keep it in
-  memory only for that request.
+- Read one keychain item, read-only (Claude Code).
+- Read Cursor's local session file, read-only, for the access token and plan name.
+- Send those tokens to the host that issued them — `api.anthropic.com` or
+  `api2.cursor.sh` — and keep them in memory only for that request.
 - Check `raw.githubusercontent.com` for an update feed, and download releases
-  from `github.com` when you install one. **Your token is never sent there** —
+  from `github.com` when you install one. **Your tokens are never sent there** —
   update checks carry no credentials and no usage data.
 
 **It does not:**
 
 - Read your refresh token, your MCP server logins, or anything else in that
   keychain blob.
-- Touch any other tool's credentials. Codex keeps its login in a plain file that
-  Ration could read; it never does, and a test fails the build if a source file
-  even mentions it.
+- Touch Codex's credentials, Cursor's cookie jar, or Gemini's credential file.
+  A test fails the build if a source file even names those.
 - Read your prompts, the replies, or file contents out of your transcripts —
   only token counts, model, timestamp, project, and session id.
 - Write to your keychain, ever.
-- Refresh, rotate, or invalidate your session. Only Claude Code does that. If
-  your session expires, Ration says so and waits.
+- Refresh, rotate, or invalidate your session. Only the tool that owns it
+  does that. If a session expires, Ration says so and waits.
 - Write the token to disk, to `UserDefaults`, or to a log.
 - Send analytics, telemetry, or crash reports anywhere.
 - Read your prompts, your conversations, or your code.
@@ -180,14 +191,14 @@ Turn automatic checks off in Settings if you'd rather update by hand.
 
 These are enforced by tests, not just promised in a README — see
 [`Tests/RationKitTests/CredentialTests.swift`](Tests/RationKitTests/CredentialTests.swift),
-which fails the build if a second network host appears in the source tree, if
-networking leaks outside `LimitsClient.swift`, if the keychain is touched outside
+which fails the build if an unexpected host appears in the source tree, if
+networking leaks outside the client files, if the keychain is touched outside
 `Credential.swift`, if anything reads a refresh token, or if any source file
 names another tool's credential file.
 
-Those assertions did not have to be loosened to add Codex — the host allow-list
-is character-for-character what it was in 0.1.0. That is the point of reading a
-provider from disk: the second tool arrived with no new attack surface at all.
+Codex arrived with no new host — it is read from disk. Cursor could not be, so
+`api2.cursor.sh` is on the allow-list, pinned by a test that names both of its
+endpoints. That change is visible here on purpose.
 
 More detail in [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md).
 
@@ -195,8 +206,8 @@ More detail in [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md).
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Menu bar shows | Session % | Session, Weekly, Highest, or icon only |
-| Accounts | All on | Turn a tool off and it is hidden everywhere — and not read at all |
+| Menu bar shows | Session % | Session, Weekly, Highest, or icon only — applied to every account in the tray |
+| Accounts | All on | Turn a tool off and it is hidden everywhere — and not read at all. Every account that stays on appears in the menu bar. |
 | Weekly usage bar | On | A small vertical gauge beside the icon, filling as the week is spent |
 | Colour when near a limit | On | Amber past 80%, red past 90% |
 | Check every | 60s | 30s minimum; faster while the panel is open |
@@ -215,7 +226,7 @@ being locked down for everyone.
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-swift test          # 262 tests, no network, no keychain
+swift test          # 286 tests, no network, no keychain
 ./Scripts/bundle.sh # produces .build/Ration.app
 open .build/Ration.app
 ```

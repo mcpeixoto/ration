@@ -53,11 +53,11 @@ public final class Settings {
                 .filter { Provider.named($0) != nil })
     }
 
-    /// Which provider the menu bar reports.
+    /// Which provider the panel opens on.
     ///
-    /// Only one, deliberately: the menu bar is shared with every other app on
-    /// the machine, and an item that grows with each tool installed is a bad
-    /// neighbour. The panel shows them all.
+    /// The menu bar reports every account that is on. The panel still has to
+    /// pick one to show first; this is that pick, and it is what hiding the
+    /// current one promotes the next into.
     public var primaryProvider: Provider {
         didSet { defaults.set(primaryProvider.id, forKey: Key.primaryProvider) }
     }

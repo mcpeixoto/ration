@@ -161,10 +161,10 @@ struct LimitsErrorTests {
         }
     }
 
-    @Test("the unauthorized message points at Claude Code, since it owns the token")
+    @Test("the unauthorized message tells the user to sign in again")
     func unauthorizedGuidance() {
         let message = LimitsError.unauthorized.errorDescription ?? ""
-        #expect(message.contains("Claude Code"))
+        #expect(message.contains("sign in"))
     }
 
     @Test("only unauthorized should stop polling; the rest are retryable")
