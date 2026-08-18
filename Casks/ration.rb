@@ -1,5 +1,5 @@
 cask "ration" do
-  version "0.3.1"
+  version "0.3.2"
   sha256 :no_check # replaced by the release workflow with the real DMG digest
 
   url "https://github.com/mcpeixoto/ration/releases/download/v#{version}/Ration-#{version}.dmg"
