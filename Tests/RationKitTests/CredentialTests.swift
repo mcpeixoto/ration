@@ -177,6 +177,7 @@ struct SourceTreeTests {
             // never requests these — see `networkingIsConfinedToTheClient`.
             "github.com",
             "buymeacoffee.com",
+            "x.com",
         ]
         #expect(
             hosts.subtracting(allowed).isEmpty,

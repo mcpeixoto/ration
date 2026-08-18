@@ -47,6 +47,41 @@ public struct PopoverView: View {
     private var poller: UsagePoller? { entry?.poller }
     private var transcripts: TranscriptStore? { entry?.history }
 
+    /// Every visible tool's history, plus live gauges for tools with no
+    /// transcripts (Cursor). Collection is the one view that is allowed to
+    /// combine them, because Score is a game score, not a usage total.
+    private var dexState: DexState {
+        Dex.evaluate(dexInput)
+    }
+
+    private var dexInput: DexInput {
+        var histories: [String: UsageHistory] = [:]
+        var live: Set<String> = []
+        for entry in registry.visible {
+            if let history = entry.history?.history {
+                histories[entry.provider.id] = history
+            }
+            if snapshotShowsUsage(entry.poller.state.snapshot) {
+                live.insert(entry.provider.id)
+            }
+        }
+        return DexInput(histories: histories, liveProviders: live)
+    }
+
+    private var isDexScanning: Bool {
+        registry.visible.contains { entry in
+            if case .scanning = entry.history?.status { return true }
+            return false
+        }
+    }
+
+    private func snapshotShowsUsage(_ snapshot: UsageSnapshot?) -> Bool {
+        guard let snapshot else { return false }
+        if snapshot.limits.contains(where: { $0.percent > 0 }) { return true }
+        if let spend = snapshot.spend, spend.usedAmount > 0 { return true }
+        return false
+    }
+
     public var body: some View {
         // Re-renders once a second so the reset countdowns tick while the panel
         // is open. TimelineView stops when the view goes away, so this costs
@@ -57,7 +92,7 @@ public struct PopoverView: View {
 
                 // A switcher with one position is furniture, so it only appears
                 // once there is a genuine choice to make.
-                if isSetUp, registry.visible.count > 1 {
+                if isSetUp, registry.visible.count > 1, tab != .collection {
                     ProviderSwitcher(
                         providers: registry.visible.map(\.provider),
                         selection: Binding(
@@ -144,6 +179,11 @@ public struct PopoverView: View {
             TrendsView(history: history, status: status, now: now, provider: provider)
         case .breakdown:
             BreakdownView(history: history, status: status, now: now, provider: provider)
+        case .collection:
+            CollectionView(
+                state: dexState,
+                revealedIDs: $settings.revealedCreatureIDs,
+                isScanning: isDexScanning)
         }
     }
 

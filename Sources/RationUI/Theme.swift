@@ -64,6 +64,31 @@ enum Theme {
     }
 }
 
+extension CreatureRarity {
+    var color: Color {
+        switch self {
+        case .common: Color(light: Color(white: 0.45), dark: Color(white: 0.72))
+        case .uncommon:
+            Color(
+                light: Color(red: 0.22, green: 0.62, blue: 0.38),
+                dark: Color(red: 0.40, green: 0.82, blue: 0.55))
+        case .rare:
+            Color(
+                light: Color(red: 0.20, green: 0.42, blue: 0.82),
+                dark: Color(red: 0.45, green: 0.65, blue: 1.0))
+        case .epic:
+            Color(
+                light: Color(red: 0.56, green: 0.28, blue: 0.78),
+                dark: Color(red: 0.75, green: 0.50, blue: 0.95))
+        case .legendary: Theme.warning
+        case .mythic: Theme.accent
+        }
+    }
+
+    /// Whether the card carries a moving foil. Common is printed; the rest shine.
+    var hasFoil: Bool { self >= .uncommon }
+}
+
 extension Color {
     /// Builds a colour that resolves differently in light and dark appearances.
     init(light: Color, dark: Color) {

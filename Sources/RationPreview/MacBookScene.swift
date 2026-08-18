@@ -201,6 +201,10 @@ struct MacBookScene: View {
                 TrendsView(history: truncated, status: .ready)
             case .breakdown:
                 BreakdownView(history: truncated, status: .ready)
+            case .collection:
+                CollectionView(
+                    state: Dex.evaluate(DexInput(histories: ["claude": history])),
+                    revealedIDs: .constant(Set(Dex.roster.map(\.id))))
             }
         }
     }
@@ -496,6 +500,8 @@ private struct StaticTabs: View {
             ForEach(PanelTab.allCases) { tab in
                 Text(tab.title)
                     .font(.caption)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
                     .foregroundStyle(selection == tab ? Color.primary : .secondary)

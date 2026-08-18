@@ -21,6 +21,7 @@ public final class Settings {
         static let primaryProvider = "primaryProvider"
         static let disabledProviders = "disabledProviders"
         static let hasAppliedLoginItemDefault = "hasAppliedLoginItemDefault"
+        static let revealedCreatureIDs = "revealedCreatureIDs"
     }
 
     private let defaults: UserDefaults
@@ -54,6 +55,8 @@ public final class Settings {
         self.disabledProviders = Set(
             (defaults.stringArray(forKey: Key.disabledProviders) ?? [])
                 .filter { Provider.named($0) != nil })
+        self.revealedCreatureIDs = Set(
+            defaults.stringArray(forKey: Key.revealedCreatureIDs) ?? [])
     }
 
     /// Which provider the panel opens on.
@@ -76,6 +79,17 @@ public final class Settings {
     public var disabledProviders: Set<String> {
         didSet {
             defaults.set(disabledProviders.sorted(), forKey: Key.disabledProviders)
+        }
+    }
+
+    /// Creature ids the trainer has already been shown the catch animation for.
+    ///
+    /// Catch state itself is derived from local history, not stored. This set
+    /// only remembers which reveals have played, so an update that owes you
+    /// eleven creatures still rips eleven packs — once.
+    public var revealedCreatureIDs: Set<String> {
+        didSet {
+            defaults.set(revealedCreatureIDs.sorted(), forKey: Key.revealedCreatureIDs)
         }
     }
 

@@ -1,0 +1,327 @@
+import Foundation
+import Testing
+
+@testable import RationKit
+
+@Suite("Dex: empty history")
+struct DexEmptyTests {
+
+    @Test("catches nothing until there is usage")
+    func emptyUnlocksNothing() {
+        let state = Dex.evaluate(DexInput(histories: ["claude": UsageHistory()]))
+
+        #expect(state.caught.isEmpty)
+        #expect(state.stats.power == 0)
+        #expect(state.uncaught.count == Dex.roster.count)
+    }
+}
+
+@Suite("Dex: spending unlocks creatures")
+struct DexUnlockTests {
+
+    @Test("the first tokens catch Sparkit")
+    func firstTokensCatchSparkit() {
+        let state = Dex.evaluate(DexInput(histories: ["claude": history(billable: 1_000)]))
+
+        #expect(state.caught.map(\.id) == ["sparkit"])
+        #expect(state.stats.power == 1_000)
+    }
+
+    @Test("Power is the sum of billable tokens across every tool")
+    func powerSumsEveryProvider() {
+        let state = Dex.evaluate(
+            DexInput(histories: [
+                "claude": history(billable: 100_000),
+                "codex": history(billable: 150_000, model: "gpt-5"),
+            ]))
+
+        #expect(state.stats.power == 250_000)
+        #expect(state.caught.map(\.id).contains("tokenoth"))
+    }
+
+    @Test("two tools together catch more than either would alone")
+    func combinedSpendUnlocksWhatNeitherReaches() {
+        let claude = history(billable: 1_200_000)
+        let codex = history(billable: 1_200_000, model: "gpt-5")
+
+        let claudeOnly = Dex.evaluate(DexInput(histories: ["claude": claude]))
+        let together = Dex.evaluate(
+            DexInput(histories: ["claude": claude, "codex": codex]))
+
+        #expect(!claudeOnly.caught.map(\.id).contains("limitwyrm"))
+        #expect(together.caught.map(\.id).contains("limitwyrm"))
+        #expect(together.caught.count > claudeOnly.caught.count)
+    }
+
+    @Test("a second tool with real usage catches Braidon")
+    func twoProvidersCatchBraidon() {
+        let state = Dex.evaluate(
+            DexInput(histories: [
+                "claude": history(billable: 1_000),
+                "codex": history(billable: 1_000, model: "gpt-5"),
+            ]))
+
+        #expect(state.caught.map(\.id).contains("braidon"))
+        #expect(state.stats.providers == ["claude", "codex"])
+    }
+
+    @Test("a live Cursor snapshot counts as a tool even without history")
+    func liveCursorCountsAsAProvider() {
+        let state = Dex.evaluate(
+            DexInput(
+                histories: [
+                    "claude": history(billable: 1_000),
+                    "codex": history(billable: 1_000, model: "gpt-5"),
+                ],
+                liveProviders: ["cursor"]))
+
+        #expect(state.caught.map(\.id).contains("omnivore"))
+        #expect(state.stats.providers == ["claude", "codex", "cursor"])
+    }
+
+    @Test("a live snapshot with no usage does not count as a tool")
+    func idleLiveProviderIsIgnored() {
+        let state = Dex.evaluate(
+            DexInput(
+                histories: ["claude": history(billable: 1_000)],
+                liveProviders: []))
+
+        #expect(!state.caught.map(\.id).contains("braidon"))
+    }
+
+    @Test("a live Cursor-only account still catches Sparkit")
+    func liveCursorAloneCatchesSparkit() {
+        let state = Dex.evaluate(
+            DexInput(histories: [:], liveProviders: ["cursor"]))
+
+        #expect(state.caught.map(\.id) == ["sparkit"])
+        #expect(state.stats.power == 0)
+    }
+
+    @Test("enough messages catch Promptail")
+    func messagesCatchPromptail() {
+        let state = Dex.evaluate(
+            DexInput(histories: ["claude": history(billable: 25, messages: 25)]))
+
+        #expect(state.caught.map(\.id).contains("promptail"))
+    }
+
+    @Test("cache reads catch Cachewisp")
+    func cacheReadsCatchCachewisp() {
+        let state = Dex.evaluate(
+            DexInput(histories: ["claude": history(billable: 1_000, cacheRead: 100_000)]))
+
+        #expect(state.caught.map(\.id).contains("cachewisp"))
+    }
+
+    @Test("five active days catch Heatmite")
+    func activeDaysCatchHeatmite() {
+        let state = Dex.evaluate(
+            DexInput(histories: ["claude": history(billable: 100, days: 5)]))
+
+        #expect(state.caught.map(\.id).contains("heatmite"))
+        #expect(state.stats.activeDays == 5)
+    }
+
+    @Test("a five-day streak catches Streakon")
+    func streakCatchesStreakon() {
+        let calendar = Calendar(identifier: .gregorian)
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 8
+        components.day = 18
+        components.hour = 12
+        let now = calendar.date(from: components)!
+
+        let state = Dex.evaluate(
+            DexInput(
+                histories: ["claude": history(billable: 100, days: 5, endingOn: now)],
+                now: now,
+                calendar: calendar))
+
+        #expect(state.stats.streak == 5)
+        #expect(state.caught.map(\.id).contains("streakon"))
+    }
+
+    @Test("three models catch Modelith")
+    func threeModelsCatchModelith() {
+        var h = UsageHistory()
+        h.add([
+            event(billable: 100, model: "claude-opus-5"),
+            event(billable: 100, model: "claude-sonnet-5"),
+            event(billable: 100, model: "claude-haiku-4"),
+        ])
+
+        let state = Dex.evaluate(DexInput(histories: ["claude": h]))
+
+        #expect(state.caught.map(\.id).contains("modelith"))
+    }
+
+    @Test("coding after 10pm catches Nightshift")
+    func lateNightCatchesNightshift() {
+        let calendar = Calendar(identifier: .gregorian)
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 8
+        components.day = 18
+        components.hour = 23
+        let stamp = calendar.date(from: components)!
+
+        var h = UsageHistory()
+        h.add([event(billable: 2_000, timestamp: stamp)], calendar: calendar)
+
+        let state = Dex.evaluate(DexInput(histories: ["claude": h], calendar: calendar))
+
+        #expect(state.caught.map(\.id).contains("nightshift"))
+    }
+
+    @Test("a single huge day catches Wallback")
+    func hugeDayCatchesWallback() {
+        let state = Dex.evaluate(
+            DexInput(histories: ["claude": history(billable: 2_000_000)]))
+
+        #expect(state.caught.map(\.id).contains("wallback"))
+    }
+
+    @Test("a hundred million Power catches Rationyx")
+    func mythicNeedsAMountainOfTokens() {
+        let almost = Dex.evaluate(
+            DexInput(histories: ["claude": history(billable: 99_000_000)]))
+        let enough = Dex.evaluate(
+            DexInput(histories: ["claude": history(billable: 100_000_000)]))
+
+        #expect(!almost.caught.map(\.id).contains("rationyx"))
+        #expect(enough.caught.map(\.id).contains("rationyx"))
+    }
+}
+
+@Suite("Dex: progress and reveals")
+struct DexProgressTests {
+
+    @Test("progress toward the next Power catch is a 0...1 fraction")
+    func progressTowardNextPowerCatch() {
+        let state = Dex.evaluate(DexInput(histories: ["claude": history(billable: 25_000)]))
+
+        let next = state.nextPowerCatch
+        #expect(next?.creature.id == "gaugeling")
+        #expect(next != nil)
+        #expect(abs((next?.progress ?? 0) - 0.5) < 0.01)
+    }
+
+    @Test("creatures already revealed are not pending")
+    func revealedCreaturesAreNotPending() {
+        let caught = Dex.evaluate(DexInput(histories: ["claude": history(billable: 1_000)])).caught
+
+        let pending = Dex.pendingReveals(caught: caught, alreadyRevealed: ["sparkit"])
+        #expect(pending.isEmpty)
+    }
+
+    @Test("a newly caught creature is pending until it has been revealed")
+    func newCatchIsPending() {
+        let caught = Dex.evaluate(DexInput(histories: ["claude": history(billable: 1_000)])).caught
+
+        let pending = Dex.pendingReveals(caught: caught, alreadyRevealed: [])
+        #expect(pending.map(\.id) == ["sparkit"])
+    }
+}
+
+@Suite("Dex: the set itself")
+struct DexRosterTests {
+
+    @Test("every creature has a unique id and collector number")
+    func uniqueIdentities() {
+        let ids = Dex.roster.map(\.id)
+        let numbers = Dex.roster.map(\.number)
+
+        #expect(Set(ids).count == Dex.roster.count)
+        #expect(Set(numbers).count == Dex.roster.count)
+        #expect(numbers == Array(1...Dex.roster.count))
+    }
+
+    @Test("the set is eighteen creatures")
+    func setSize() {
+        #expect(Dex.roster.count == 18)
+    }
+
+    @Test("display names are plain English, not clone portmanteaus")
+    func readableNames() {
+        #expect(
+            Dex.roster.map(\.name) == [
+                "Ember", "Prompt", "Needle", "Moth", "Wisp", "Cell",
+                "Session", "Coil", "Context", "Shift", "Streak", "Pace",
+                "Week", "Braid", "Night", "Trio", "Wall", "Mark",
+            ])
+    }
+}
+
+@Suite("Creature share caption")
+struct CreatureShareTests {
+
+    @Test("names the creature, the count, and the repository")
+    func caption() {
+        let text = CreatureShare.caption(name: "Ember", caught: 11, of: 18)
+
+        #expect(text.contains("Ember"))
+        #expect(text.contains("11 of 18"))
+        #expect(text.contains("github.com/mcpeixoto/ration"))
+        #expect(!text.contains("http"))
+    }
+}
+
+// MARK: - Fixtures
+
+/// One-day history unless `days` is set, in which the same billable count
+/// is split across consecutive days ending today (or `endingOn`).
+/// Midday on a fixed date, so a test that does not care about the hour
+/// cannot accidentally catch Nightshift just because it ran after 10pm.
+private let fixtureNoon: Date = {
+    var components = DateComponents()
+    components.year = 2026
+    components.month = 8
+    components.day = 12
+    components.hour = 12
+    return Calendar(identifier: .gregorian).date(from: components)!
+}()
+
+private func history(
+    billable: Int,
+    messages: Int? = nil,
+    cacheRead: Int = 0,
+    days: Int = 1,
+    endingOn end: Date = fixtureNoon,
+    model: String = "claude-opus-5",
+    calendar: Calendar = Calendar(identifier: .gregorian)
+) -> UsageHistory {
+    var h = UsageHistory()
+    let perDay = max(billable / days, 1)
+    let perMessage = messages.map { max($0 / days, 1) } ?? 1
+    for offset in 0..<days {
+        guard let day = calendar.date(byAdding: .day, value: -(days - 1 - offset), to: end) else {
+            continue
+        }
+        let count = messages == nil ? 1 : perMessage
+        h.add(
+            (0..<count).map { i in
+                event(
+                    billable: perDay / count,
+                    cacheRead: cacheRead / days,
+                    model: model,
+                    session: "s\(offset)-\(i)",
+                    timestamp: day)
+            },
+            calendar: calendar)
+    }
+    return h
+}
+
+private func event(
+    billable: Int,
+    cacheRead: Int = 0,
+    model: String = "claude-opus-5",
+    session: String = "s1",
+    timestamp: Date = fixtureNoon
+) -> UsageEvent {
+    UsageEvent(
+        timestamp: timestamp, model: model, project: "p", sessionID: session,
+        inputTokens: billable, outputTokens: 0, cacheReadTokens: cacheRead)
+}

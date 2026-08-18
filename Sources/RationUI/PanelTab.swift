@@ -1,11 +1,9 @@
 import SwiftUI
 
-/// The panel's four views.
+/// The panel's five views.
 ///
-/// Four rather than three because Metrics grew past what a menu bar panel can
-/// show without scrolling. The split is by question: *how am I doing right
-/// now* (Usage), *when do I work* (Activity), *how is it trending* (Trends),
-/// *what is it going into* (Breakdown).
+/// Five rather than four because Collection is a game sitting on top of the
+/// same local history, not another way of reading a single provider.
 public enum PanelTab: String, CaseIterable, Identifiable, Codable {
     /// Live plan limits, and whether the current window survives them.
     case usage
@@ -15,6 +13,8 @@ public enum PanelTab: String, CaseIterable, Identifiable, Codable {
     case trends
     /// Where the tokens went — by model and by project.
     case breakdown
+    /// Creatures unlocked from lifetime usage across every tool.
+    case collection
 
     public var id: String { rawValue }
 
@@ -24,6 +24,7 @@ public enum PanelTab: String, CaseIterable, Identifiable, Codable {
         case .activity: "Activity"
         case .trends: "Trends"
         case .breakdown: "Detail"
+        case .collection: "Catch"
         }
     }
 
@@ -33,6 +34,7 @@ public enum PanelTab: String, CaseIterable, Identifiable, Codable {
         case .activity: "calendar"
         case .trends: "chart.line.uptrend.xyaxis"
         case .breakdown: "chart.pie.fill"
+        case .collection: "square.grid.3x3.fill"
         }
     }
 }
@@ -58,6 +60,8 @@ struct TabSwitcher: View {
                 } label: {
                     Text(tab.title)
                         .font(.caption)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
                         .foregroundStyle(selection == tab ? Color.primary : .secondary)

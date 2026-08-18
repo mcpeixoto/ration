@@ -33,9 +33,10 @@ ordinary anonymous file fetches — GitHub sees an IP address and a user agent,
 the same as visiting the repository in a browser. Turn automatic checks off in
 Settings and Ration never contacts GitHub at all.
 
-The app also contains a "buy me a coffee" link. It is a link — clicking it
-opens your browser. Ration never contacts that host itself, and not clicking it
-means no request is ever made.
+The app also contains a "buy me a coffee" link and a "Post on X" compose link.
+Each is a link — clicking it opens your browser. Ration never contacts those
+hosts itself, and not clicking them means no request is ever made. The X path
+copies a card image to the pasteboard first; it does not upload the image.
 
 There is no analytics endpoint, no crash reporter, and no telemetry of any
 kind. This is enforced by tests: one fails the build if an unexpected host

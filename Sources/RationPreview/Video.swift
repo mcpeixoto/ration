@@ -148,7 +148,7 @@ private struct StaticTabBar: View {
             ForEach(PanelTab.allCases) { tab in
                 HStack(spacing: 4) {
                     Image(systemName: tab.symbol).font(.system(size: 9))
-                    Text(tab.title).font(.caption)
+                    Text(tab.title).font(.caption).lineLimit(1).minimumScaleFactor(0.75)
                 }
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)

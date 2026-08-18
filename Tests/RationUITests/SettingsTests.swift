@@ -85,3 +85,26 @@ struct PollIntervalSettingsTests {
         #expect(settings.schedule.openInterval == 120)
     }
 }
+
+@Suite("Settings: Dex reveals")
+struct DexRevealSettingsTests {
+
+    @Test("a fresh install has revealed nothing")
+    @MainActor
+    func defaultsToEmpty() {
+        let settings = Settings(defaults: scratchDefaults("ration.tests.dex.empty"))
+        #expect(settings.revealedCreatureIDs.isEmpty)
+    }
+
+    @Test("revealed ids survive a relaunch")
+    @MainActor
+    func roundTrips() {
+        let defaults = scratchDefaults("ration.tests.dex.roundtrip")
+
+        let first = Settings(defaults: defaults)
+        first.revealedCreatureIDs = ["sparkit", "braidon"]
+
+        let second = Settings(defaults: defaults)
+        #expect(second.revealedCreatureIDs == ["sparkit", "braidon"])
+    }
+}

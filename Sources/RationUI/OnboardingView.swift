@@ -111,4 +111,7 @@ enum Links {
     static let repository = "https://github.com/mcpeixoto/ration"
     static let privacy = "https://github.com/mcpeixoto/ration/blob/main/PRIVACY.md"
     static let coffee = "https://buymeacoffee.com/mcpeixoto"
+    /// Compose URL. Opening it is a user click, the same as the coffee link —
+    /// Ration never requests this host itself.
+    static let xCompose = "https://x.com/intent/tweet"
 }

@@ -23,7 +23,7 @@ session window resets often enough to watch itself. It stays monochrome while
 everything is fine, turns amber past 80% and red past 90% — so colour in your
 menu bar always means something.
 
-Four tabs:
+Five tabs:
 
 - **Usage** — live plan limits, and a projection of the current window: *at
   this rate, do you run out before it resets?* Click any limit to promote it
@@ -33,6 +33,9 @@ Four tabs:
 - **Trends** — totals and daily charts over 7/30/90 days, across
   tokens, messages, sessions, or estimated cost, with a 7-day trend line.
 - **Detail** — where the tokens went, by model and by project.
+- **Catch** — original creatures unlocked from a local Score across every tool
+  Ration can read. Cards copy, save, and post to X from your Mac; nothing
+  about the collection leaves the machine unless you share it.
 
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, and the

@@ -154,6 +154,14 @@ MainActor.assumeIsolated {
         },
         to: outputDirectory.appendingPathComponent("breakdown-dark.png"),
         scale: 2, appearance: .darkAqua)
+    render(
+        TabPreview(title: "Catch") {
+            CollectionView(
+                state: Dex.evaluate(DexInput(histories: ["claude": transcripts.history])),
+                revealedIDs: .constant(Set(Dex.roster.map(\.id))))
+        },
+        to: outputDirectory.appendingPathComponent("collection-dark.png"),
+        scale: 2, appearance: .darkAqua)
 
     render(
         OnboardingView(onContinue: {}),
