@@ -80,6 +80,17 @@ public struct MenuBarPresentation: Sendable, Equatable {
         self.tooltip = tooltip
         self.bar = bar
     }
+
+    /// True when the item carries a colour a template image would strip.
+    ///
+    /// A healthy weekly bar is drawn in `primary`, so it can stay a template
+    /// and follow the menu bar into night. Amber, red, or a severity tint
+    /// cannot, and must be baked as a bitmap.
+    public var hasChromaticColor: Bool {
+        if tint != nil { return true }
+        if let bar, bar.severity != .normal { return true }
+        return false
+    }
 }
 
 extension MenuBarPresentation {
@@ -282,6 +293,11 @@ public struct MenuBarStrip: Sendable, Equatable {
 
     public var accessibilityLabel: String {
         items.map(\.accessibilityLabel).joined(separator: ", ")
+    }
+
+    /// True when any account needs a colour the menu bar cannot template.
+    public var hasChromaticColor: Bool {
+        items.contains { $0.hasChromaticColor }
     }
 
     /// One account that is on, in the order the caller listed them.

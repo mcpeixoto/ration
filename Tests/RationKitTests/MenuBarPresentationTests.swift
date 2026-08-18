@@ -395,6 +395,56 @@ struct MenuBarWeeklyBarTests {
     }
 }
 
+// MARK: - Chromatic colour (bitmap vs template)
+
+@Suite("Menu bar chromatic colour")
+struct MenuBarChromaticColorTests {
+
+    private func present(
+        _ limits: [UsageLimit], bar: Bool = true, color: Bool = true
+    ) -> MenuBarPresentation {
+        var state = UsageState()
+        state.recordSuccess(UsageSnapshot(limits: limits))
+        return MenuBarPresentation.make(
+            state: state, mode: .sessionPercent, useSeverityColor: color, showWeeklyBar: bar)
+    }
+
+    @Test("a healthy weekly bar is still a template: it is drawn in primary")
+    func healthyBarIsNotChromatic() {
+        let presentation = present([limit(.weeklyAll, 50)])
+        #expect(presentation.bar != nil)
+        #expect(presentation.tint == nil)
+        #expect(!presentation.hasChromaticColor)
+    }
+
+    @Test("an amber or red bar needs a bitmap, even with colouring off")
+    func warningBarIsChromatic() {
+        #expect(present([limit(.weeklyAll, 82)]).hasChromaticColor)
+        #expect(present([limit(.weeklyAll, 95)], color: false).hasChromaticColor)
+    }
+
+    @Test("a severity tint needs a bitmap even without a bar")
+    func tintIsChromatic() {
+        let presentation = present([limit(.session, 95)], bar: false)
+        #expect(presentation.bar == nil)
+        #expect(presentation.tint == .critical)
+        #expect(presentation.hasChromaticColor)
+    }
+
+    @Test("icon and percentage alone stay a template")
+    func plainLabelIsNotChromatic() {
+        #expect(!present([limit(.session, 20)], bar: false, color: false).hasChromaticColor)
+    }
+
+    @Test("the strip is chromatic if any account is")
+    func stripFollowsAnyAccount() {
+        let calm = present([limit(.weeklyAll, 20)])
+        let loud = present([limit(.weeklyAll, 95)])
+        #expect(!MenuBarStrip(items: [calm]).hasChromaticColor)
+        #expect(MenuBarStrip(items: [calm, loud]).hasChromaticColor)
+    }
+}
+
 @Suite("All hidden")
 struct AllHiddenPresentationTests {
 
