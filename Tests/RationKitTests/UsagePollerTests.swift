@@ -67,9 +67,9 @@ private func snapshot(_ percent: Double) -> UsageSnapshot {
 /// request — and that is not something these tests should be pinning. Yields
 /// are free; a count tuned to today's call depth is a trap for the next change.
 private func settle() async {
-    for _ in 0..<200 {
-        await Task.yield()
-    }
+    // Yielding is not enough on a loaded CI runner: the poll loop is a Task
+    // that may not have been scheduled yet. A short sleep is.
+    try? await Task.sleep(for: .milliseconds(50))
 }
 
 // MARK: - Tests

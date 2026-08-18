@@ -96,27 +96,30 @@ PLIST
 #
 # macOS ties a keychain "Always Allow" grant to the app's code signature. An
 # ad-hoc signature changes on every build, so the grant is void each time and
-# you get a password prompt. If a stable identity is available, use it — set
-# RATION_SIGN_IDENTITY, or create a self-signed "Ration Development"
-# certificate via Keychain Access > Certificate Assistant.
+# you get a password prompt. A Developer ID identity is stable, but codesign
+# asks for the login-keychain password every time it uses that private key —
+# which is how a local `bundle.sh` ended up nagging for the Mac password.
 #
-# Preference order: an explicit RATION_SIGN_IDENTITY, then a self-signed
-# "Ration Development" certificate, then whatever Apple identity the machine
-# already carries. Any of them is stable across builds, which is the only
-# property that matters here — the keychain grant survives a rebuild.
+# So local builds sign with a self-signed "Ration Development" identity kept
+# in its own keychain (see Scripts/ensure-dev-cert.sh). Release signing with
+# Developer ID is Scripts/sign.sh, which CI runs against an unlocked keychain.
+#
+# Skipped in CI: creating and trusting a cert needs a GUI session, and the
+# release job re-signs with Developer ID anyway.
+if [ -z "${GITHUB_ACTIONS:-}${CI:-}" ]; then
+    "$ROOT/Scripts/ensure-dev-cert.sh" || \
+        echo "note: no Ration Development identity; signing will be ad-hoc"
+fi
+
 IDENTITY="${RATION_SIGN_IDENTITY:-}"
 if [ -z "$IDENTITY" ]; then
     AVAILABLE=$(security find-identity -v -p codesigning 2>/dev/null || true)
-    for CANDIDATE in "Ration Development" "Developer ID Application" "Apple Development"; do
-        MATCH=$(printf '%s\n' "$AVAILABLE" | grep -m1 -F "$CANDIDATE" || true)
-        if [ -n "$MATCH" ]; then
-            # find-identity prints `  N) <hash> "<name>"`; the hash is
-            # unambiguous even when several certificates share a prefix.
-            IDENTITY=$(printf '%s\n' "$MATCH" | awk '{print $2}')
-            echo "==> Using signing identity: $CANDIDATE ($IDENTITY)"
-            break
-        fi
-    done
+    MATCH=$(printf '%s\n' "$AVAILABLE" | grep -m1 -F "Ration Development" || true)
+    if [ -n "$MATCH" ]; then
+        # find-identity prints `  N) <hash> "<name>"`; the hash is unambiguous.
+        IDENTITY=$(printf '%s\n' "$MATCH" | awk '{print $2}')
+        echo "==> Using signing identity: Ration Development ($IDENTITY)"
+    fi
 fi
 
 if [ -n "$IDENTITY" ]; then
