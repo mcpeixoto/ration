@@ -67,7 +67,7 @@ presenting them as live.
 
 ## Install
 
-[**Download Ration 0.3.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.3.0.dmg)
+[**Download Ration 0.3.1**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.3.1.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
@@ -210,23 +210,24 @@ More detail in [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md).
 | Accounts | All on | Turn a tool off and it is hidden everywhere — and not read at all. Every account that stays on appears in the menu bar. |
 | Weekly usage bar | On | A small vertical gauge beside the icon, filling as the week is spent |
 | Colour when near a limit | On | Amber past 80%, red past 90% |
-| Check every | 60s | 30s minimum; faster while the panel is open |
+| Check every | 60s | One minute minimum; the same interval with the panel open |
 | Notify near a limit | On | Fires once per threshold per window |
 | Open at login | Off | Standard `SMAppService` login item |
 
-### Why the 30-second floor
+### Why the one-minute floor
 
-`/api/oauth/usage` is an undocumented convenience endpoint for your own
-account. Ration will not poll it faster than every 30 seconds, and that floor is
-enforced in code rather than left to configuration. Hammering it would risk it
-being locked down for everyone.
+Each tick fetches every account you have switched on, against undocumented
+convenience endpoints for your own account. Ration will not poll faster than
+once a minute, and that floor is enforced in code rather than left to
+configuration. Hammering them would be overkill, and would risk them being
+locked down for everyone.
 
 ## Building from source
 
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-swift test          # 286 tests, no network, no keychain
+swift test          # 289 tests, no network, no keychain
 ./Scripts/bundle.sh # produces .build/Ration.app
 open .build/Ration.app
 ```

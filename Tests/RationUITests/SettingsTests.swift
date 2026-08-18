@@ -58,3 +58,30 @@ struct DisabledProvidersSettingsTests {
         #expect(second.disabledProviders.isEmpty)
     }
 }
+
+@Suite("Settings: poll interval")
+struct PollIntervalSettingsTests {
+
+    @Test("a stored 30-second interval is raised to the one-minute floor")
+    @MainActor
+    func thirtySecondsIsRaised() {
+        let defaults = scratchDefaults("ration.tests.poll30")
+        defaults.set(30.0, forKey: "pollInterval")
+
+        let settings = Settings(defaults: defaults)
+
+        #expect(settings.pollInterval == 60)
+        #expect(settings.schedule.idleInterval == 60)
+        #expect(settings.schedule.openInterval == 60)
+    }
+
+    @Test("a two-minute choice is used whether the panel is open or closed")
+    @MainActor
+    func twoMinutesAppliesWhileOpen() {
+        let settings = Settings(defaults: scratchDefaults("ration.tests.poll120"))
+        settings.pollInterval = 120
+
+        #expect(settings.schedule.idleInterval == 120)
+        #expect(settings.schedule.openInterval == 120)
+    }
+}

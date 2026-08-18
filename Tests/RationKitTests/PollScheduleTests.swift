@@ -13,9 +13,9 @@ struct PollScheduleTests {
         #expect(schedule.delay(failures: 0, isMenuOpen: false, lastError: nil) == 60)
     }
 
-    @Test("polls faster while the user is looking at the popover")
+    @Test("does not poll faster while the user is looking at the popover")
     func openInterval() {
-        #expect(schedule.delay(failures: 0, isMenuOpen: true, lastError: nil) == 10)
+        #expect(schedule.delay(failures: 0, isMenuOpen: true, lastError: nil) == 60)
     }
 
     @Test("backs off exponentially after failures")
@@ -75,13 +75,20 @@ struct PollScheduleTests {
         #expect(PollSchedule(idleInterval: 120).idleInterval == 120)
     }
 
+    @Test("a matching open interval stays at the idle pace")
+    func matchingOpenDoesNotSpeedUp() {
+        let even = PollSchedule(idleInterval: 120, openInterval: 120)
+        #expect(even.delay(failures: 0, isMenuOpen: true, lastError: nil) == 120)
+        #expect(even.delay(failures: 0, isMenuOpen: false, lastError: nil) == 120)
+    }
+
     @Test("the open-popover interval never exceeds the idle interval")
     func openIsNeverSlowerThanIdle() {
-        // A user who picks a 30s idle interval should not get slower updates
-        // while actively watching the popover.
-        let fast = PollSchedule(idleInterval: 30)
-        let open = fast.delay(failures: 0, isMenuOpen: true, lastError: nil) ?? .infinity
-        let closed = fast.delay(failures: 0, isMenuOpen: false, lastError: nil) ?? .infinity
+        // A user who picks a 2-minute idle interval should not get slower
+        // updates while actively watching the popover.
+        let slow = PollSchedule(idleInterval: 120)
+        let open = slow.delay(failures: 0, isMenuOpen: true, lastError: nil) ?? .infinity
+        let closed = slow.delay(failures: 0, isMenuOpen: false, lastError: nil) ?? .infinity
         #expect(open <= closed)
     }
 }

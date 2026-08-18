@@ -10,10 +10,11 @@ public struct PollSchedule: Sendable, Equatable {
 
     /// The fastest Ration will ever poll.
     ///
-    /// This is a hard floor, not a default. The endpoint is an undocumented
-    /// convenience for the user's own account, and hammering it would be a bad
-    /// citizen move that risks it being locked down for everyone.
-    public static let minimumInterval: TimeInterval = 30
+    /// This is a hard floor, not a default. Each tick now fetches every visible
+    /// account, and the endpoints are undocumented conveniences for the user's
+    /// own account. Checking more often than once a minute is overkill and
+    /// risks the endpoints being locked down for everyone.
+    public static let minimumInterval: TimeInterval = 60
     public static let maximumInterval: TimeInterval = 300
 
     /// Ceiling for exponential backoff after repeated failures.
@@ -24,7 +25,7 @@ public struct PollSchedule: Sendable, Equatable {
     /// How often to refresh while the user has the popover open.
     public let openInterval: TimeInterval
 
-    public init(idleInterval: TimeInterval = 60, openInterval: TimeInterval = 10) {
+    public init(idleInterval: TimeInterval = 60, openInterval: TimeInterval = 60) {
         let clampedIdle = min(max(idleInterval, Self.minimumInterval), Self.maximumInterval)
         self.idleInterval = clampedIdle
         // Watching the popover should never be slower than not watching it.

@@ -66,8 +66,8 @@ public struct SettingsView: View {
                     }
                 }
                 Text(
-                    "Ration checks more often while the panel is open. "
-                        + "The minimum is \(Int(PollSchedule.minimumInterval)) seconds."
+                    "Once a minute is the fastest Ration will check. "
+                        + "Each tick reads every account you have switched on."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

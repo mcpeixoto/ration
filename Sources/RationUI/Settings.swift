@@ -38,8 +38,11 @@ public final class Settings {
             defaults.object(forKey: Key.useSeverityColor) as? Bool ?? true
         self.showWeeklyBar =
             defaults.object(forKey: Key.showWeeklyBar) as? Bool ?? true
+        let storedInterval = defaults.object(forKey: Key.pollInterval) as? Double ?? 60
+        // 30s used to be offered; it is now below the floor. Map it to 60 so
+        // the picker has a matching option rather than a blank selection.
         self.pollInterval =
-            defaults.object(forKey: Key.pollInterval) as? Double ?? 60
+            Self.pollIntervalOptions.contains(storedInterval) ? storedInterval : 60
         self.notifyOnThresholds =
             defaults.object(forKey: Key.notifyOnThresholds) as? Bool ?? true
         self.hasCompletedOnboarding = defaults.bool(forKey: Key.hasCompletedOnboarding)
@@ -107,10 +110,10 @@ public final class Settings {
 
     /// The intervals offered in Settings. The floor comes from `PollSchedule`,
     /// which enforces it regardless of what is stored here.
-    public static let pollIntervalOptions: [Double] = [30, 60, 120, 300]
+    public static let pollIntervalOptions: [Double] = [60, 120, 300]
 
     public var schedule: PollSchedule {
-        PollSchedule(idleInterval: pollInterval, openInterval: 10)
+        PollSchedule(idleInterval: pollInterval, openInterval: pollInterval)
     }
 
     // MARK: Launch at login
