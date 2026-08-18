@@ -113,7 +113,7 @@ public struct CollectionView: View {
                 .frame(height: 6)
                 .accessibilityLabel("Progress to next unlock")
                 .accessibilityValue("\(Int(hunt.progress * 100)) percent")
-            } else if !state.caught.isEmpty {
+            } else if state.uncaught.isEmpty {
                 Text("The set is complete.")
                     .font(.caption)
                     .foregroundStyle(Theme.accent)

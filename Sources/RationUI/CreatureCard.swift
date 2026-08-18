@@ -23,13 +23,22 @@ struct CreatureCard: View {
     }
 
     private var mini: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             CreaturePortrait(creature: creature, caught: caught)
-                .padding(10)
+                .frame(minHeight: 72)
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
             Text(caught ? creature.name : "Locked")
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.bottom, 8)
+            Text(creature.requirement.deed)
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 6)
         }
         .frame(maxWidth: .infinity)
         .background(paper, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -50,7 +59,7 @@ struct CreatureCard: View {
                 .font(.title3.weight(.semibold))
                 .padding(.horizontal, 14)
 
-            Text(caught ? creature.rarity.label : creature.requirement.hint)
+            Text(creature.requirement.deed)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(caught ? creature.rarity.color : .secondary)
                 .padding(.horizontal, 14)
@@ -120,6 +129,23 @@ struct HoloFoil: View {
 }
 
 extension UnlockRequirement {
+    /// What happened, or what still has to. Short enough for a binder tile.
+    var deed: String {
+        switch self {
+        case .anyUsage: "First tokens"
+        case .power(let n): "\(PowerFormat.compact(n)) Score"
+        case .messages(let n): "\(n) messages"
+        case .sessions(let n): "\(n) sessions"
+        case .cacheReads(let n): "\(PowerFormat.compact(n)) cache"
+        case .activeDays(let n): "\(n) days"
+        case .streak(let n): "\(n)-day streak"
+        case .models(let n): "\(n) models"
+        case .providers(let n): "\(n) tools"
+        case .nightOwl: "After 10pm"
+        case .singleDay(let n): "\(PowerFormat.compact(n)) in one day"
+        }
+    }
+
     var hint: String {
         switch self {
         case .anyUsage: "Spend any tokens"
