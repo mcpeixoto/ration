@@ -200,5 +200,5 @@ public struct AnthropicUsageSource: UsageSource {
 
 public enum Ration {
     /// Kept in step with the VERSION file by Scripts/bundle.sh.
-    public static let version = "0.4.0"
+    public static let version = "0.4.1"
 }
