@@ -89,7 +89,7 @@ presenting them as live.
 
 ### macOS
 
-[**Download Ration 0.7.1**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.7.1.dmg)
+[**Download Ration 0.7.2**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.7.2.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
@@ -102,11 +102,11 @@ published yet.
 
 Download the tarball for your architecture from
 [Releases](https://github.com/mcpeixoto/ration/releases/latest) — look for
-`ration-0.7.1-linux-x86_64.tar.gz` (or `aarch64` on ARM).
+`ration-0.7.2-linux-x86_64.tar.gz` (or `aarch64` on ARM).
 
 ```sh
-tar -xzf ration-0.7.1-linux-x86_64.tar.gz
-cd ration-0.7.1-linux-x86_64
+tar -xzf ration-0.7.2-linux-x86_64.tar.gz
+cd ration-0.7.2-linux-x86_64
 ./ration status          # one-shot usage for every tool you have
 ./ration watch           # refresh every 60 seconds
 ./ration status --json   # machine-readable output

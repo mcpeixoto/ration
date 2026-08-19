@@ -50,7 +50,10 @@ let package = Package(
         .target(
             name: "RationKit",
             dependencies: ["CSqlite3"],
-            linkerSettings: [.linkedLibrary("sqlite3")]
+            linkerSettings: [
+                .linkedLibrary("sqlite3"),
+                .linkedLibrary("FoundationNetworking", .when(platforms: [.linux])),
+            ]
         ),
         .executableTarget(
             name: "RationCLI",
