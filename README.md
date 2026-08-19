@@ -89,7 +89,7 @@ presenting them as live.
 
 ### macOS
 
-[**Download Ration 0.7.4**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.7.4.dmg)
+[**Download Ration 0.7.5**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.7.5.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
