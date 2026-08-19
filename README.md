@@ -11,6 +11,10 @@ limit halfway through a long agent run.
 </p>
 
 <p align="center">
+  <a href="https://github.com/mcpeixoto/ration/releases/download/v0.6.0/ration-teaser-1x1.mp4"><b>Watch the 22-second teaser</b></a>
+</p>
+
+<p align="center">
   <img src="docs/images/popover-dark.png" width="260" alt="Live plan limits">
   <img src="docs/images/activity-dark.png" width="260" alt="Calendar heat map of past activity">
   <img src="docs/images/trends-dark.png" width="260" alt="Daily usage trends">
