@@ -12,6 +12,8 @@ limit halfway through a long agent run.
 
 <p align="center">
   <a href="https://github.com/mcpeixoto/ration/releases/download/v0.6.0/ration-teaser-1x1.mp4"><b>Watch the 22-second teaser</b></a>
+  &nbsp;·&nbsp;
+  <a href="tools/teaser/">build it yourself</a>
 </p>
 
 <p align="center">
