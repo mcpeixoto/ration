@@ -11,7 +11,7 @@ enum ConfigCommand {
         case "path":
             print(CLIConfig.url.path)
         default:
-            fputs("Unknown config command: \(subcommand ?? "")\n", stderr)
+            FileHandle.standardError.write(Data("Unknown config command: \(subcommand ?? "")\n".utf8))
             printConfigHelp()
             exit(1)
         }
@@ -42,21 +42,24 @@ enum ConfigCommand {
             case "pollInterval", "interval":
                 index += 1
                 guard index < args.count, let value = TimeInterval(args[index]) else {
-                    fputs("Usage: ration config set pollInterval <seconds>\n", stderr)
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set pollInterval <seconds>\n".utf8))
                     exit(1)
                 }
                 config.pollInterval = max(60, value)
             case "notify", "notifyOnThresholds":
                 index += 1
                 guard index < args.count else {
-                    fputs("Usage: ration config set notify <true|false>\n", stderr)
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set notify <true|false>\n".utf8))
                     exit(1)
                 }
                 config.notifyOnThresholds = args[index].lowercased() == "true"
             case "disable":
                 index += 1
                 guard index < args.count else {
-                    fputs("Usage: ration config set disable <provider>\n", stderr)
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set disable <provider>\n".utf8))
                     exit(1)
                 }
                 if !config.disabledProviders.contains(args[index]) {
@@ -65,7 +68,8 @@ enum ConfigCommand {
             case "enable":
                 index += 1
                 guard index < args.count else {
-                    fputs("Usage: ration config set enable <provider>\n", stderr)
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set enable <provider>\n".utf8))
                     exit(1)
                 }
                 config.disabledProviders.removeAll { $0 == args[index] }

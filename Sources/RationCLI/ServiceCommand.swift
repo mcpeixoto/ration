@@ -12,7 +12,7 @@ enum ServiceCommand {
         case "status":
             status()
         default:
-            fputs("Unknown service command: \(subcommand ?? "")\n", stderr)
+            FileHandle.standardError.write(Data("Unknown service command: \(subcommand ?? "")\n".utf8))
             printHelp()
             exit(1)
         }
