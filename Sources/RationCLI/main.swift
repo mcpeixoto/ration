@@ -18,7 +18,8 @@ struct RationCLI {
         case "help", "-h", "--help":
             printHelp()
         default:
-            fputs("Unknown command: \(command)\n", stderr)
+            let message = "Unknown command: \(command)\n"
+            FileHandle.standardError.write(Data(message.utf8))
             printHelp()
             exit(1)
         }
