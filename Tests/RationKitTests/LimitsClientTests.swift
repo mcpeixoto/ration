@@ -51,9 +51,9 @@ struct LimitsClientRequestTests {
         let transport = StubTransport(status: 200, body: validBody)
         _ = try await AnthropicLimitsClient(transport: transport).fetchUsage(token: "secret-token")
 
-        let headers = try #require(transport.lastRequest?.allHTTPHeaderFields)
-        #expect(headers["Authorization"] == "Bearer secret-token")
-        #expect(headers["anthropic-beta"] == "oauth-2025-04-20")
+        let request = try #require(transport.lastRequest)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-token")
+        #expect(request.value(forHTTPHeaderField: "anthropic-beta") == "oauth-2025-04-20")
     }
 
     @Test("identifies itself honestly in the user agent")
