@@ -1,6 +1,6 @@
 # Ration
 
-Your AI coding usage, in the macOS menu bar.
+Your AI coding usage, in the macOS menu bar — or the Linux terminal.
 
 Ration puts a small gauge in your menu bar showing how much of your plan you
 have used — for **Claude Code**, **Codex**, and **Cursor**. No more discovering you hit a
@@ -85,7 +85,9 @@ presenting them as live.
 
 ## Install
 
-[**Download Ration 0.6.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.6.0.dmg)
+### macOS
+
+[**Download Ration 0.7.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.7.0.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
@@ -94,11 +96,50 @@ Gatekeeper warning. It updates itself from then on.
 A Homebrew cask is coming; the formula in `Casks/` is ready but the tap is not
 published yet.
 
+### Linux
+
+Download the tarball for your architecture from
+[Releases](https://github.com/mcpeixoto/ration/releases/latest) — look for
+`ration-0.7.0-linux-x86_64.tar.gz` (or `aarch64` on ARM).
+
+```sh
+tar -xzf ration-0.7.0-linux-x86_64.tar.gz
+cd ration-0.7.0-linux-x86_64
+./ration status          # one-shot usage for every tool you have
+./ration watch           # refresh every 60 seconds
+./ration status --json   # machine-readable output
+```
+
+Or build from source:
+
+```sh
+git clone https://github.com/mcpeixoto/ration.git
+cd ration
+swift build -c release --product ration
+.build/release/ration status
+```
+
+Linux ships as a CLI (`ration`), not a menu bar app. Usage limits, Codex
+history, and Cursor metering work the same way; notifications, Sparkle
+updates, and the Pokémon collection UI are macOS-only for now.
+
 ### Requirements
+
+**macOS**
 
 - macOS 14 (Sonoma) or later
 - At least one supported tool: [Claude Code](https://claude.com/claude-code)
   signed in, Codex CLI with at least one session, or Cursor signed in
+
+**Linux**
+
+- Ubuntu 22.04+ or another glibc-based distro with Swift 6
+- `libsqlite3-dev` for building from source
+- At least one supported tool installed and signed in (same as macOS)
+
+On Linux, Claude Code stores credentials in `~/.claude/.credentials.json`
+(respecting `CLAUDE_CONFIG_DIR` and `CLAUDE_SECURESTORAGE_CONFIG_DIR` when set).
+Cursor keeps its session at `~/.config/Cursor/User/globalStorage/state.vscdb`.
 
 Ration does not sign you in and has no account of its own. It reads what your
 tools already have.
@@ -242,12 +283,26 @@ locked down for everyone.
 
 ## Building from source
 
+**macOS**
+
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-swift test          # 289 tests, no network, no keychain
+swift test          # 335+ tests, no network, no keychain
 ./Scripts/bundle.sh # produces .build/Ration.app
 open .build/Ration.app
+```
+
+**Linux**
+
+```sh
+git clone https://github.com/mcpeixoto/ration.git
+cd ration
+sudo apt-get install -y libsqlite3-dev   # Debian/Ubuntu
+swift test
+swift build -c release --product ration
+.build/release/ration status
+./Scripts/bundle-linux.sh                # produces a release tarball
 ```
 
 To install your own build into `/Applications` instead of running it out of
@@ -279,15 +334,16 @@ frame by frame from the real SwiftUI views — the motion in the GIF above is th
 app, not a mockup. Nothing here is a binary blob that drifts silently out of
 date.
 
-Requires Xcode 16 or later. There is no `.xcodeproj` — the whole repo is plain
-text, and `Scripts/bundle.sh` assembles the `.app` around the SwiftPM binary.
+Requires Xcode 16 or later on macOS. Linux builds need Swift 6 and
+`libsqlite3-dev`. There is no `.xcodeproj` — the whole repo is plain text.
 
 ### Layout
 
 ```
-Sources/RationKit     Pure logic: models, keychain, API client, polling. No UI.
-Sources/RationUI      SwiftUI views and view models.
-Sources/Ration        The executable. Wiring and AppKit lifecycle only.
+Sources/RationKit     Pure logic: models, credentials, API client, polling. No UI.
+Sources/RationUI      SwiftUI views and view models (macOS only).
+Sources/Ration        The macOS menu bar executable.
+Sources/RationCLI     The Linux (and cross-platform) CLI executable.
 Sources/RationPreview Dev tool: renders the UI to PNGs. Not shipped.
 Tests/RationKitTests  Unit tests with checked-in API fixtures.
 ```

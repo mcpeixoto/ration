@@ -19,10 +19,7 @@ public struct CursorUsageSource: UsageSource {
         store: CursorSessionStore = CursorSessionStore(),
         client: CursorLimitsClient = CursorLimitsClient()
     ) {
-        self.supportDirectory =
-            supportDirectory
-            ?? URL(fileURLWithPath: NSHomeDirectory())
-            .appending(path: "Library/Application Support/Cursor")
+        self.supportDirectory = supportDirectory ?? PlatformPaths.cursorSupportDirectory
         self.store = store
         self.client = client
     }

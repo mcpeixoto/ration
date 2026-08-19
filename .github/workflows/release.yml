@@ -14,8 +14,8 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build, notarise, publish
+  release-macos:
+    name: Build, notarise, publish (macOS)
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -152,3 +152,42 @@ jobs:
           echo "version \"${VERSION}\"" >> "$GITHUB_STEP_SUMMARY"
           echo "sha256 \"${SHA}\"" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  release-linux:
+    name: Build and publish (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve the release tag
+        run: echo "RELEASE_TAG=${{ inputs.tag || github.ref_name }}" >> "$GITHUB_ENV"
+
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+
+      - name: Install SQLite
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: Test
+        run: swift test
+
+      - name: Build Linux tarball
+        run: ./Scripts/bundle-linux.sh
+
+      - name: Publish Linux artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          ARCH="$(uname -m)"
+          TARBALL=".build/ration-${VERSION}-linux-${ARCH}.tar.gz"
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" "$TARBALL" --clobber
+          else
+            gh release create "${RELEASE_TAG}" "$TARBALL" \
+              --title "Ration ${VERSION}" --generate-notes
+          fi

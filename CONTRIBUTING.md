@@ -11,7 +11,7 @@ swift test
 ./Scripts/bundle.sh && open .build/Ration.app
 ```
 
-Requires macOS 14+ and Xcode 16+.
+Requires macOS 14+ and Xcode 16+, or Linux with Swift 6 and `libsqlite3-dev`.
 
 ## Ground rules
 

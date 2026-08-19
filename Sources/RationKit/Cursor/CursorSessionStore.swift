@@ -46,10 +46,7 @@ public struct CursorSessionStore: Sendable {
     public let databaseURL: URL
 
     public init(databaseURL: URL? = nil) {
-        self.databaseURL =
-            databaseURL
-            ?? URL(fileURLWithPath: NSHomeDirectory())
-            .appending(path: "Library/Application Support/Cursor/User/globalStorage/state.vscdb")
+        self.databaseURL = databaseURL ?? PlatformPaths.cursorStateDatabase
     }
 
     public func session() throws -> CursorSession {

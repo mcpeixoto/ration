@@ -1,5 +1,4 @@
 import Foundation
-import Security
 
 /// The OAuth access token Claude Code has already obtained, plus the plan
 /// metadata stored alongside it.
@@ -76,9 +75,17 @@ public enum CredentialError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notFound:
+            #if os(macOS)
             "No Claude Code credentials found. Sign in with Claude Code first."
+            #else
+            "No Claude Code credentials found at \(PlatformPaths.claudeCredentialsFile.path). Sign in with Claude Code first."
+            #endif
         case .accessDenied:
+            #if os(macOS)
             "Ration was denied access to the Claude Code credentials in your keychain."
+            #else
+            "Ration could not read the Claude Code credentials file."
+            #endif
         case .malformed:
             "The Claude Code credentials could not be read. Try signing in again."
         case .keychain(let status):
@@ -123,48 +130,6 @@ public protocol CredentialStore: Sendable {
     func credential() throws -> Credential
 }
 
-/// Reads Claude Code's credentials from the login keychain.
-///
-/// Read-only by construction: this type calls `SecItemCopyMatching` and
-/// nothing else. There is no code path here that adds, updates, or deletes a
-/// keychain item.
-///
-/// The first read triggers a system prompt, because the item's ACL was created
-/// by Claude Code and does not list Ration. Choosing "Always Allow" adds Ration
-/// to that ACL and the prompt does not return. `OnboardingView` explains this
-/// before it happens.
-public struct KeychainCredentialStore: CredentialStore {
-
-    /// The service name Claude Code stores its credentials under.
-    public static let service = "Claude Code-credentials"
-
-    public init() {}
-
-    public func credential() throws -> Credential {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-
-        switch status {
-        case errSecSuccess:
-            guard let data = item as? Data else { throw CredentialError.malformed }
-            return try Credential.parse(from: data)
-        case errSecItemNotFound:
-            throw CredentialError.notFound
-        case errSecAuthFailed, errSecUserCanceled, errSecInteractionNotAllowed:
-            throw CredentialError.accessDenied
-        default:
-            throw CredentialError.keychain(status: status)
-        }
-    }
-}
-
 // MARK: - Caching
 
 /// Holds a credential in memory until it is close to expiring.
@@ -184,7 +149,7 @@ public final class CachingCredentialStore: CredentialStore, @unchecked Sendable 
     private let lock = NSLock()
     private var cached: Credential?
 
-    public init(wrapping underlying: any CredentialStore = KeychainCredentialStore()) {
+    public init(wrapping underlying: any CredentialStore = DefaultCredentialStore()) {
         self.underlying = underlying
     }
 

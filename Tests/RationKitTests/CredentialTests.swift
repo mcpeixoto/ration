@@ -290,12 +290,12 @@ struct SourceTreeTests {
         }
     }
 
-    /// The keychain is Claude's alone. Any second provider reaching for one
-    /// would mean a second permission prompt, which is exactly the kind of
-    /// change that should have to be made deliberately.
+    /// The keychain is Claude's alone on macOS. Linux reads a credentials
+    /// file instead — see `Credential+Linux.swift`.
     @Test("only the Anthropic credential store touches the keychain")
     func keychainAccessIsConfinedToOneFile() throws {
-        for file in try swiftFiles() where file.url.lastPathComponent != "Credential.swift" {
+        let allowed = Set(["Credential+macOS.swift"])
+        for file in try swiftFiles() where !allowed.contains(file.url.lastPathComponent) {
             for symbol in ["SecItemCopyMatching", "kSecClass", "SecItemAdd", "SecItemUpdate"] {
                 #expect(
                     !file.contents.contains(symbol),
@@ -304,6 +304,37 @@ struct SourceTreeTests {
         }
     }
 }
+
+#if os(Linux)
+@Suite("Linux credential store")
+struct LinuxCredentialStoreTests {
+
+    @Test("reads Claude Code credentials from a file")
+    func readsFromFile() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appending(path: "ration-credential-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let file = dir.appending(path: ".credentials.json")
+        try realisticPayload.write(to: file, atomically: true, encoding: .utf8)
+
+        let store = FileCredentialStore(fileURL: file)
+        let credential = try store.credential()
+        #expect(credential.accessToken == "sk-ant-oat01-EXAMPLE-ACCESS-TOKEN")
+        #expect(credential.subscriptionType == "max")
+    }
+
+    @Test("throws notFound when the credentials file is missing")
+    func missingFile() {
+        let file = FileManager.default.temporaryDirectory
+            .appending(path: "ration-missing-\(UUID().uuidString)/.credentials.json")
+        #expect(throws: CredentialError.notFound) {
+            try FileCredentialStore(fileURL: file).credential()
+        }
+    }
+}
+#endif
 
 @Suite("Version consistency")
 struct VersionTests {

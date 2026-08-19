@@ -167,9 +167,16 @@ public struct AnthropicUsageSource: UsageSource {
     /// prompt from a method documented not to.
     public func availability() -> ProviderAvailability { .ready }
 
-    /// The keychain item belongs to Claude Code, so macOS asks before letting
-    /// Ration read it. That prompt is what onboarding exists to explain.
-    public var promptsForPermission: Bool { true }
+    /// On macOS the keychain item belongs to Claude Code, so the system asks
+    /// before letting Ration read it. Linux reads a file Claude Code already
+    /// wrote, so there is nothing to prompt for.
+    public var promptsForPermission: Bool {
+        #if os(macOS)
+        true
+        #else
+        false
+        #endif
+    }
 
     public func fetchUsage() async throws -> UsageSnapshot {
         let credential = try credentialStore.credential()
@@ -200,5 +207,5 @@ public struct AnthropicUsageSource: UsageSource {
 
 public enum Ration {
     /// Kept in step with the VERSION file by Scripts/bundle.sh.
-    public static let version = "0.6.0"
+    public static let version = "0.7.0"
 }

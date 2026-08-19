@@ -87,6 +87,32 @@ jobs:
           fi
           echo "OK: no foreign credential references"
 
+  linux:
+    name: Test (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+
+      - name: Install SQLite
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: Build
+        run: swift build --build-tests -c debug
+
+      - name: Test
+        run: swift test
+
+      - name: Build release CLI
+        run: swift build -c release --product ration
+
+      - name: Verify the CLI runs
+        run: .build/release/ration version
+
   format:
     name: Format
     runs-on: macos-15
