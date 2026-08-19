@@ -66,10 +66,10 @@ private func snapshot(_ percent: Double) -> UsageSnapshot {
 /// reads a file suspends a different number of times from one that awaits a
 /// request — and that is not something these tests should be pinning. Yields
 /// are free; a count tuned to today's call depth is a trap for the next change.
+@MainActor
 private func settle() async {
-    // Yielding is not enough on a loaded CI runner: the poll loop is a Task
-    // that may not have been scheduled yet. A short sleep is.
-    try? await Task.sleep(for: .milliseconds(50))
+    // Loaded CI runners need more time for the poll Task to schedule and finish.
+    try? await Task.sleep(for: .milliseconds(150))
 }
 
 // MARK: - Tests

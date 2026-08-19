@@ -1,4 +1,5 @@
 import Foundation
+import RationKit
 
 #if os(Linux)
 enum ServiceCommand {
