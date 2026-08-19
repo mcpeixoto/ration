@@ -258,6 +258,26 @@ struct MenuBarAccessibilityTests {
     }
 }
 
+@Suite("Menu bar hit testing")
+struct MenuBarHitTestingTests {
+
+    @Test("a click on the trailing third of a three-item strip selects the last")
+    func trailingItem() {
+        let widths = [40.0, 40.0, 40.0]
+        let index = MenuBarHitTesting.itemIndex(
+            clickX: 120, barWidth: 136, itemWidths: widths)
+        #expect(index == 2)
+    }
+
+    @Test("a click on the leading item selects the first")
+    func leadingItem() {
+        let widths = [50.0, 50.0]
+        let index = MenuBarHitTesting.itemIndex(
+            clickX: 10, barWidth: 108, itemWidths: widths)
+        #expect(index == 0)
+    }
+}
+
 // MARK: - Relative time
 
 @Suite("Relative time")

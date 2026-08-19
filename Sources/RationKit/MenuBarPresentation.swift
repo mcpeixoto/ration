@@ -334,6 +334,40 @@ public struct MenuBarStrip: Sendable, Equatable {
     }
 }
 
+/// Maps a click on the tray strip to an item index, so opening on Cursor's
+/// gauge can open Cursor's page.
+public enum MenuBarHitTesting {
+
+    /// Horizontal space one tray item occupies, matching `MenuBarLabel`.
+    public static func itemWidth(_ item: MenuBarPresentation) -> Double {
+        var width: Double = 17
+        if let title = item.title {
+            width += 4 + Double(title.count) * 8
+        }
+        if item.bar != nil { width += 9 }
+        return width
+    }
+
+    public static func itemIndex(
+        clickX: Double,
+        barWidth: Double,
+        itemWidths: [Double],
+        spacing: Double = 8
+    ) -> Int? {
+        guard barWidth > 0, !itemWidths.isEmpty else { return nil }
+        let content =
+            itemWidths.reduce(0, +) + spacing * Double(max(itemWidths.count - 1, 0))
+        let scale = barWidth / max(content, 1)
+        var start: Double = 0
+        for (i, width) in itemWidths.enumerated() {
+            let end = start + width * scale
+            if clickX < end || i == itemWidths.count - 1 { return i }
+            start = end + spacing * scale
+        }
+        return itemWidths.count - 1
+    }
+}
+
 // MARK: - Relative time
 
 /// Formats "how long until this window resets".

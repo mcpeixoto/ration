@@ -87,6 +87,20 @@ extension CreatureRarity {
 
     /// Whether the card carries a moving foil. Common is printed; the rest shine.
     var hasFoil: Bool { self >= .uncommon }
+
+    var foilColors: [Color] {
+        switch self {
+        case .common: [.white.opacity(0.2)]
+        case .uncommon: [.green, .mint, .white, .green]
+        case .rare: [.blue, .cyan, .white, .indigo, .blue]
+        case .epic: [.purple, .pink, .white, .indigo, .purple]
+        case .legendary: [.yellow, .orange, .white, .mint, .yellow]
+        case .mythic:
+            [
+                Theme.accent, .orange, .yellow, .mint, .cyan, .purple, Theme.accent,
+            ]
+        }
+    }
 }
 
 extension Color {

@@ -1,9 +1,6 @@
 import SwiftUI
 
-/// The panel's five views.
-///
-/// Five rather than four because Collection is a game sitting on top of the
-/// same local history, not another way of reading a single provider.
+/// Metered views plus Pokémon, which lives in the title bar rather than the tab strip.
 public enum PanelTab: String, CaseIterable, Identifiable, Codable {
     /// Live plan limits, and whether the current window survives them.
     case usage
@@ -18,13 +15,16 @@ public enum PanelTab: String, CaseIterable, Identifiable, Codable {
 
     public var id: String { rawValue }
 
+    /// Usage, Activity, Trends, Detail — Pokémon lives in the title bar.
+    public static var meterTabs: [PanelTab] { [.usage, .activity, .trends, .breakdown] }
+
     public var title: String {
         switch self {
         case .usage: "Usage"
         case .activity: "Activity"
         case .trends: "Trends"
         case .breakdown: "Detail"
-        case .collection: "Catch"
+        case .collection: "Pokémon"
         }
     }
 
@@ -52,7 +52,7 @@ struct TabSwitcher: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(PanelTab.allCases) { tab in
+            ForEach(PanelTab.meterTabs) { tab in
                 Button {
                     withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) {
                         selection = tab

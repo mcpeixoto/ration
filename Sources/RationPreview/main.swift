@@ -155,7 +155,7 @@ MainActor.assumeIsolated {
         to: outputDirectory.appendingPathComponent("breakdown-dark.png"),
         scale: 2, appearance: .darkAqua)
     render(
-        TabPreview(title: "Catch") {
+        TabPreview(title: "Pokémon") {
             CollectionView(
                 state: Dex.evaluate(DexInput(histories: ["claude": transcripts.history])),
                 revealedIDs: .constant(Set(Dex.roster.map(\.id))))

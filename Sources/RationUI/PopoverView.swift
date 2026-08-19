@@ -105,7 +105,7 @@ public struct PopoverView: View {
 
                 // The tab bar only appears once setup is done — before that
                 // there is nothing behind any of the tabs.
-                if isSetUp {
+                if isSetUp, tab != .collection {
                     TabSwitcher(selection: $tab)
                         .padding(.horizontal, 14)
                         .padding(.bottom, 10)
@@ -118,7 +118,9 @@ public struct PopoverView: View {
             }
             .frame(width: Theme.popoverWidth)
         }
-        .onAppear { selection = selection ?? settings.primaryProvider }
+        .onAppear {
+            selection = trayProvider() ?? selection ?? settings.primaryProvider
+        }
     }
 
     /// Onboarding only gates the provider whose first read raises a system
@@ -130,11 +132,42 @@ public struct PopoverView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 7) {
-            Text("Ration")
-                .font(.headline)
+        HStack(spacing: 8) {
+            Button {
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) {
+                    if tab == .collection { tab = .usage }
+                }
+            } label: {
+                Text("Ration")
+                    .font(.headline)
+                    .foregroundStyle(tab == .collection ? .secondary : .primary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Usage")
 
-            if let plan = planLabel {
+            Button {
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) {
+                    tab = .collection
+                }
+            } label: {
+                Text("Pokémon")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3)
+                    .background(
+                        tab == .collection
+                            ? Theme.accent.opacity(0.28)
+                            : Color.primary.opacity(0.07),
+                        in: Capsule()
+                    )
+                    .foregroundStyle(tab == .collection ? Theme.accent : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Pokémon unlocked from Score across every tool")
+            .accessibilityLabel("Pokémon")
+            .accessibilityAddTraits(tab == .collection ? [.isSelected, .isButton] : .isButton)
+
+            if tab != .collection, let plan = planLabel {
                 Text(plan)
                     .font(.caption2.weight(.semibold))
                     .padding(.horizontal, 6)
@@ -145,14 +178,44 @@ public struct PopoverView: View {
 
             Spacer()
 
-            RefreshButton(isRefreshing: poller?.state.status == .refreshing) {
-                poller?.refreshNow()
+            if tab != .collection {
+                RefreshButton(isRefreshing: poller?.state.status == .refreshing) {
+                    poller?.refreshNow()
+                }
             }
 
             HeaderButton(symbol: "gearshape", help: "Settings", action: openSettings)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 11)
+    }
+
+    /// Which account the pointer was over when the tray was clicked.
+    private func trayProvider() -> Provider? {
+        let accounts = trayAccounts
+        guard accounts.count > 1 else { return accounts.first?.provider }
+        let strip = MenuBarStrip.make(
+            accounts: accounts.map {
+                ($0.provider, $0.poller.state, $0.poller.promptsForPermission)
+            },
+            mode: settings.displayMode,
+            useSeverityColor: settings.useSeverityColor,
+            showWeeklyBar: settings.showWeeklyBar,
+            hasCompletedOnboarding: settings.hasCompletedOnboarding,
+            isEverythingHidden: registry.isEverythingHidden)
+        let widths = strip.items.map(MenuBarHitTesting.itemWidth)
+        guard
+            let click = MenuBarOpeningClick.location(),
+            let index = MenuBarHitTesting.itemIndex(
+                clickX: Double(click.x), barWidth: Double(click.width), itemWidths: widths)
+        else { return nil }
+        return accounts.indices.contains(index) ? accounts[index].provider : nil
+    }
+
+    private var trayAccounts: [ProviderRegistry.Entry] {
+        registry.metered.filter {
+            settings.hasCompletedOnboarding || !$0.poller.promptsForPermission
+        }
     }
 
     /// `max` → `Max`. Shown as a small capsule beside the title.

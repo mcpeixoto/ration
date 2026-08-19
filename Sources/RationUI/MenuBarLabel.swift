@@ -171,6 +171,25 @@ enum MenuBarAppearanceImage {
     }
 }
 
+enum MenuBarOpeningClick {
+    /// Where the pointer hit the tray, in the status item's local coordinates.
+    @MainActor
+    static func location() -> (x: CGFloat, width: CGFloat)? {
+        if let event = NSApp.currentEvent, let window = event.window,
+            window.frame.height < 40, window.frame.width > 8
+        {
+            return (event.locationInWindow.x, window.frame.width)
+        }
+        let mouse = NSEvent.mouseLocation
+        let item = NSApp.windows.first { window in
+            window.frame.height < 40 && window.frame.width > 12
+                && NSMouseInRect(mouse, window.frame, false)
+        }
+        guard let item else { return nil }
+        return (mouse.x - item.frame.minX, item.frame.width)
+    }
+}
+
 // MARK: - The bar
 
 /// A small vertical gauge showing how much of the weekly allowance is gone.

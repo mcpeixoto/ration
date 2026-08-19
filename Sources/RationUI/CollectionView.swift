@@ -70,7 +70,7 @@ public struct CollectionView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Collection")
+                Text("Pokémon")
                     .font(.subheadline.weight(.semibold))
                 Text("\(state.caught.count) of \(Dex.roster.count) unlocked")
                     .font(.caption)
@@ -129,7 +129,9 @@ public struct CollectionView: View {
                     Button {
                         selected = creature
                     } label: {
-                        CreatureCard(creature: creature, caught: caught, style: .mini)
+                        CreatureCard(
+                            creature: creature, caught: caught, style: .mini,
+                            foilPlaying: caught)
                     }
                     .buttonStyle(.plain)
                     .overlay {
@@ -144,7 +146,7 @@ public struct CollectionView: View {
             }
             .padding(.bottom, 4)
         }
-        .frame(maxHeight: 340)
+        .frame(maxHeight: .infinity)
     }
 
     private var columns: [GridItem] {
@@ -169,27 +171,33 @@ public struct CollectionView: View {
     private func inspect(_ creature: Creature) -> some View {
         let caught = state.caught.contains { $0.id == creature.id }
         return ZStack {
-            Color.black.opacity(0.55)
+            Color.black.opacity(0.82)
                 .ignoresSafeArea()
                 .onTapGesture { selected = nil }
 
-            VStack(spacing: 12) {
-                CreatureCard(
-                    creature: creature, caught: caught, style: .full,
-                    foilPlaying: caught
-                )
-                .frame(width: 248)
+            ScrollView {
+                VStack(spacing: 12) {
+                    CreatureCard(
+                        creature: creature, caught: caught, style: .full,
+                        foilPlaying: caught
+                    )
+                    .frame(width: 248)
+                    .compositingGroup()
+                    .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
 
-                if caught {
-                    shareRow(creature)
+                    if caught {
+                        shareRow(creature)
+                        IntelligenceArtButton(creature: creature)
+                    }
+
+                    Button("Close") { selected = nil }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                        .keyboardShortcut(.cancelAction)
                 }
-
-                Button("Close") { selected = nil }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-                    .keyboardShortcut(.cancelAction)
+                .padding(16)
+                .frame(maxWidth: .infinity)
             }
-            .padding(16)
         }
     }
 
@@ -322,7 +330,7 @@ struct CatchOverlay<Share: View>: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.62).ignoresSafeArea()
+            Color.black.opacity(0.82).ignoresSafeArea()
                 .onTapGesture(perform: onSkipAll)
 
             VStack(spacing: 14) {
@@ -334,6 +342,8 @@ struct CatchOverlay<Share: View>: View {
                     creature: creature, caught: true, style: .full, foilPlaying: true
                 )
                 .frame(width: 236)
+                .compositingGroup()
+                .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
                 .scaleEffect(appeared ? 1 : 0.92)
                 .opacity(appeared ? 1 : 0)
 

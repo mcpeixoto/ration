@@ -38,6 +38,10 @@ Each is a link — clicking it opens your browser. Ration never contacts those
 hosts itself, and not clicking them means no request is ever made. The X path
 copies a card image to the pasteboard first; it does not upload the image.
 
+A Pokémon card can offer **Apple Intelligence** via the system Image Playground
+sheet. Ration does not call an image API of its own; the picture is stored only
+in Application Support. Not using the button means no generation happens.
+
 There is no analytics endpoint, no crash reporter, and no telemetry of any
 kind. This is enforced by tests: one fails the build if an unexpected host
 appears in the source tree, one fails if networking appears outside the client

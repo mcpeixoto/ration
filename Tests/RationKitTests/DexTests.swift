@@ -193,6 +193,55 @@ struct DexUnlockTests {
         #expect(!almost.caught.map(\.id).contains("rationyx"))
         #expect(enough.caught.map(\.id).contains("rationyx"))
     }
+
+    @Test("morning tokens catch Dawn")
+    func morningCatchesDawn() {
+        let calendar = Calendar(identifier: .gregorian)
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 8
+        components.day = 18
+        components.hour = 8
+        let stamp = calendar.date(from: components)!
+
+        var h = UsageHistory()
+        h.add([event(billable: 2_000, timestamp: stamp)], calendar: calendar)
+
+        let state = Dex.evaluate(DexInput(histories: ["claude": h], calendar: calendar))
+
+        #expect(state.caught.map(\.id).contains("dawnkit"))
+        #expect(!state.caught.map(\.id).contains("nightshift"))
+        #expect(!state.caught.map(\.id).contains("duskwing"))
+    }
+
+    @Test("evening tokens catch Dusk")
+    func eveningCatchesDusk() {
+        let calendar = Calendar(identifier: .gregorian)
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 8
+        components.day = 18
+        components.hour = 17
+        let stamp = calendar.date(from: components)!
+
+        var h = UsageHistory()
+        h.add([event(billable: 2_000, timestamp: stamp)], calendar: calendar)
+
+        let state = Dex.evaluate(DexInput(histories: ["claude": h], calendar: calendar))
+
+        #expect(state.caught.map(\.id).contains("duskwing"))
+        #expect(!state.caught.map(\.id).contains("dawnkit"))
+    }
+
+    @Test("a usage estimate catches Bill")
+    func estimateCatchesBill() {
+        let shy = Dex.evaluate(DexInput(histories: ["claude": history(billable: 1_000)]))
+        let enough = Dex.evaluate(
+            DexInput(histories: ["claude": history(billable: 5_000_000)]))
+
+        #expect(!shy.caught.map(\.id).contains("billow"))
+        #expect(enough.caught.map(\.id).contains("billow"))
+    }
 }
 
 @Suite("Dex: progress and reveals")
@@ -238,9 +287,9 @@ struct DexRosterTests {
         #expect(numbers == Array(1...Dex.roster.count))
     }
 
-    @Test("the set is eighteen creatures")
+    @Test("the set is forty-two creatures")
     func setSize() {
-        #expect(Dex.roster.count == 18)
+        #expect(Dex.roster.count == 42)
     }
 
     @Test("display names are plain English, not clone portmanteaus")
@@ -250,7 +299,24 @@ struct DexRosterTests {
                 "Ember", "Prompt", "Needle", "Moth", "Wisp", "Cell",
                 "Session", "Coil", "Context", "Shift", "Streak", "Pace",
                 "Week", "Braid", "Night", "Trio", "Wall", "Mark",
+                "Draft", "Reply", "Tab", "Diff", "Patch", "Commit",
+                "Branch", "Merge", "Rebase", "Blame", "Lint", "Build",
+                "Ship", "Crash", "Dawn", "Dusk", "Bill", "Echo",
+                "Vault", "Orbit", "Flood", "Summit", "Zenith", "Forever",
             ])
+    }
+
+    @Test("every creature has life, energy, strength, and an ability")
+    func cardStats() {
+        for creature in Dex.roster {
+            #expect(creature.life > 0)
+            #expect(creature.energy > 0)
+            #expect(creature.strength > 0)
+            #expect(!creature.ability.isEmpty)
+            #expect(!creature.nature.isEmpty)
+            #expect(creature.artConcepts.count >= 2)
+            #expect(!creature.artPrompt.isEmpty)
+        }
     }
 }
 

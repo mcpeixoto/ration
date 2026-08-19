@@ -452,24 +452,39 @@ struct DemoPanelChrome<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 7) {
+            HStack(spacing: 8) {
                 Text("Ration").font(.headline)
-                Text("Max")
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.quaternary, in: Capsule())
-                    .foregroundStyle(.secondary)
+                Text("Pokémon")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3)
+                    .background(
+                        tab == .collection
+                            ? Color(red: 0.89, green: 0.55, blue: 0.42).opacity(0.28)
+                            : Color.white.opacity(0.08),
+                        in: Capsule())
+                if tab != .collection {
+                    Text("Max")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.quaternary, in: Capsule())
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
-                Image(systemName: "arrow.clockwise").foregroundStyle(.secondary)
+                if tab != .collection {
+                    Image(systemName: "arrow.clockwise").foregroundStyle(.secondary)
+                }
                 Image(systemName: "gearshape").foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 11)
 
-            StaticTabs(selection: tab)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+            if tab != .collection {
+                StaticTabs(selection: tab)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 10)
+            }
 
             Divider()
             content
@@ -497,7 +512,7 @@ private struct StaticTabs: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(PanelTab.allCases) { tab in
+            ForEach(PanelTab.meterTabs) { tab in
                 Text(tab.title)
                     .font(.caption)
                     .lineLimit(1)

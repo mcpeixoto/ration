@@ -145,7 +145,7 @@ private struct StaticTabBar: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(PanelTab.allCases) { tab in
+            ForEach(PanelTab.meterTabs) { tab in
                 HStack(spacing: 4) {
                     Image(systemName: tab.symbol).font(.system(size: 9))
                     Text(tab.title).font(.caption).lineLimit(1).minimumScaleFactor(0.75)
