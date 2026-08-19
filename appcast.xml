@@ -6,6 +6,15 @@
     <description>Updates for Ration, a menu bar meter for Claude usage.</description>
     <language>en</language>
     <item>
+      <title>Version 0.7.6</title>
+      <pubDate>Wed, 19 Aug 2026 17:55:34 +0000</pubDate>
+      <sparkle:version>81</sparkle:version>
+      <sparkle:shortVersionString>0.7.6</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <link>https://github.com/mcpeixoto/ration/releases/tag/v0.7.6</link>
+      <enclosure url="https://github.com/mcpeixoto/ration/releases/download/v0.7.6/Ration-0.7.6.dmg" length="3620605" type="application/octet-stream" sparkle:edSignature="yVOuQgeLKRSWxgnM7xfVW8MEEBqw+Q0IMA2Ywhs3jjq9mEOrVhaC8wJV67pkJ+KXpUotW6tOIS2T54DUhqe7Bw==" />
+    </item>
+    <item>
       <title>Version 0.7.5</title>
       <pubDate>Wed, 19 Aug 2026 17:52:30 +0000</pubDate>
       <sparkle:version>79</sparkle:version>
