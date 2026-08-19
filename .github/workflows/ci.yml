@@ -65,7 +65,7 @@ jobs:
           hosts=$(strings .build/Ration.app/Contents/MacOS/Ration \
             | grep -oE 'https?://[A-Za-z0-9.-]+' \
             | sed -E 's#https?://##' | sort -u \
-            | grep -vE '^(api\.anthropic\.com|api2\.cursor\.sh|github\.com|raw\.githubusercontent\.com|buymeacoffee\.com)$' || true)
+            | grep -vE '^(api\.anthropic\.com|api2\.cursor\.sh|github\.com|raw\.githubusercontent\.com|buymeacoffee\.com|x\.com)$' || true)
           if [ -n "$hosts" ]; then
             echo "::error::unexpected host(s) in the shipped binary:"
             echo "$hosts"
