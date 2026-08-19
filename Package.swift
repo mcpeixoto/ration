@@ -61,9 +61,12 @@ let package = Package(
         ),
         .testTarget(
             name: "RationKitTests",
-            dependencies: ["RationKit"],
+            dependencies: ["RationKit", "CSqlite3"],
             resources: [.copy("Fixtures")],
-            linkerSettings: [.linkedLibrary("sqlite3")]
+            linkerSettings: [
+                .linkedLibrary("sqlite3"),
+                .linkedLibrary("FoundationNetworking", .when(platforms: [.linux])),
+            ]
         ),
     ] + macOSTargets
 )
