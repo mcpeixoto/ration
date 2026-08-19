@@ -745,9 +745,9 @@ extension CreatureLore {
         CreatureLore.retreat(for: rarity)
     }
 
-    /// "0.3 m · 12.6 kg", as printed under the illustration.
+    /// "HT 0.3 m · WT 12.6 kg", as printed under the illustration.
     public var size: String {
-        String(format: "%.1f m · %.1f kg", heightMetres, weightKilos)
+        String(format: "HT %.1f m · WT %.1f kg", heightMetres, weightKilos)
     }
 
     /// Total energy the printed attacks ask for.

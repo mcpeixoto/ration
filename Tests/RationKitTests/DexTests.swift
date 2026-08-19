@@ -322,6 +322,23 @@ struct DexRosterTests {
         }
     }
 
+    @Test("every creature has illustration tuning, and nothing else does")
+    func artParamsMatchRoster() {
+        #expect(Set(Dex.artParams.keys) == Set(Dex.roster.map(\.id)))
+        for creature in Dex.roster {
+            let params = creature.artParams
+            #expect((params.speed ?? 1) > 0)
+            #expect((params.count ?? 1) > 0)
+            #expect((params.rings ?? 1) > 0)
+            #expect((params.rows ?? 1) > 0)
+            #expect((params.sparks ?? 1) > 0)
+            if let fill = params.fill {
+                #expect(fill >= 0)
+                #expect(fill <= 1)
+            }
+        }
+    }
+
     @Test("lore has no entries for creatures that are not in the set")
     func loreMatchesRoster() {
         #expect(Set(Dex.lore.keys) == Set(Dex.roster.map(\.id)))

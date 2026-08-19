@@ -42,7 +42,7 @@ struct CreatureCard: View {
                     .foregroundStyle(caught ? .white : Color.white.opacity(0.4))
             }
 
-            artWindow(corner: 5, border: 1.5)
+            artWindow(corner: 5, border: 1.5, aspect: 1.45)
 
             HStack(spacing: 3) {
                 energyPip(lore.energy, size: 9)
@@ -77,7 +77,7 @@ struct CreatureCard: View {
     private var full: some View {
         VStack(alignment: .leading, spacing: 4) {
             header
-            artWindow(corner: 6, border: 2)
+            artWindow(corner: 6, border: 2, aspect: 1.95)
             speciesStrip
             statBlock
             if caught, let ability = lore.ability {
@@ -171,11 +171,11 @@ struct CreatureCard: View {
         }
     }
 
-    private func artWindow(corner: CGFloat, border: CGFloat) -> some View {
+    private func artWindow(corner: CGFloat, border: CGFloat, aspect: CGFloat) -> some View {
         CreaturePortrait(creature: creature, caught: caught)
-            .padding(4)
+            .padding(2)
             .frame(maxWidth: .infinity)
-            .aspectRatio(1.28, contentMode: .fit)
+            .aspectRatio(aspect, contentMode: .fit)
             .background {
                 RadialGradient(
                     colors: [key.opacity(caught ? 0.22 : 0.08), Color.black.opacity(0.72)],
@@ -214,15 +214,13 @@ struct CreatureCard: View {
     }
 
     private var statBlock: some View {
-        HStack(alignment: .top, spacing: 5) {
-            statCell("LIFE", lore.life, Double(lore.life) / 300)
+        HStack(alignment: .top, spacing: 8) {
             statCell("ENERGY", lore.energyCost, Double(lore.energyCost) / 9)
+            statCell("LIFE", lore.life, Double(lore.life) / 300)
             statCell("POWER", lore.power, Double(lore.power) / 240)
             statCell("SPEED", lore.speed, Double(lore.speed) / 100)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 5)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 5))
+        .padding(.vertical, 3)
     }
 
     private func statCell(_ label: String, _ value: Int, _ fraction: Double) -> some View {

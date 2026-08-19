@@ -7,7 +7,7 @@ have used — for **Claude Code**, **Codex**, and **Cursor**. No more discoverin
 limit halfway through a long agent run.
 
 <p align="center">
-  <img src="docs/images/demo.gif" width="320" alt="Ration cycling through its three tabs">
+  <img src="docs/images/demo.gif" width="320" alt="Ration cycling through Usage, Activity, Trends, and the Pokémon binder">
 </p>
 
 <p align="center">

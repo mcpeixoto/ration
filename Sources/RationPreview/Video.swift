@@ -28,7 +28,12 @@ enum Video {
                 MacBookScene(
                     state: Timeline.state(at: time),
                     history: history,
-                    metricsDays: Timeline.metricsDays(at: time)),
+                    metricsDays: Timeline.metricsDays(at: time)
+                )
+                // The creatures animate off the scene's clock, not the wall
+                // clock, so the frames form one continuous loop no matter how
+                // long the render itself takes.
+                .environment(\.rationArtTime, time),
                 to: url, appearance: appearance)
             frame += 1
         }

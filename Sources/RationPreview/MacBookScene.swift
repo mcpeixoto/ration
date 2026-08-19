@@ -24,7 +24,7 @@ struct SceneState {
 enum Timeline {
 
     static let fps = 24
-    static let duration = 13.0
+    static let duration = 19.0
     static var frameCount: Int { Int(duration * Double(fps)) }
 
     // Stage and laptop geometry. Every position below is derived from these
@@ -77,6 +77,11 @@ enum Timeline {
     static var trendsTab: CGPoint { CGPoint(x: tabBarLeading + 152, y: tabY) }
     static var detailTab: CGPoint { CGPoint(x: tabBarLeading + 224, y: tabY) }
 
+    /// The Pokémon chip, which sits in the title bar rather than the tab strip.
+    static var collectionChip: CGPoint {
+        CGPoint(x: panelOrigin.x + 116, y: panelOrigin.y + 21)
+    }
+
     static var restingCursor: CGPoint {
         CGPoint(x: stage.width / 2 - 120, y: stage.height - 190)
     }
@@ -112,12 +117,20 @@ enum Timeline {
         if time >= 8.75 { state.tab = .trends }
         state.clickPulse = max(state.clickPulse, pulse(time, at: 8.75))
 
-        // 11.8–13.0  cursor drifts away, leaving the panel on screen
-        if time >= 11.8 {
+        // 12.2–13.0  cursor up to the Pokémon chip, click at 13.05
+        if time >= 12.2 {
             state.cursor = point(
-                from: trendsTab,
-                to: CGPoint(x: trendsTab.x - 190, y: trendsTab.y + 250),
-                t: ease(span(time, 11.8, 13.0)))
+                from: trendsTab, to: collectionChip, t: ease(span(time, 12.2, 13.0)))
+        }
+        if time >= 13.1 { state.tab = .collection }
+        state.clickPulse = max(state.clickPulse, pulse(time, at: 13.05))
+
+        // 17.6–19.0  cursor drifts away, leaving the binder on screen
+        if time >= 17.6 {
+            state.cursor = point(
+                from: collectionChip,
+                to: CGPoint(x: collectionChip.x - 150, y: collectionChip.y + 330),
+                t: ease(span(time, 17.6, 19.0)))
         }
 
         return state
