@@ -67,9 +67,21 @@ private func snapshot(_ percent: Double) -> UsageSnapshot {
 /// request — and that is not something these tests should be pinning. Yields
 /// are free; a count tuned to today's call depth is a trap for the next change.
 @MainActor
-private func settle() async {
-    // Loaded CI runners need more time for the poll Task to schedule and finish.
-    try? await Task.sleep(for: .milliseconds(150))
+private func settle(untilReady poller: UsagePoller, fromReady: Bool = false) async {
+    let deadline = Date().addingTimeInterval(5)
+    if fromReady {
+        while Date() < deadline && poller.state.status != .refreshing {
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+    }
+    while Date() < deadline {
+        switch poller.state.status {
+        case .refreshing, .idle:
+            try? await Task.sleep(for: .milliseconds(25))
+        default:
+            return
+        }
+    }
 }
 
 // MARK: - Tests
@@ -85,7 +97,7 @@ struct UsagePollerTests {
             credentialStore: FakeCredentialStore.valid(), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
 
         #expect(client.callCount >= 1)
@@ -99,7 +111,7 @@ struct UsagePollerTests {
         let poller = UsagePoller(credentialStore: FakeCredentialStore.valid(), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
 
         #expect(client.tokensSeen.first == "token")
@@ -112,7 +124,7 @@ struct UsagePollerTests {
             credentialStore: FakeCredentialStore(result: .failure(.notFound)), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
 
         #expect(poller.state.status == .signedOut)
@@ -125,7 +137,7 @@ struct UsagePollerTests {
         let poller = UsagePoller(credentialStore: FakeCredentialStore.expired(), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
 
         #expect(client.callCount == 0)
@@ -143,9 +155,9 @@ struct UsagePollerTests {
             schedule: PollSchedule(idleInterval: 30, openInterval: 0))
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.refreshNow()
-        await settle()
+        await settle(untilReady: poller, fromReady: true)
         poller.suspend()
 
         #expect(poller.state.snapshot?.limits.first?.percent == 42)
@@ -161,9 +173,9 @@ struct UsagePollerTests {
         let poller = UsagePoller(credentialStore: FakeCredentialStore.valid(), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.refreshNow()
-        await settle()
+        await settle(untilReady: poller, fromReady: true)
         poller.suspend()
 
         #expect(poller.state.status == .signedOut)
@@ -176,11 +188,11 @@ struct UsagePollerTests {
         let poller = UsagePoller(credentialStore: FakeCredentialStore.valid(), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
         let countAfterSuspend = client.callCount
 
-        await settle()
+        await settle(untilReady: poller)
         #expect(client.callCount == countAfterSuspend)
         #expect(!poller.isRunning)
     }
@@ -191,12 +203,12 @@ struct UsagePollerTests {
         let poller = UsagePoller(credentialStore: FakeCredentialStore.valid(), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
         let before = client.callCount
 
         poller.resume()
-        await settle()
+        await settle(untilReady: poller, fromReady: true)
         poller.suspend()
 
         #expect(client.callCount > before)
@@ -208,11 +220,11 @@ struct UsagePollerTests {
         let poller = UsagePoller(credentialStore: FakeCredentialStore.valid(), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         let before = client.callCount
 
         poller.setMenuOpen(true)
-        await settle()
+        await settle(untilReady: poller, fromReady: true)
         poller.suspend()
 
         #expect(client.callCount > before)
@@ -224,13 +236,13 @@ struct UsagePollerTests {
         let poller = UsagePoller(credentialStore: FakeCredentialStore.valid(), client: client)
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.setMenuOpen(true)
-        await settle()
+        await settle(untilReady: poller)
         let before = client.callCount
 
         poller.setMenuOpen(false)
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
 
         #expect(client.callCount == before)
@@ -243,7 +255,7 @@ struct UsagePollerTests {
 
         poller.start()
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
 
         #expect(client.callCount == 1)
@@ -258,7 +270,7 @@ struct UsagePollerTests {
         poller.onStateChange = { (state: UsageState) in observed.append(state.status) }
 
         poller.start()
-        await settle()
+        await settle(untilReady: poller)
         poller.suspend()
 
         #expect(observed.contains(.ready))
