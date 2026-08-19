@@ -102,18 +102,20 @@ published yet.
 
 Download the tarball for your architecture from
 [Releases](https://github.com/mcpeixoto/ration/releases/latest) — look for
-`ration-0.7.7-linux-x86_64.tar.gz` (or `aarch64` on ARM).
+`ration-0.8.0-linux-x86_64.tar.gz` or `ration-0.8.0-linux-aarch64.tar.gz`.
 
 ```sh
-tar -xzf ration-0.7.7-linux-x86_64.tar.gz
-cd ration-0.7.7-linux-x86_64
+tar -xzf ration-0.8.0-linux-x86_64.tar.gz
+cd ration-0.8.0-linux-x86_64
 ./ration status          # one-shot usage for every tool you have
 ./ration watch           # refresh every 60 seconds
-./ration watch --notify  # desktop alerts at 80% and 95%
-./ration activity        # calendar heat map
+./ration watch --notify  # desktop alerts at 80% and 95% (needs notify-send)
+./ration activity        # calendar heat map and streaks
 ./ration trends          # daily usage trends
-./ration breakdown       # tokens by model and project
+./ration detail          # tokens by model and project
 ./ration dex             # Pokémon collection progress
+./ration config show     # settings at ~/.config/ration/config.json
+./ration service install # launch at login via systemd (optional)
 ./ration status --json   # machine-readable output
 ```
 
@@ -126,10 +128,10 @@ swift build -c release --product ration
 .build/release/ration status
 ```
 
-Linux ships as a CLI (`ration`), not a menu bar app. The CLI covers usage limits,
-history (activity, trends, breakdown), the Pokémon collection, and desktop
-notifications via `watch --notify`. Sparkle auto-updates and launch-at-login
-remain macOS-only.
+Linux ships as a rich CLI (`ration`), not a menu bar app. The CLI covers usage
+limits, history (activity, trends, detail), the Pokémon collection, desktop
+notifications via `watch --notify`, and launch-at-login via `service install`.
+Sparkle auto-updates and the graphical card binder remain macOS-only.
 
 ### Requirements
 
@@ -143,6 +145,7 @@ remain macOS-only.
 
 - Ubuntu 22.04+ or another glibc-based distro with Swift 6
 - `libsqlite3-dev` for building from source
+- `libnotify-bin` (`notify-send`) for desktop alerts in `ration watch --notify`
 - At least one supported tool installed and signed in (same as macOS)
 
 On Linux, Claude Code stores credentials in `~/.claude/.credentials.json`
@@ -306,11 +309,11 @@ open .build/Ration.app
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-sudo apt-get install -y libsqlite3-dev   # Debian/Ubuntu
+sudo apt-get install -y libsqlite3-dev libnotify-bin   # Debian/Ubuntu
 swift test
 swift build -c release --product ration
 .build/release/ration status
-./Scripts/bundle-linux.sh                # produces a release tarball
+./Scripts/bundle-linux.sh                # produces release tarballs for your arch
 ```
 
 To install your own build into `/Applications` instead of running it out of
