@@ -16,6 +16,12 @@ limit halfway through a long agent run.
   <img src="docs/images/trends-dark.png" width="260" alt="Daily usage trends">
 </p>
 
+<p align="center">
+  <a href="docs/images/dex-set01.jpg">
+    <img src="docs/images/dex-set01.jpg" width="800" alt="Ration Dex Set 01 — fifty card faces">
+  </a>
+</p>
+
 The menu bar reports every account that is on. A single tool keeps the original
 gauge; two or more sit side by side, each with its own symbol. A small vertical
 bar tracks the weekly allowance — the limit that creeps up on you, since a
@@ -33,11 +39,14 @@ Four tabs, plus **Pokémon** next to the title:
 - **Trends** — totals and daily charts over 7/30/90 days, across
   tokens, messages, sessions, or estimated cost, with a 7-day trend line.
 - **Detail** — where the tokens went, by model and by project.
-- **Pokémon** — original creatures unlocked from a local Score across every tool
-  Ration can read. Cards copy, save, and post to X from your Mac; nothing
-  about the collection leaves the machine unless you share it. On a Mac that
-  supports Apple Intelligence, a card can be redrawn with Image Playground —
-  still local.
+- **Pokémon** — Set 01: fifty original creatures unlocked from a local Score
+  across every tool Ration can read. Every card is a full trading-card face —
+  evolution line, species and size, a Life / Energy / Power / Speed stat block,
+  an ability on the higher rarities, attacks with energy costs, and a
+  weakness / resistance / retreat footer. Cards copy, save, and post to X from
+  your Mac; nothing about the collection leaves the machine unless you share
+  it. On a Mac that supports Apple Intelligence, a card can be redrawn with
+  Image Playground — still local.
 
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, and the
@@ -72,7 +81,7 @@ presenting them as live.
 
 ## Install
 
-[**Download Ration 0.4.1**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.4.1.dmg)
+[**Download Ration 0.5.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.5.0.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
@@ -256,6 +265,7 @@ Two helper scripts round out the workflow:
 ```sh
 swift Scripts/make-icon.swift             # regenerates Resources/AppIcon.icns
 swift run RationPreview docs/images       # regenerates the screenshots above
+swift run RationPreview dex .build        # regenerates the fifty-card sheet
 swift run RationPreview video && \
   ./Scripts/make-video.sh                 # regenerates the demo video and GIF
 ```

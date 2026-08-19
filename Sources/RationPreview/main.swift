@@ -69,9 +69,14 @@ func sampleSnapshot() -> UsageSnapshot {
 // the still screenshots.
 let isVideo = CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "video"
 
+// `swift run RationPreview dex <dir>` emits the fifty-card contact sheet, which
+// is far too large to regenerate alongside the ordinary screenshots.
+let isDex = CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "dex"
+
+let namedMode = isVideo || isDex
 let outputDirectory = URL(
-    fileURLWithPath: CommandLine.arguments.count > (isVideo ? 2 : 1)
-        ? CommandLine.arguments[isVideo ? 2 : 1]
+    fileURLWithPath: CommandLine.arguments.count > (namedMode ? 2 : 1)
+        ? CommandLine.arguments[namedMode ? 2 : 1]
         : (isVideo ? ".build/video-frames" : "docs/images"))
 try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
@@ -88,6 +93,14 @@ MainActor.assumeIsolated {
             print("video render failed: \(error)")
             exit(1)
         }
+        exit(0)
+    }
+
+    if isDex {
+        render(
+            DexSheet(),
+            to: outputDirectory.appendingPathComponent("dex-set01.png"),
+            scale: 2, appearance: .darkAqua)
         exit(0)
     }
 

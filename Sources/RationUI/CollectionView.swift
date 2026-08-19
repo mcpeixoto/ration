@@ -181,7 +181,7 @@ public struct CollectionView: View {
                         creature: creature, caught: caught, style: .full,
                         foilPlaying: caught
                     )
-                    .frame(width: 248)
+                    .frame(width: 268)
                     .compositingGroup()
                     .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
 
@@ -341,7 +341,7 @@ struct CatchOverlay<Share: View>: View {
                 CreatureCard(
                     creature: creature, caught: true, style: .full, foilPlaying: true
                 )
-                .frame(width: 236)
+                .frame(width: 252)
                 .compositingGroup()
                 .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
                 .scaleEffect(appeared ? 1 : 0.92)

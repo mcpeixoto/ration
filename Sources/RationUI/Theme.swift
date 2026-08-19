@@ -141,3 +141,37 @@ extension Severity {
         }
     }
 }
+
+extension CreatureRarity {
+    /// The mark printed next to the collector number.
+    var pipGlyph: String {
+        switch self {
+        case .common: "\u{25CF}"  // ●
+        case .uncommon: "\u{25C6}"  // ◆
+        case .rare: "\u{2605}"  // ★
+        case .epic: "\u{2726}"  // ✦
+        case .legendary: "\u{2739}"  // ✹
+        case .mythic: "\u{2735}"  // ✵
+        }
+    }
+}
+
+extension CreatureEnergy {
+
+    /// The card's key colour: pips, stat bars, art window, ability rail.
+    ///
+    /// Card stock is dark in both appearances, so these are tuned for a dark
+    /// ground and do not switch with the system appearance.
+    var color: Color {
+        switch self {
+        case .ember: Color(red: 0.894, green: 0.545, blue: 0.416)
+        case .signal: Color(red: 0.373, green: 0.663, blue: 0.882)
+        case .cache: Color(red: 0.310, green: 0.749, blue: 0.545)
+        case .cycle: Color(red: 0.859, green: 0.667, blue: 0.263)
+        case .depth: Color(red: 0.694, green: 0.514, blue: 0.871)
+        case .night: Color(red: 0.553, green: 0.580, blue: 0.878)
+        case .alloy: Color(red: 0.502, green: 0.769, blue: 0.804)
+        case .void: Color(red: 0.882, green: 0.365, blue: 0.302)
+        }
+    }
+}

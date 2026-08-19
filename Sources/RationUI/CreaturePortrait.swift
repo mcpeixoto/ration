@@ -27,9 +27,9 @@ struct CreaturePortrait: View {
                     ZStack {
                         if caught {
                             Circle()
-                                .fill(ink.opacity(0.28))
-                                .blur(radius: s * 0.08)
-                                .frame(width: s * 0.78, height: s * 0.78)
+                                .fill(ink.opacity(0.14))
+                                .blur(radius: s * 0.16)
+                                .frame(width: s * 0.72, height: s * 0.72)
                         }
                         if caught, let custom = art.image(for: creature.id) {
                             Image(nsImage: custom)
@@ -50,7 +50,9 @@ struct CreaturePortrait: View {
             .accessibilityHidden(true)
     }
 
-    private var ink: Color { caught ? creature.rarity.color : Color.primary.opacity(0.38) }
+    /// The creature's own colour is its energy, not its rarity — rarity is the
+    /// frame and the foil, energy is the animal.
+    private var ink: Color { caught ? creature.lore.energy.color : Color.primary.opacity(0.38) }
     private var shade: Color { Color.black.opacity(caught ? 0.18 : 0.08) }
     private var shine: Color { Color.white.opacity(caught ? 0.55 : 0.12) }
 
@@ -88,30 +90,38 @@ struct CreaturePortrait: View {
         case "nightshift": night(s)
         case "omnivore": trio(s)
         case "wallback": wall(s)
+        case "sparkline": spark(s)
         case "draftling": draft(s)
-        case "replybit": reply(s)
-        case "tabbit": tab(s)
-        case "diffling": diff(s)
-        case "patchkit": patch(s)
-        case "commito": commit(s)
-        case "branchlet": branch(s)
-        case "merjil": merge(s)
-        case "rebasil": rebase(s)
-        case "blamelite": blame(s)
-        case "lintail": lint(s)
-        case "buildrake": build(s)
-        case "shipling": ship(s)
-        case "crashowl": crash(s)
-        case "dawnkit": dawn(s)
-        case "duskwing": dusk(s)
-        case "billow": bill(s)
-        case "echoling": echo(s)
-        case "vaultaur": vault(s)
-        case "orbiton": orbit(s)
-        case "floodwyrm": flood(s)
-        case "summitox": summit(s)
-        case "zenithar": zenith(s)
-        case "foreveris": forever(s)
+        case "tallyfin": tally(s)
+        case "crumbit": crumb(s)
+        case "loopet": loop(s)
+        case "dawnlet": dawn(s)
+        case "echofin": echo(s)
+        case "chiplet": chip(s)
+        case "threadon": thread(s)
+        case "ledgerite": ledger(s)
+        case "relayon": relay(s)
+        case "kindlewyrm": kindle(s)
+        case "siftmite": sift(s)
+        case "vaultoise": vault(s)
+        case "anvilon": anvil(s)
+        case "lanternfox": lantern(s)
+        case "quarrion": quarry(s)
+        case "prismarch": prism(s)
+        case "tidewarden": tide(s)
+        case "cinderling": cinder(s)
+        case "beaconox": beacon(s)
+        case "forgeheart": forge(s)
+        case "marrowdeep": marrow(s)
+        case "weaveon": weave(s)
+        case "sentinox": sentinel(s)
+        case "harvestide": harvest(s)
+        case "reckonoth": reckon(s)
+        case "vigilith": vigil(s)
+        case "chorusaur": chorus(s)
+        case "meridiax": meridian(s)
+        case "aurumark": aurum(s)
+        case "zenithyx": zenith(s)
         default: mark(s)
         }
     }
@@ -660,170 +670,7 @@ struct CreaturePortrait: View {
         }
     }
 
-    private func reply(_ s: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(ink.opacity(0.45))
-                .frame(width: s * 0.48, height: s * 0.36)
-                .offset(x: -s * 0.08, y: -s * 0.08)
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(ink)
-                .frame(width: s * 0.48, height: s * 0.36)
-                .offset(x: s * 0.08, y: s * 0.06)
-            eyes(s, y: 0.04)
-            mouth(s, kind: .grin, y: 0.16)
-            foot(s, x: -0.06)
-            foot(s, x: 0.16)
-        }
-    }
-
-    private func tab(_ s: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(ink)
-                .frame(width: s * 0.56, height: s * 0.40)
-                .offset(y: s * 0.06)
-            UnevenRoundedRectangle(
-                topLeadingRadius: 8, bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0, topTrailingRadius: 8, style: .continuous
-            )
-            .fill(ink)
-            .frame(width: s * 0.28, height: s * 0.14)
-            .offset(x: -s * 0.12, y: -s * 0.20)
-            Triangle().fill(ink).frame(width: s * 0.10, height: s * 0.10)
-                .offset(x: -s * 0.18, y: -s * 0.28)
-            Triangle().fill(ink).frame(width: s * 0.10, height: s * 0.10)
-                .offset(x: s * 0.18, y: -s * 0.04)
-            eyes(s, y: 0.04)
-            mouth(s, kind: .w, y: 0.16)
-        }
-    }
-
-    private func diff(_ s: CGFloat) -> some View {
-        ZStack {
-            UnevenRoundedRectangle(
-                topLeadingRadius: 18, bottomLeadingRadius: 18,
-                bottomTrailingRadius: 4, topTrailingRadius: 4, style: .continuous
-            )
-            .fill(ink)
-            .frame(width: s * 0.28, height: s * 0.48)
-            .offset(x: -s * 0.14)
-            UnevenRoundedRectangle(
-                topLeadingRadius: 4, bottomLeadingRadius: 4,
-                bottomTrailingRadius: 18, topTrailingRadius: 18, style: .continuous
-            )
-            .stroke(ink, style: StrokeStyle(lineWidth: 3, dash: [5, 3]))
-            .frame(width: s * 0.28, height: s * 0.48)
-            .offset(x: s * 0.14)
-            eyes(s, y: -0.06, spread: 0.18)
-            mouth(s, kind: .smug, y: 0.08)
-            foot(s, x: -0.16)
-            foot(s, x: 0.16)
-        }
-    }
-
-    private func patch(_ s: CGFloat) -> some View {
-        ZStack {
-            Circle().fill(ink).frame(width: s * 0.50, height: s * 0.50)
-            Capsule().fill(Color.white.opacity(caught ? 0.85 : 0.25))
-                .frame(width: s * 0.32, height: s * 0.10)
-                .rotationEffect(.degrees(-18))
-            Capsule().fill(Color.white.opacity(caught ? 0.85 : 0.25))
-                .frame(width: s * 0.32, height: s * 0.10)
-                .rotationEffect(.degrees(72))
-            PromptTail().fill(ink).frame(width: s * 0.16, height: s * 0.22)
-                .offset(x: s * 0.26, y: s * 0.18)
-            eyes(s, y: -0.08)
-            mouth(s, kind: .grin, y: 0.06)
-            arm(s, x: -0.28, y: 0.10, rot: 25)
-            foot(s, x: -0.12)
-            foot(s, x: 0.12)
-        }
-    }
-
-    private func commit(_ s: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(ink)
-                .frame(width: s * 0.42, height: s * 0.50)
-            Capsule().fill(ink).frame(width: s * 0.12, height: s * 0.22)
-                .offset(y: -s * 0.32)
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color.white.opacity(caught ? 0.30 : 0.08))
-                .frame(width: s * 0.24, height: s * 0.16)
-            eyes(s, y: 0.02)
-            mouth(s, kind: .smug, y: 0.16)
-            arm(s, x: -0.28, y: 0.08, rot: 20)
-            arm(s, x: 0.28, y: 0.08, rot: -20)
-        }
-    }
-
-    private func branch(_ s: CGFloat) -> some View {
-        ZStack {
-            Capsule().fill(ink).frame(width: s * 0.10, height: s * 0.36)
-                .offset(y: s * 0.16)
-            Capsule().fill(ink).frame(width: s * 0.10, height: s * 0.32)
-                .rotationEffect(.degrees(-38))
-                .offset(x: -s * 0.14, y: -s * 0.08)
-            Capsule().fill(ink).frame(width: s * 0.10, height: s * 0.32)
-                .rotationEffect(.degrees(38))
-                .offset(x: s * 0.14, y: -s * 0.08)
-            Circle().fill(ink).frame(width: s * 0.22, height: s * 0.22)
-                .offset(x: -s * 0.22, y: -s * 0.22)
-            Circle().fill(ink).frame(width: s * 0.22, height: s * 0.22)
-                .offset(x: s * 0.22, y: -s * 0.22)
-            eye(s).offset(x: -s * 0.22, y: -s * 0.22)
-            eye(s).offset(x: s * 0.22, y: -s * 0.22)
-            mouth(s, kind: .o, y: -0.14).offset(x: -s * 0.22)
-            mouth(s, kind: .grin, y: -0.14).offset(x: s * 0.22)
-        }
-    }
-
-    private func merge(_ s: CGFloat) -> some View {
-        ZStack {
-            BraidLines()
-                .stroke(ink, style: StrokeStyle(lineWidth: s * 0.10, lineCap: .round))
-                .frame(width: s * 0.40, height: s * 0.40)
-                .offset(y: -s * 0.08)
-            Circle().fill(ink).frame(width: s * 0.40, height: s * 0.40)
-                .offset(y: s * 0.14)
-            eyes(s, y: 0.12)
-            blush(s, y: 0.22)
-            mouth(s, kind: .w, y: 0.24)
-        }
-    }
-
-    private func rebase(_ s: CGFloat) -> some View {
-        ZStack {
-            ForEach(0..<4, id: \.self) { i in
-                Capsule()
-                    .fill(ink.opacity(1 - Double(i) * 0.18))
-                    .frame(width: s * 0.46, height: s * 0.12)
-                    .offset(x: CGFloat(i) * s * 0.04, y: CGFloat(i) * s * -0.10)
-            }
-            eyes(s, y: -0.22)
-            mouth(s, kind: .smug, y: -0.10)
-            foot(s, x: -0.10)
-            foot(s, x: 0.14)
-        }
-    }
-
-    private func blame(_ s: CGFloat) -> some View {
-        ZStack {
-            Circle().fill(ink).frame(width: s * 0.42, height: s * 0.42)
-            Capsule().fill(ink).frame(width: s * 0.12, height: s * 0.36)
-                .rotationEffect(.degrees(55))
-                .offset(x: s * 0.28, y: s * 0.02)
-            Circle().fill(ink).frame(width: s * 0.10, height: s * 0.10)
-                .offset(x: s * 0.40, y: -s * 0.10)
-            eyes(s, y: -0.06)
-            mouth(s, kind: .smug, y: 0.08)
-            foot(s, x: -0.12)
-            foot(s, x: 0.10)
-        }
-    }
-
-    private func lint(_ s: CGFloat) -> some View {
+    private func sift(_ s: CGFloat) -> some View {
         ZStack {
             Circle().stroke(ink, lineWidth: max(4, s * 0.06))
                 .frame(width: s * 0.36, height: s * 0.36)
@@ -835,55 +682,6 @@ struct CreaturePortrait: View {
                 .offset(x: s * 0.26, y: s * 0.08)
             eyes(s, y: -0.10, spread: 0.05)
             mouth(s, kind: .o, y: 0.02)
-        }
-    }
-
-    private func build(_ s: CGFloat) -> some View {
-        ZStack {
-            Circle().stroke(ink, lineWidth: max(6, s * 0.08))
-                .frame(width: s * 0.48, height: s * 0.48)
-            ForEach(0..<6, id: \.self) { i in
-                Capsule().fill(ink)
-                    .frame(width: s * 0.10, height: s * 0.18)
-                    .offset(y: -s * 0.28)
-                    .rotationEffect(.degrees(Double(i) * 60))
-            }
-            Circle().fill(ink).frame(width: s * 0.22, height: s * 0.22)
-            eyes(s, y: 0.0, spread: 0.04)
-            mouth(s, kind: .o, y: 0.10)
-        }
-    }
-
-    private func ship(_ s: CGFloat) -> some View {
-        ZStack {
-            Triangle().fill(ink).frame(width: s * 0.36, height: s * 0.22)
-                .offset(y: -s * 0.24)
-            Capsule().fill(ink).frame(width: s * 0.28, height: s * 0.48)
-            Triangle().fill(ink).frame(width: s * 0.14, height: s * 0.16)
-                .rotationEffect(.degrees(-90))
-                .offset(x: -s * 0.22, y: s * 0.04)
-            Triangle().fill(ink).frame(width: s * 0.14, height: s * 0.16)
-                .rotationEffect(.degrees(90))
-                .offset(x: s * 0.22, y: s * 0.04)
-            eyes(s, y: -0.04)
-            mouth(s, kind: .grin, y: 0.08)
-        }
-    }
-
-    private func crash(_ s: CGFloat) -> some View {
-        ZStack {
-            Circle().fill(ink).frame(width: s * 0.52, height: s * 0.52)
-            Path { p in
-                p.move(to: CGPoint(x: s * 0.08, y: -s * 0.16))
-                p.addLine(to: CGPoint(x: s * 0.16, y: 0))
-                p.addLine(to: CGPoint(x: s * 0.10, y: s * 0.16))
-            }
-            .stroke(Color.black.opacity(0.35), lineWidth: 2)
-            Triangle().fill(Color.yellow.opacity(caught ? 0.95 : 0.25))
-                .frame(width: s * 0.12, height: s * 0.18)
-                .offset(x: s * 0.22, y: -s * 0.28)
-            eyes(s, y: -0.04, spread: 0.12)
-            mouth(s, kind: .o, y: 0.10)
         }
     }
 
@@ -899,39 +697,6 @@ struct CreaturePortrait: View {
             eyes(s, y: -0.02)
             blush(s, y: 0.10)
             mouth(s, kind: .grin, y: 0.14)
-        }
-    }
-
-    private func dusk(_ s: CGFloat) -> some View {
-        ZStack {
-            ForEach(0..<6, id: \.self) { i in
-                Capsule().fill(ink.opacity(0.55))
-                    .frame(width: s * 0.07, height: s * 0.20)
-                    .offset(y: -s * 0.26)
-                    .rotationEffect(.degrees(Double(i) * 30 - 75))
-            }
-            Circle().fill(ink).frame(width: s * 0.44, height: s * 0.44)
-            Capsule().fill(Color.black.opacity(caught ? 0.35 : 0.12))
-                .frame(width: s * 0.14, height: s * 0.04)
-                .offset(x: -s * 0.08, y: -s * 0.06)
-            Capsule().fill(Color.black.opacity(caught ? 0.35 : 0.12))
-                .frame(width: s * 0.14, height: s * 0.04)
-                .offset(x: s * 0.08, y: -s * 0.06)
-            mouth(s, kind: .w, y: 0.10)
-        }
-    }
-
-    private func bill(_ s: CGFloat) -> some View {
-        ZStack {
-            Circle().fill(ink).frame(width: s * 0.56, height: s * 0.56)
-            Circle().stroke(shine, lineWidth: 2)
-                .frame(width: s * 0.42, height: s * 0.42)
-            Text("S")
-                .font(.system(size: s * 0.22, weight: .heavy, design: .rounded))
-                .foregroundStyle(shine)
-                .offset(y: -s * 0.02)
-            eyes(s, y: -0.12, spread: 0.12)
-            mouth(s, kind: .o, y: 0.14)
         }
     }
 
@@ -968,7 +733,7 @@ struct CreaturePortrait: View {
         }
     }
 
-    private func orbit(_ s: CGFloat) -> some View {
+    private func meridian(_ s: CGFloat) -> some View {
         ZStack {
             Ellipse().stroke(ink, lineWidth: 3)
                 .frame(width: s * 0.70, height: s * 0.28)
@@ -981,7 +746,7 @@ struct CreaturePortrait: View {
         }
     }
 
-    private func flood(_ s: CGFloat) -> some View {
+    private func tide(_ s: CGFloat) -> some View {
         ZStack {
             ForEach(0..<3, id: \.self) { i in
                 Capsule()
@@ -995,19 +760,6 @@ struct CreaturePortrait: View {
                 .offset(x: s * 0.22)
             mouth(s, kind: .fang, y: -0.08)
                 .offset(x: s * 0.22)
-        }
-    }
-
-    private func summit(_ s: CGFloat) -> some View {
-        ZStack {
-            Triangle().fill(ink.opacity(0.55)).frame(width: s * 0.28, height: s * 0.36)
-                .offset(x: -s * 0.16, y: s * 0.08)
-            Triangle().fill(ink).frame(width: s * 0.48, height: s * 0.56)
-            Capsule().fill(Color.white.opacity(caught ? 0.85 : 0.2))
-                .frame(width: s * 0.04, height: s * 0.14)
-                .offset(y: -s * 0.34)
-            eyes(s, y: 0.06)
-            mouth(s, kind: .smug, y: 0.18)
         }
     }
 
@@ -1025,20 +777,493 @@ struct CreaturePortrait: View {
         }
     }
 
-    private func forever(_ s: CGFloat) -> some View {
+    private func spark(_ s: CGFloat) -> some View {
         ZStack {
-            CoilLine()
-                .stroke(ink, style: StrokeStyle(lineWidth: s * 0.08, lineCap: .round))
-                .frame(width: s * 0.56, height: s * 0.40)
-                .rotationEffect(.degrees(80))
-            Circle().fill(ink).frame(width: s * 0.22, height: s * 0.22)
-                .offset(x: s * 0.18, y: -s * 0.08)
-            eyes(s, y: -0.10, spread: 0.04)
-                .offset(x: s * 0.18)
-            mouth(s, kind: .grin, y: 0.0)
-                .offset(x: s * 0.18)
+            SparkLine()
+                .stroke(
+                    ink,
+                    style: StrokeStyle(
+                        lineWidth: max(4, s * 0.07), lineCap: .round,
+                        lineJoin: .round)
+                )
+                .frame(width: s * 0.62, height: s * 0.34)
+                .offset(y: s * 0.06)
+            Circle().fill(ink).frame(width: s * 0.30, height: s * 0.30)
+                .offset(x: s * 0.20, y: -s * 0.14)
+            Circle().fill(shine).frame(width: s * 0.08, height: s * 0.08)
+                .offset(x: s * 0.28, y: -s * 0.22)
+            eyes(s, y: -0.16, spread: 0.05).offset(x: s * 0.20)
+            mouth(s, kind: .grin, y: -0.06).offset(x: s * 0.20)
         }
     }
+
+    private func tally(_ s: CGFloat) -> some View {
+        ZStack {
+            ForEach(0..<4, id: \.self) { i in
+                Capsule().fill(ink)
+                    .frame(width: s * 0.06, height: s * 0.44)
+                    .offset(x: s * (-0.18 + CGFloat(i) * 0.12))
+            }
+            Capsule().fill(ink.opacity(0.7))
+                .frame(width: s * 0.06, height: s * 0.52)
+                .rotationEffect(.degrees(24))
+            eyes(s, y: 0.02, spread: 0.06)
+            blush(s, y: 0.12)
+            mouth(s, kind: .grin, y: 0.16)
+            foot(s, x: -0.10)
+            foot(s, x: 0.10)
+        }
+    }
+
+    private func crumb(_ s: CGFloat) -> some View {
+        ZStack {
+            Circle().fill(ink).frame(width: s * 0.46, height: s * 0.46)
+            Circle().fill(Color.black.opacity(caught ? 0.35 : 0.10))
+                .frame(width: s * 0.20, height: s * 0.20)
+                .offset(x: s * 0.20, y: -s * 0.14)
+            Circle().fill(ink.opacity(0.55)).frame(width: s * 0.10, height: s * 0.10)
+                .offset(x: -s * 0.26, y: s * 0.18)
+            eyes(s, y: -0.02, spread: 0.06)
+            blush(s, y: 0.08)
+            mouth(s, kind: .w, y: 0.12)
+        }
+    }
+
+    private func loop(_ s: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .trim(from: 0.08, to: 0.92)
+                .stroke(ink, style: StrokeStyle(lineWidth: max(5, s * 0.09), lineCap: .round))
+                .frame(width: s * 0.54, height: s * 0.54)
+            Triangle().fill(ink)
+                .frame(width: s * 0.16, height: s * 0.16)
+                .rotationEffect(.degrees(140))
+                .offset(x: s * 0.22, y: -s * 0.18)
+            Circle().fill(ink).frame(width: s * 0.26, height: s * 0.26)
+                .offset(y: s * 0.06)
+            eyes(s, y: 0.02, spread: 0.05)
+            mouth(s, kind: .o, y: 0.12)
+        }
+    }
+
+    private func chip(_ s: CGFloat) -> some View {
+        ZStack {
+            ForEach(0..<8, id: \.self) { i in
+                Capsule().fill(ink.opacity(0.75))
+                    .frame(width: s * 0.05, height: s * 0.12)
+                    .offset(
+                        x: s * (i < 4 ? -0.30 : 0.30),
+                        y: s * (-0.14 + CGFloat(i % 4) * 0.10)
+                    )
+                    .rotationEffect(.degrees(90))
+            }
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(ink)
+                .frame(width: s * 0.50, height: s * 0.44)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(shine.opacity(0.35))
+                .frame(width: s * 0.22, height: s * 0.18)
+                .offset(y: -s * 0.02)
+            eyes(s, y: -0.02, spread: 0.06)
+            mouth(s, kind: .grin, y: 0.10)
+            foot(s, x: -0.12)
+            foot(s, x: 0.12)
+        }
+    }
+
+    private func thread(_ s: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(ink.opacity(0.5))
+                .frame(width: s * 0.44, height: s * 0.08)
+                .offset(y: -s * 0.20)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(ink.opacity(0.5))
+                .frame(width: s * 0.44, height: s * 0.08)
+                .offset(y: s * 0.20)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(ink)
+                .frame(width: s * 0.34, height: s * 0.40)
+            ForEach(0..<3, id: \.self) { i in
+                Capsule().fill(shine.opacity(0.4))
+                    .frame(width: s * 0.30, height: s * 0.03)
+                    .offset(y: s * (-0.08 + CGFloat(i) * 0.08))
+            }
+            eyes(s, y: -0.04, spread: 0.05)
+            mouth(s, kind: .w, y: 0.08)
+        }
+    }
+
+    private func ledger(_ s: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(ink).frame(width: s * 0.30, height: s * 0.42)
+                .rotationEffect(.degrees(-9)).offset(x: -s * 0.15)
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(ink).frame(width: s * 0.30, height: s * 0.42)
+                .rotationEffect(.degrees(9)).offset(x: s * 0.15)
+            ForEach(0..<3, id: \.self) { i in
+                Capsule().fill(shine.opacity(0.45))
+                    .frame(width: s * 0.44, height: s * 0.025)
+                    .offset(y: s * (-0.02 + CGFloat(i) * 0.07))
+            }
+            Circle().stroke(shine, lineWidth: 2).frame(width: s * 0.14, height: s * 0.14)
+                .offset(x: -s * 0.09, y: -s * 0.14)
+            Circle().stroke(shine, lineWidth: 2).frame(width: s * 0.14, height: s * 0.14)
+                .offset(x: s * 0.09, y: -s * 0.14)
+            eyes(s, y: -0.14, spread: 0.07)
+            mouth(s, kind: .smug, y: 0.16)
+        }
+    }
+
+    private func relay(_ s: CGFloat) -> some View {
+        ZStack {
+            Circle().fill(ink).frame(width: s * 0.36, height: s * 0.36)
+                .offset(x: -s * 0.10, y: -s * 0.04)
+            Capsule().fill(ink.opacity(0.8))
+                .frame(width: s * 0.30, height: s * 0.09)
+                .rotationEffect(.degrees(-18))
+                .offset(x: s * 0.16, y: -s * 0.02)
+            Capsule().fill(Color.yellow.opacity(caught ? 0.9 : 0.2))
+                .frame(width: s * 0.20, height: s * 0.07)
+                .rotationEffect(.degrees(-18))
+                .offset(x: s * 0.28, y: -s * 0.06)
+            eyes(s, y: -0.08, spread: 0.05).offset(x: -s * 0.10)
+            mouth(s, kind: .grin, y: 0.02).offset(x: -s * 0.10)
+            foot(s, x: -0.18)
+            foot(s, x: 0.02)
+        }
+    }
+
+    private func kindle(_ s: CGFloat) -> some View {
+        ZStack {
+            Capsule().fill(Color.black.opacity(caught ? 0.45 : 0.12))
+                .frame(width: s * 0.34, height: s * 0.14)
+                .offset(y: s * 0.24)
+            EmberFlame().fill(ink.opacity(0.9))
+                .frame(width: s * 0.30, height: s * 0.44)
+                .offset(x: -s * 0.12, y: -s * 0.02)
+            EmberFlame().fill(ink.opacity(0.6))
+                .frame(width: s * 0.22, height: s * 0.32)
+                .offset(x: s * 0.14, y: s * 0.04)
+            Ellipse().fill(Color.yellow.opacity(caught ? 0.8 : 0.2))
+                .frame(width: s * 0.12, height: s * 0.18)
+                .offset(x: -s * 0.12, y: s * 0.08)
+            eyes(s, y: -0.02, spread: 0.05).offset(x: -s * 0.12)
+            mouth(s, kind: .fang, y: 0.08).offset(x: -s * 0.12)
+        }
+    }
+
+    private func anvil(_ s: CGFloat) -> some View {
+        ZStack {
+            UnevenRoundedRectangle(
+                topLeadingRadius: 6, bottomLeadingRadius: 2,
+                bottomTrailingRadius: 2, topTrailingRadius: 6, style: .continuous
+            )
+            .fill(ink)
+            .frame(width: s * 0.58, height: s * 0.20)
+            .offset(y: -s * 0.06)
+            Rectangle().fill(ink.opacity(0.85))
+                .frame(width: s * 0.18, height: s * 0.14)
+                .offset(y: s * 0.10)
+            Capsule().fill(ink)
+                .frame(width: s * 0.40, height: s * 0.10)
+                .offset(y: s * 0.22)
+            ForEach(0..<3, id: \.self) { i in
+                Circle().fill(Color.yellow.opacity(caught ? 0.9 : 0.2))
+                    .frame(width: s * 0.05, height: s * 0.05)
+                    .offset(x: s * (0.22 + CGFloat(i) * 0.05), y: -s * (0.18 + CGFloat(i) * 0.06))
+            }
+            eyes(s, y: -0.08, spread: 0.06)
+            mouth(s, kind: .smug, y: 0.00)
+        }
+    }
+
+    private func lantern(_ s: CGFloat) -> some View {
+        ZStack {
+            Triangle().fill(ink).frame(width: s * 0.14, height: s * 0.16)
+                .offset(x: -s * 0.16, y: -s * 0.24)
+            Triangle().fill(ink).frame(width: s * 0.14, height: s * 0.16)
+                .offset(x: s * 0.04, y: -s * 0.24)
+            Ellipse().fill(ink).frame(width: s * 0.44, height: s * 0.36)
+                .offset(x: -s * 0.06, y: -s * 0.02)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.yellow.opacity(caught ? 0.85 : 0.2))
+                .frame(width: s * 0.16, height: s * 0.20)
+                .offset(x: s * 0.26, y: s * 0.10)
+            Capsule().fill(ink.opacity(0.8))
+                .frame(width: s * 0.22, height: s * 0.07)
+                .rotationEffect(.degrees(-24))
+                .offset(x: s * 0.16, y: s * 0.02)
+            eyes(s, y: -0.06, spread: 0.05).offset(x: -s * 0.06)
+            blush(s, y: 0.04).offset(x: -s * 0.06)
+            mouth(s, kind: .w, y: 0.06).offset(x: -s * 0.06)
+        }
+    }
+
+    private func quarry(_ s: CGFloat) -> some View {
+        ZStack {
+            QuarryRock().fill(ink)
+                .frame(width: s * 0.56, height: s * 0.40)
+                .offset(y: s * 0.06)
+            Capsule().fill(ink.opacity(0.75))
+                .frame(width: s * 0.07, height: s * 0.34)
+                .rotationEffect(.degrees(32))
+                .offset(x: s * 0.20, y: -s * 0.18)
+            Capsule().fill(shine.opacity(0.5))
+                .frame(width: s * 0.22, height: s * 0.06)
+                .rotationEffect(.degrees(-30))
+                .offset(x: s * 0.26, y: -s * 0.28)
+            eyes(s, y: 0.00, spread: 0.07)
+            mouth(s, kind: .fang, y: 0.12)
+        }
+    }
+
+    private func prism(_ s: CGFloat) -> some View {
+        ZStack {
+            ForEach(0..<4, id: \.self) { i in
+                Capsule()
+                    .fill(
+                        [Color.orange, Color.blue, Color.green, Color.purple][i]
+                            .opacity(caught ? 0.75 : 0.15)
+                    )
+                    .frame(width: s * 0.30, height: s * 0.045)
+                    .offset(x: s * 0.30, y: s * (-0.10 + CGFloat(i) * 0.08))
+            }
+            Capsule().fill(shine.opacity(0.55))
+                .frame(width: s * 0.24, height: s * 0.04)
+                .offset(x: -s * 0.30, y: -s * 0.02)
+            Triangle().fill(ink)
+                .frame(width: s * 0.44, height: s * 0.42)
+            eyes(s, y: 0.08, spread: 0.05)
+            mouth(s, kind: .grin, y: 0.17)
+        }
+    }
+
+    private func cinder(_ s: CGFloat) -> some View {
+        ZStack {
+            Ellipse().fill(Color.gray.opacity(caught ? 0.45 : 0.15))
+                .frame(width: s * 0.62, height: s * 0.26)
+                .offset(y: s * 0.14)
+            Ellipse().fill(ink)
+                .frame(width: s * 0.44, height: s * 0.30)
+                .offset(y: s * 0.02)
+            ForEach(0..<3, id: \.self) { i in
+                Circle().fill(Color.orange.opacity(caught ? 0.85 : 0.2))
+                    .frame(width: s * 0.07, height: s * 0.07)
+                    .offset(x: s * (-0.12 + CGFloat(i) * 0.12), y: s * 0.10)
+            }
+            Circle().fill(Color.orange.opacity(caught ? 0.5 : 0.12))
+                .frame(width: s * 0.05, height: s * 0.05)
+                .offset(x: s * 0.18, y: -s * 0.24)
+            eyes(s, y: -0.06, spread: 0.06)
+            mouth(s, kind: .grin, y: 0.04)
+        }
+    }
+
+    private func beacon(_ s: CGFloat) -> some View {
+        ZStack {
+            BeaconBeam().fill(Color.yellow.opacity(caught ? 0.35 : 0.08))
+                .frame(width: s * 0.52, height: s * 0.30)
+                .offset(x: s * 0.30, y: -s * 0.16)
+            TowerBody().fill(ink)
+                .frame(width: s * 0.36, height: s * 0.50)
+                .offset(y: s * 0.10)
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.yellow.opacity(caught ? 0.85 : 0.2))
+                .frame(width: s * 0.22, height: s * 0.14)
+                .offset(y: -s * 0.20)
+            Triangle().fill(ink)
+                .frame(width: s * 0.30, height: s * 0.14)
+                .offset(y: -s * 0.33)
+            eyes(s, y: 0.10, spread: 0.06)
+            mouth(s, kind: .grin, y: 0.20)
+        }
+    }
+
+    private func forge(_ s: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(ink)
+                .frame(width: s * 0.56, height: s * 0.48)
+            Heart().fill(Color.orange.opacity(caught ? 0.9 : 0.2))
+                .frame(width: s * 0.24, height: s * 0.22)
+                .offset(y: s * 0.04)
+            ForEach(0..<3, id: \.self) { i in
+                Capsule().fill(Color.gray.opacity(caught ? 0.4 : 0.12))
+                    .frame(width: s * 0.06, height: s * 0.16)
+                    .offset(x: s * (-0.12 + CGFloat(i) * 0.12), y: -s * 0.34)
+            }
+            eyes(s, y: -0.14, spread: 0.08)
+            arm(s, x: -0.32, y: 0.06, rot: 14)
+            arm(s, x: 0.32, y: 0.06, rot: -14)
+            mouth(s, kind: .fang, y: 0.20)
+        }
+    }
+
+    private func marrow(_ s: CGFloat) -> some View {
+        ZStack {
+            ForEach(0..<4, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(ink.opacity(1 - Double(i) * 0.18))
+                    .frame(width: s * (0.60 - CGFloat(i) * 0.06), height: s * 0.11)
+                    .offset(y: s * (0.24 - CGFloat(i) * 0.13))
+            }
+            Circle().fill(Color.orange.opacity(caught ? 0.85 : 0.2))
+                .frame(width: s * 0.16, height: s * 0.16)
+                .offset(y: s * 0.02)
+            eyes(s, y: -0.22, spread: 0.06)
+            mouth(s, kind: .grin, y: -0.12)
+        }
+    }
+
+    private func weave(_ s: CGFloat) -> some View {
+        ZStack {
+            ForEach(0..<4, id: \.self) { i in
+                Capsule().fill(ink.opacity(0.85))
+                    .frame(width: s * 0.52, height: s * 0.07)
+                    .offset(y: s * (-0.18 + CGFloat(i) * 0.12))
+            }
+            ForEach(0..<4, id: \.self) { i in
+                Capsule().fill(ink.opacity(0.45))
+                    .frame(width: s * 0.07, height: s * 0.52)
+                    .offset(x: s * (-0.18 + CGFloat(i) * 0.12))
+            }
+            Circle().fill(shine.opacity(0.35))
+                .frame(width: s * 0.18, height: s * 0.18)
+            eyes(s, y: 0.00, spread: 0.06)
+            mouth(s, kind: .w, y: 0.10)
+        }
+    }
+
+    private func sentinel(_ s: CGFloat) -> some View {
+        ZStack {
+            TowerBody().fill(ink)
+                .frame(width: s * 0.44, height: s * 0.54)
+                .offset(y: s * 0.12)
+            Ellipse().fill(shine.opacity(0.85))
+                .frame(width: s * 0.30, height: s * 0.22)
+                .offset(y: -s * 0.10)
+            Circle().fill(ink).frame(width: s * 0.13, height: s * 0.13)
+                .offset(y: -s * 0.10)
+            Circle().fill(Color.black).frame(width: s * 0.06, height: s * 0.06)
+                .offset(y: -s * 0.10)
+            ForEach(0..<3, id: \.self) { i in
+                Rectangle().fill(ink)
+                    .frame(width: s * 0.08, height: s * 0.10)
+                    .offset(x: s * (-0.16 + CGFloat(i) * 0.16), y: -s * 0.30)
+            }
+            mouth(s, kind: .smug, y: 0.14)
+        }
+    }
+
+    private func harvest(_ s: CGFloat) -> some View {
+        ZStack {
+            ForEach(0..<5, id: \.self) { i in
+                Capsule().fill(ink.opacity(0.85))
+                    .frame(width: s * 0.08, height: s * 0.46)
+                    .rotationEffect(.degrees(Double(i - 2) * 11))
+                    .offset(x: s * (CGFloat(i) - 2) * 0.10, y: -s * 0.06)
+            }
+            Capsule().fill(ink.opacity(0.55))
+                .frame(width: s * 0.46, height: s * 0.09)
+                .offset(y: s * 0.14)
+            ForEach(0..<3, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.yellow.opacity(caught ? 0.7 : 0.15))
+                    .frame(width: s * 0.09, height: s * 0.09)
+                    .offset(x: s * (-0.14 + CGFloat(i) * 0.14), y: s * 0.30)
+            }
+            eyes(s, y: -0.04, spread: 0.06)
+            mouth(s, kind: .grin, y: 0.04)
+        }
+    }
+
+    private func reckon(_ s: CGFloat) -> some View {
+        ZStack {
+            Triangle().fill(ink.opacity(0.9))
+                .frame(width: s * 0.42, height: s * 0.22)
+                .offset(y: -s * 0.12)
+            Triangle().fill(ink.opacity(0.65))
+                .frame(width: s * 0.42, height: s * 0.22)
+                .rotationEffect(.degrees(180))
+                .offset(y: s * 0.12)
+            Capsule().fill(ink)
+                .frame(width: s * 0.50, height: s * 0.06)
+                .offset(y: -s * 0.26)
+            Capsule().fill(ink)
+                .frame(width: s * 0.50, height: s * 0.06)
+                .offset(y: s * 0.26)
+            Circle().fill(shine.opacity(0.9))
+                .frame(width: s * 0.05, height: s * 0.05)
+                .offset(y: s * 0.04)
+            eyes(s, y: -0.15, spread: 0.05)
+            mouth(s, kind: .o, y: 0.16)
+        }
+    }
+
+    private func vigil(_ s: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(ink)
+                .frame(width: s * 0.24, height: s * 0.44)
+                .offset(y: s * 0.16)
+            EmberFlame().fill(Color.yellow.opacity(caught ? 0.85 : 0.2))
+                .frame(width: s * 0.22, height: s * 0.30)
+                .offset(y: -s * 0.20)
+            Ellipse().fill(Color.white.opacity(caught ? 0.9 : 0.2))
+                .frame(width: s * 0.11, height: s * 0.08)
+                .offset(y: -s * 0.19)
+            Circle().fill(Color.black.opacity(0.75))
+                .frame(width: s * 0.05, height: s * 0.05)
+                .offset(y: -s * 0.19)
+            Capsule().fill(shine.opacity(0.35))
+                .frame(width: s * 0.16, height: s * 0.03)
+                .offset(y: s * 0.06)
+            mouth(s, kind: .smug, y: 0.22)
+        }
+    }
+
+    private func chorus(_ s: CGFloat) -> some View {
+        ZStack {
+            Circle().stroke(ink.opacity(0.35), style: StrokeStyle(lineWidth: 2, dash: [4, 4]))
+                .frame(width: s * 0.62, height: s * 0.62)
+            ForEach(0..<6, id: \.self) { i in
+                Circle()
+                    .fill(i.isMultiple(of: 2) ? ink : ink.opacity(0.6))
+                    .frame(width: s * 0.15, height: s * 0.15)
+                    .offset(y: -s * 0.31)
+                    .rotationEffect(.degrees(Double(i) * 60))
+            }
+            Circle().fill(ink).frame(width: s * 0.30, height: s * 0.30)
+            eyes(s, y: -0.02, spread: 0.05)
+            mouth(s, kind: .o, y: 0.08)
+        }
+    }
+
+    private func aurum(_ s: CGFloat) -> some View {
+        ZStack {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .trim(from: 0, to: 0.72)
+                    .stroke(
+                        Color.yellow.opacity(caught ? 0.8 - Double(i) * 0.2 : 0.12),
+                        style: StrokeStyle(lineWidth: max(3, s * 0.045), lineCap: .round)
+                    )
+                    .frame(
+                        width: s * (0.44 + CGFloat(i) * 0.14),
+                        height: s * (0.44 + CGFloat(i) * 0.14)
+                    )
+                    .rotationEffect(.degrees(Double(i) * 55))
+            }
+            Circle().fill(ink).frame(width: s * 0.34, height: s * 0.34)
+            Circle().fill(shine.opacity(0.4)).frame(width: s * 0.12, height: s * 0.12)
+                .offset(x: -s * 0.07, y: -s * 0.07)
+            eyes(s, y: -0.01, spread: 0.05)
+            mouth(s, kind: .smug, y: 0.10)
+        }
+    }
+
 }
 
 // MARK: - Paths
@@ -1229,6 +1454,79 @@ private struct IdleBob: ViewModifier {
             context in
             let t = context.date.timeIntervalSinceReferenceDate
             content.offset(y: enabled ? sin(t * 2.2) * amplitude : 0)
+        }
+    }
+}
+
+private struct SparkLine: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { p in
+            p.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            p.addLine(to: CGPoint(x: rect.width * 0.26, y: rect.height * 0.34))
+            p.addLine(to: CGPoint(x: rect.width * 0.46, y: rect.height * 0.72))
+            p.addLine(to: CGPoint(x: rect.width * 0.72, y: rect.height * 0.10))
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.height * 0.40))
+        }
+    }
+}
+
+private struct QuarryRock: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { p in
+            p.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            p.addLine(to: CGPoint(x: rect.width * 0.16, y: rect.height * 0.28))
+            p.addLine(to: CGPoint(x: rect.width * 0.52, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.width * 0.86, y: rect.height * 0.34))
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            p.closeSubpath()
+        }
+    }
+}
+
+private struct TowerBody: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { p in
+            p.move(to: CGPoint(x: rect.width * 0.24, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.width * 0.76, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            p.closeSubpath()
+        }
+    }
+}
+
+private struct BeaconBeam: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { p in
+            p.move(to: CGPoint(x: rect.minX, y: rect.midY))
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            p.closeSubpath()
+        }
+    }
+}
+
+private struct Heart: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { p in
+            p.move(to: CGPoint(x: rect.midX, y: rect.maxY))
+            p.addCurve(
+                to: CGPoint(x: rect.minX, y: rect.height * 0.28),
+                control1: CGPoint(x: rect.width * 0.20, y: rect.height * 0.78),
+                control2: CGPoint(x: rect.minX, y: rect.height * 0.52))
+            p.addArc(
+                center: CGPoint(x: rect.width * 0.25, y: rect.height * 0.28),
+                radius: rect.width * 0.25, startAngle: .degrees(180), endAngle: .degrees(0),
+                clockwise: false)
+            p.addArc(
+                center: CGPoint(x: rect.width * 0.75, y: rect.height * 0.28),
+                radius: rect.width * 0.25, startAngle: .degrees(180), endAngle: .degrees(0),
+                clockwise: false)
+            p.addCurve(
+                to: CGPoint(x: rect.midX, y: rect.maxY),
+                control1: CGPoint(x: rect.maxX, y: rect.height * 0.52),
+                control2: CGPoint(x: rect.width * 0.80, y: rect.height * 0.78))
+            p.closeSubpath()
         }
     }
 }

@@ -194,53 +194,32 @@ struct DexUnlockTests {
         #expect(enough.caught.map(\.id).contains("rationyx"))
     }
 
-    @Test("morning tokens catch Dawn")
-    func morningCatchesDawn() {
-        let calendar = Calendar(identifier: .gregorian)
-        var components = DateComponents()
-        components.year = 2026
-        components.month = 8
-        components.day = 18
-        components.hour = 8
-        let stamp = calendar.date(from: components)!
+    @Test("the hour rules read the busiest hour, not the clock")
+    func hourRequirements() {
+        var morning = TrainerStats()
+        morning.busiestHour = 8
+        var evening = TrainerStats()
+        evening.busiestHour = 17
+        var night = TrainerStats()
+        night.busiestHour = 23
 
-        var h = UsageHistory()
-        h.add([event(billable: 2_000, timestamp: stamp)], calendar: calendar)
-
-        let state = Dex.evaluate(DexInput(histories: ["claude": h], calendar: calendar))
-
-        #expect(state.caught.map(\.id).contains("dawnkit"))
-        #expect(!state.caught.map(\.id).contains("nightshift"))
-        #expect(!state.caught.map(\.id).contains("duskwing"))
+        #expect(UnlockRequirement.earlyBird.isMet(by: morning))
+        #expect(!UnlockRequirement.earlyBird.isMet(by: evening))
+        #expect(UnlockRequirement.dusk.isMet(by: evening))
+        #expect(!UnlockRequirement.dusk.isMet(by: morning))
+        #expect(UnlockRequirement.nightOwl.isMet(by: night))
+        #expect(!UnlockRequirement.nightOwl.isMet(by: morning))
     }
 
-    @Test("evening tokens catch Dusk")
-    func eveningCatchesDusk() {
-        let calendar = Calendar(identifier: .gregorian)
-        var components = DateComponents()
-        components.year = 2026
-        components.month = 8
-        components.day = 18
-        components.hour = 17
-        let stamp = calendar.date(from: components)!
+    @Test("the estimate rule reads dollars, not tokens")
+    func costRequirement() {
+        var poor = TrainerStats()
+        poor.cost = 4.5
+        var rich = TrainerStats()
+        rich.cost = 21
 
-        var h = UsageHistory()
-        h.add([event(billable: 2_000, timestamp: stamp)], calendar: calendar)
-
-        let state = Dex.evaluate(DexInput(histories: ["claude": h], calendar: calendar))
-
-        #expect(state.caught.map(\.id).contains("duskwing"))
-        #expect(!state.caught.map(\.id).contains("dawnkit"))
-    }
-
-    @Test("a usage estimate catches Bill")
-    func estimateCatchesBill() {
-        let shy = Dex.evaluate(DexInput(histories: ["claude": history(billable: 1_000)]))
-        let enough = Dex.evaluate(
-            DexInput(histories: ["claude": history(billable: 5_000_000)]))
-
-        #expect(!shy.caught.map(\.id).contains("billow"))
-        #expect(enough.caught.map(\.id).contains("billow"))
+        #expect(!UnlockRequirement.cost(20).isMet(by: poor))
+        #expect(UnlockRequirement.cost(20).isMet(by: rich))
     }
 }
 
@@ -287,9 +266,9 @@ struct DexRosterTests {
         #expect(numbers == Array(1...Dex.roster.count))
     }
 
-    @Test("the set is forty-two creatures")
+    @Test("the set is fifty creatures")
     func setSize() {
-        #expect(Dex.roster.count == 42)
+        #expect(Dex.roster.count == 50)
     }
 
     @Test("display names are plain English, not clone portmanteaus")
@@ -299,24 +278,92 @@ struct DexRosterTests {
                 "Ember", "Prompt", "Needle", "Moth", "Wisp", "Cell",
                 "Session", "Coil", "Context", "Shift", "Streak", "Pace",
                 "Week", "Braid", "Night", "Trio", "Wall", "Mark",
-                "Draft", "Reply", "Tab", "Diff", "Patch", "Commit",
-                "Branch", "Merge", "Rebase", "Blame", "Lint", "Build",
-                "Ship", "Crash", "Dawn", "Dusk", "Bill", "Echo",
-                "Vault", "Orbit", "Flood", "Summit", "Zenith", "Forever",
+                "Spark", "Draft", "Tally", "Crumb", "Loop", "Dawn",
+                "Echo", "Chip", "Thread", "Ledger", "Relay", "Kindle",
+                "Sift", "Vault", "Anvil", "Lantern", "Quarry", "Prism",
+                "Tide", "Cinder", "Beacon", "Forge", "Marrow", "Weave",
+                "Sentinel", "Harvest", "Reckon", "Vigil", "Chorus",
+                "Meridian", "Aurum", "Zenith",
             ])
     }
 
-    @Test("every creature has life, energy, strength, and an ability")
-    func cardStats() {
+    @Test("the first eighteen cards keep the ids they shipped with")
+    func shippingIDsAreStable() {
+        #expect(
+            Dex.roster.prefix(18).map(\.id) == [
+                "sparkit", "promptail", "gaugeling", "tokenoth", "cachewisp",
+                "heatmite", "sessiondrake", "limitwyrm", "contextaur", "modelith",
+                "streakon", "burnrate", "weeklyrex", "braidon", "nightshift",
+                "omnivore", "wallback", "rationyx",
+            ])
+    }
+
+    @Test("collector numbers run 1…50 with no gaps and no repeats")
+    func numbering() {
+        #expect(Dex.roster.map(\.number) == Array(1...50))
+        #expect(Set(Dex.roster.map(\.id)).count == 50)
+    }
+
+    @Test("every creature has a printed card face")
+    func everyCreatureHasLore() {
         for creature in Dex.roster {
-            #expect(creature.life > 0)
-            #expect(creature.energy > 0)
-            #expect(creature.strength > 0)
-            #expect(!creature.ability.isEmpty)
-            #expect(!creature.nature.isEmpty)
+            let lore = Dex.lore[creature.id]
+            #expect(lore != nil, "\(creature.id) has no lore")
+            guard let lore else { continue }
+            #expect(lore.life > 0)
+            #expect(lore.energyCost > 0)
+            #expect(lore.power > 0)
+            #expect(lore.speed > 0)
+            #expect(!lore.species.isEmpty)
+            #expect(!lore.attacks.isEmpty)
+            #expect(lore.attacks.allSatisfy { !$0.name.isEmpty && $0.damage > 0 })
             #expect(creature.artConcepts.count >= 2)
             #expect(!creature.artPrompt.isEmpty)
         }
+    }
+
+    @Test("lore has no entries for creatures that are not in the set")
+    func loreMatchesRoster() {
+        #expect(Set(Dex.lore.keys) == Set(Dex.roster.map(\.id)))
+    }
+
+    @Test("evolved cards say what they evolve from")
+    func evolutionLines() {
+        for creature in Dex.roster {
+            let lore = creature.lore
+            if lore.stage == .basic {
+                #expect(lore.evolvesFrom == nil)
+            } else {
+                #expect(lore.evolvesFrom?.isEmpty == false)
+            }
+        }
+    }
+
+    @Test("weakness and resistance are never the card's own energy")
+    func typeChart() {
+        for energy in CreatureEnergy.allCases {
+            #expect(energy.weakness != energy)
+            #expect(energy.resistance != energy)
+            #expect(!energy.glyph.isEmpty)
+            #expect(!energy.label.isEmpty)
+        }
+    }
+
+    @Test("retreat cost stays inside the printed one-to-three pips")
+    func retreatCost() {
+        for rarity in CreatureRarity.allCases {
+            let cost = CreatureLore.retreat(for: rarity)
+            #expect(cost >= 1)
+            #expect(cost <= 3)
+        }
+    }
+
+    @Test("harder cards hit harder")
+    func rarityScalesTheCardFace() {
+        let common = Dex.roster.filter { $0.rarity == .common }.map { $0.lore.life }
+        let mythic = Dex.roster.filter { $0.rarity == .mythic }.map { $0.lore.life }
+
+        #expect(common.max()! < mythic.min()!)
     }
 }
 
