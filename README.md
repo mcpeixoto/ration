@@ -100,9 +100,9 @@ published yet.
 
 ### Linux
 
-Download the tarball for your architecture from
-[Releases](https://github.com/mcpeixoto/ration/releases/latest) — look for
-`ration-0.8.2-linux-x86_64.tar.gz` or `ration-0.8.2-linux-aarch64.tar.gz`.
+Download the x86_64 tarball from
+[Releases](https://github.com/mcpeixoto/ration/releases/latest) —
+`ration-0.8.2-linux-x86_64.tar.gz`. On ARM64 Linux, build from source (below).
 
 ```sh
 tar -xzf ration-0.8.2-linux-x86_64.tar.gz

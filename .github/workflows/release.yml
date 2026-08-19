@@ -162,8 +162,7 @@ jobs:
         include:
           - runner: ubuntu-latest
             arch: x86_64
-          - runner: ubuntu-24.04-arm
-            arch: aarch64
+          # See ci.yml — ARM runner Swift install is broken upstream.
     steps:
       - uses: actions/checkout@v4
         with:

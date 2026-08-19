@@ -13,7 +13,8 @@ enum ServiceCommand {
         case "status":
             status()
         default:
-            FileHandle.standardError.write(Data("Unknown service command: \(subcommand ?? "")\n".utf8))
+            FileHandle.standardError.write(
+                Data("Unknown service command: \(subcommand ?? "")\n".utf8))
             printHelp()
             exit(1)
         }
@@ -43,18 +44,18 @@ enum ServiceCommand {
 
     private static func install(config: CLIConfig) {
         let unit = """
-        [Unit]
-        Description=Ration usage monitor
-        After=network.target
+            [Unit]
+            Description=Ration usage monitor
+            After=network.target
 
-        [Service]
-        ExecStart=\(rationPath()) watch --interval \(Int(max(60, config.pollInterval)))
-        Restart=on-failure
-        Environment=PATH=/usr/local/bin:/usr/bin:/bin
+            [Service]
+            ExecStart=\(rationPath()) watch --interval \(Int(max(60, config.pollInterval)))
+            Restart=on-failure
+            Environment=PATH=/usr/local/bin:/usr/bin:/bin
 
-        [Install]
-        WantedBy=default.target
-        """
+            [Install]
+            WantedBy=default.target
+            """
 
         let url = unitURL
         try? FileManager.default.createDirectory(

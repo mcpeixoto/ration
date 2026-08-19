@@ -96,8 +96,8 @@ jobs:
         include:
           - runner: ubuntu-latest
             arch: x86_64
-          - runner: ubuntu-24.04-arm
-            arch: aarch64
+          # ubuntu-24.04-arm + setup-swift@v2 currently installs a broken Swift
+          # toolchain (ELF parse error). aarch64 builds work from source locally.
     steps:
       - uses: actions/checkout@v4
 

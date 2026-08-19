@@ -99,10 +99,14 @@ enum HistoryCommands {
             for day in window where day.date <= now {
                 let bar = CLIFormat.progressBar(
                     Double(day.billableTokens) / Double(peak) * 100, width: 16)
-                let label = day.billableTokens > 0
-                    ? CLIFormat.compact(day.billableTokens).padding(toLength: 6, withPad: " ", startingAt: 0)
+                let label =
+                    day.billableTokens > 0
+                    ? CLIFormat.compact(day.billableTokens).padding(
+                        toLength: 6, withPad: " ", startingAt: 0)
                     : "      "
-                print("  \(CLIFormat.shortDate(day.date).padding(toLength: 6, withPad: " ", startingAt: 0)) \(bar) \(label)")
+                print(
+                    "  \(CLIFormat.shortDate(day.date).padding(toLength: 6, withPad: " ", startingAt: 0)) \(bar) \(label)"
+                )
             }
             print()
         }
@@ -256,7 +260,8 @@ enum HistoryCommands {
     }
 
     private static func printJSON(_ object: Any) {
-        if let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted]),
+        if let data = try? JSONSerialization.data(
+            withJSONObject: object, options: [.prettyPrinted]),
             let text = String(data: data, encoding: .utf8)
         {
             print(text)

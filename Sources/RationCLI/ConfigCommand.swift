@@ -11,7 +11,8 @@ enum ConfigCommand {
         case "path":
             print(CLIConfig.url.path)
         default:
-            FileHandle.standardError.write(Data("Unknown config command: \(subcommand ?? "")\n".utf8))
+            FileHandle.standardError.write(
+                Data("Unknown config command: \(subcommand ?? "")\n".utf8))
             printConfigHelp()
             exit(1)
         }
@@ -31,7 +32,9 @@ enum ConfigCommand {
         print()
         print("pollInterval:        \(Int(config.pollInterval))s")
         print("notifyOnThresholds:  \(config.notifyOnThresholds)")
-        print("disabledProviders: \(config.disabledProviders.isEmpty ? "none" : config.disabledProviders.joined(separator: ", "))")
+        print(
+            "disabledProviders: \(config.disabledProviders.isEmpty ? "none" : config.disabledProviders.joined(separator: ", "))"
+        )
         print("revealedCreatures:   \(config.revealedCreatureIDs.count)")
     }
 

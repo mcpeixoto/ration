@@ -40,7 +40,9 @@ enum DexCommand {
 
         if let hunt = state.nextPowerCatch {
             let progress = Int(hunt.progress * 100)
-            print("Next unlock: \(hunt.creature.name) (\(progress)% — \(hunt.creature.requirement.hint))")
+            print(
+                "Next unlock: \(hunt.creature.name) (\(progress)% — \(hunt.creature.requirement.hint))"
+            )
             print()
         } else if state.uncaught.isEmpty {
             print("The set is complete.")
