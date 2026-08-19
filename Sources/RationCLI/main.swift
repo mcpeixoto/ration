@@ -168,7 +168,9 @@ struct RationCLI {
             let bar = progressBar(limit.percent)
             let reset =
                 limit.resetsAt.map { " · resets \(formattedReset($0))" } ?? ""
-            print("\(indent)\(limit.displayName.padding(toLength: 14, withPad: " ", startingAt: 0)) \(bar) \(Int(limit.percent.rounded()))%\(reset)")
+            print(
+                "\(indent)\(limit.displayName.padding(toLength: 14, withPad: " ", startingAt: 0)) \(bar) \(Int(limit.percent.rounded()))%\(reset)"
+            )
         }
     }
 
@@ -210,13 +212,15 @@ struct RationCLI {
                     "kind": limit.kind.rawValue,
                     "name": limit.displayName,
                     "percent": limit.percent,
-                    "resetsAt": limit.resetsAt.map { ISO8601DateFormatter().string(from: $0) } as Any,
+                    "resetsAt": limit.resetsAt.map { ISO8601DateFormatter().string(from: $0) }
+                        as Any,
                 ] as [String: Any]
             }
         }
 
         if case .signedOut = state.status {
-            payload["error"] = state.credentialError?.localizedDescription
+            payload["error"] =
+                state.credentialError?.localizedDescription
                 ?? "Session expired."
         } else if case .failed(let error) = state.status {
             payload["error"] = error.localizedDescription
@@ -224,7 +228,8 @@ struct RationCLI {
             payload["error"] = reason
         }
 
-        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted]),
+        if let data = try? JSONSerialization.data(
+            withJSONObject: payload, options: [.prettyPrinted]),
             let text = String(data: data, encoding: .utf8)
         {
             print(text)
@@ -240,7 +245,8 @@ struct RationCLI {
             "availability": availabilityLabel(availability),
             "error": availability.explanation as Any,
         ]
-        if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted]),
+        if let data = try? JSONSerialization.data(
+            withJSONObject: payload, options: [.prettyPrinted]),
             let text = String(data: data, encoding: .utf8)
         {
             print(text)

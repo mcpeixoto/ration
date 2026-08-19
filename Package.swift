@@ -39,8 +39,17 @@ let package = Package(
     ],
     dependencies: sparkleDependency,
     targets: [
+        .systemLibrary(
+            name: "CSqlite3",
+            path: "Sources/CSqlite3",
+            providers: [
+                .apt(["libsqlite3-dev"]),
+                .brew(["sqlite"]),
+            ]
+        ),
         .target(
             name: "RationKit",
+            dependencies: ["CSqlite3"],
             linkerSettings: [.linkedLibrary("sqlite3")]
         ),
         .executableTarget(

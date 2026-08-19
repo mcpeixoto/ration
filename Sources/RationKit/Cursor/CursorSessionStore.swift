@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(SQLite3)
 import SQLite3
+#else
+import CSqlite3
+#endif
 
 /// The Cursor login already on disk: the access token the app uses, and the
 /// plan name it cached beside it.
