@@ -88,8 +88,16 @@ jobs:
           echo "OK: no foreign credential references"
 
   linux:
-    name: Test (Linux)
-    runs-on: ubuntu-latest
+    name: Test (Linux ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
     steps:
       - uses: actions/checkout@v4
 
@@ -112,6 +120,9 @@ jobs:
 
       - name: Verify the CLI runs
         run: .build/release/ration version
+
+      - name: Verify history commands are available
+        run: .build/release/ration help | grep -q activity
 
   format:
     name: Format

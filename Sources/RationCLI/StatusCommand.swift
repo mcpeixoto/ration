@@ -1,72 +1,33 @@
 import Foundation
 import RationKit
 
-@main
-struct RationCLI {
-    static func main() async {
-        let args = Array(CommandLine.arguments.dropFirst())
-        let command = args.first ?? "status"
-        let options = CLIOptions(args: Array(args.dropFirst()))
+@MainActor
+enum StatusCommand {
 
-        switch command {
-        case "status", "show":
-            await runStatus(options: options, watch: false)
-        case "watch":
-            await runStatus(options: options, watch: true)
-        case "version", "-v", "--version":
-            print("ration \(Ration.version)")
-        case "help", "-h", "--help":
-            printHelp()
-        default:
-            let message = "Unknown command: \(command)\n"
-            FileHandle.standardError.write(Data(message.utf8))
-            printHelp()
-            exit(1)
-        }
-    }
-
-    private static func printHelp() {
-        print(
-            """
-            ration — your AI coding usage, in the terminal
-
-            Usage:
-              ration [command] [options]
-
-            Commands:
-              status    Show current usage (default)
-              watch     Refresh usage on an interval
-              version   Print the version
-              help      Show this message
-
-            Options:
-              --provider <id>   claude, codex, or cursor
-              --interval <sec>  Poll interval for watch (default: 60, minimum: 60)
-              --json            Print machine-readable JSON
-
-            Examples:
-              ration status
-              ration watch --interval 120
-              ration status --provider codex --json
-            """)
-    }
-
-    @MainActor
-    private static func runStatus(options: CLIOptions, watch: Bool) async {
-        let interval = max(60, options.interval ?? 60)
-        let registry = ProviderRegistry.standard()
+    static func run(options: CLIOptions, watch: Bool, config: CLIConfig) async {
+        let interval = max(60, options.interval ?? config.pollInterval)
+        let registry = CLIContext.registry(config: config)
+        let notifier = CLINotifier()
+        let notificationsEnabled = options.notify || config.notifyOnThresholds
 
         repeat {
             if watch { print("\u{001B}[2J\u{001B}[H", terminator: "") }
             print("Ration \(Ration.version)")
             if watch {
                 print("Refreshing every \(Int(interval))s — Ctrl+C to stop")
+                if notificationsEnabled {
+                    print("Notifications: on")
+                }
             }
             print()
 
             let entries = filteredEntries(registry: registry, providerID: options.providerID)
             for entry in entries {
                 await printEntry(entry, json: options.json)
+                if watch, let snapshot = entry.poller.state.snapshot {
+                    notifier.handle(
+                        snapshot, from: entry.provider, enabled: notificationsEnabled)
+                }
                 if !options.json { print() }
             }
 
@@ -75,7 +36,6 @@ struct RationCLI {
         } while watch
     }
 
-    @MainActor
     private static func filteredEntries(
         registry: ProviderRegistry, providerID: String?
     ) -> [ProviderRegistry.Entry] {
@@ -84,7 +44,6 @@ struct RationCLI {
         return metered.filter { $0.provider.id == providerID }
     }
 
-    @MainActor
     private static func printEntry(_ entry: ProviderRegistry.Entry, json: Bool) async {
         let provider = entry.provider
         let availability = entry.availability
@@ -101,7 +60,6 @@ struct RationCLI {
         entry.poller.start()
         defer { entry.poller.suspend() }
 
-        // One-shot fetch for status; watch re-enters this loop.
         if entry.poller.state.status == .idle {
             await waitForRefresh(entry.poller)
         }
@@ -114,7 +72,6 @@ struct RationCLI {
         }
     }
 
-    @MainActor
     private static func waitForRefresh(_ poller: UsagePoller) async {
         let deadline = Date().addingTimeInterval(30)
         while poller.state.status == .idle || poller.state.status == .refreshing {
@@ -166,19 +123,13 @@ struct RationCLI {
 
     private static func printLimits(_ snapshot: UsageSnapshot, indent: String) {
         for limit in snapshot.limits {
-            let bar = progressBar(limit.percent)
+            let bar = CLIFormat.progressBar(limit.percent)
             let reset =
                 limit.resetsAt.map { " · resets \(formattedReset($0))" } ?? ""
             print(
                 "\(indent)\(limit.displayName.padding(toLength: 14, withPad: " ", startingAt: 0)) \(bar) \(Int(limit.percent.rounded()))%\(reset)"
             )
         }
-    }
-
-    private static func progressBar(_ percent: Double) -> String {
-        let width = 20
-        let filled = min(width, max(0, Int((percent / 100 * Double(width)).rounded())))
-        return String(repeating: "█", count: filled) + String(repeating: "░", count: width - filled)
     }
 
     private static func formattedAge(_ date: Date) -> String {
@@ -229,12 +180,7 @@ struct RationCLI {
             payload["error"] = reason
         }
 
-        if let data = try? JSONSerialization.data(
-            withJSONObject: payload, options: [.prettyPrinted]),
-            let text = String(data: data, encoding: .utf8)
-        {
-            print(text)
-        }
+        printJSON(payload)
     }
 
     private static func printUnavailableJSON(
@@ -246,12 +192,7 @@ struct RationCLI {
             "availability": availabilityLabel(availability),
             "error": availability.explanation as Any,
         ]
-        if let data = try? JSONSerialization.data(
-            withJSONObject: payload, options: [.prettyPrinted]),
-            let text = String(data: data, encoding: .utf8)
-        {
-            print(text)
-        }
+        printJSON(payload)
     }
 
     private static func availabilityLabel(_ availability: ProviderAvailability) -> String {
@@ -262,35 +203,13 @@ struct RationCLI {
         case .quotaNotReadable: "quota_not_readable"
         }
     }
-}
 
-private struct CLIOptions {
-    let providerID: String?
-    let interval: TimeInterval?
-    let json: Bool
-
-    init(args: [String]) {
-        var providerID: String?
-        var interval: TimeInterval?
-        var json = false
-        var index = 0
-        while index < args.count {
-            switch args[index] {
-            case "--provider", "-p":
-                index += 1
-                if index < args.count { providerID = args[index] }
-            case "--interval", "-i":
-                index += 1
-                if index < args.count { interval = TimeInterval(args[index]) }
-            case "--json":
-                json = true
-            default:
-                break
-            }
-            index += 1
+    private static func printJSON(_ payload: [String: Any]) {
+        if let data = try? JSONSerialization.data(
+            withJSONObject: payload, options: [.prettyPrinted]),
+            let text = String(data: data, encoding: .utf8)
+        {
+            print(text)
         }
-        self.providerID = providerID
-        self.interval = interval
-        self.json = json
     }
 }

@@ -182,6 +182,8 @@ public struct CollectionView: View {
                         foilPlaying: caught
                     )
                     .frame(width: 268)
+                    .contentShape(Rectangle())
+                    .onTapGesture { selected = nil }
                     .compositingGroup()
                     .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
 

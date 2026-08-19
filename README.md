@@ -89,7 +89,7 @@ presenting them as live.
 
 ### macOS
 
-[**Download Ration 0.7.6**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.7.6.dmg)
+[**Download Ration 0.8.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.8.0.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
@@ -102,13 +102,18 @@ published yet.
 
 Download the tarball for your architecture from
 [Releases](https://github.com/mcpeixoto/ration/releases/latest) — look for
-`ration-0.7.6-linux-x86_64.tar.gz` (or `aarch64` on ARM).
+`ration-0.7.7-linux-x86_64.tar.gz` (or `aarch64` on ARM).
 
 ```sh
-tar -xzf ration-0.7.6-linux-x86_64.tar.gz
-cd ration-0.7.6-linux-x86_64
+tar -xzf ration-0.7.7-linux-x86_64.tar.gz
+cd ration-0.7.7-linux-x86_64
 ./ration status          # one-shot usage for every tool you have
 ./ration watch           # refresh every 60 seconds
+./ration watch --notify  # desktop alerts at 80% and 95%
+./ration activity        # calendar heat map
+./ration trends          # daily usage trends
+./ration breakdown       # tokens by model and project
+./ration dex             # Pokémon collection progress
 ./ration status --json   # machine-readable output
 ```
 
@@ -121,9 +126,10 @@ swift build -c release --product ration
 .build/release/ration status
 ```
 
-Linux ships as a CLI (`ration`), not a menu bar app. Usage limits, Codex
-history, and Cursor metering work the same way; notifications, Sparkle
-updates, and the Pokémon collection UI are macOS-only for now.
+Linux ships as a CLI (`ration`), not a menu bar app. The CLI covers usage limits,
+history (activity, trends, breakdown), the Pokémon collection, and desktop
+notifications via `watch --notify`. Sparkle auto-updates and launch-at-login
+remain macOS-only.
 
 ### Requirements
 

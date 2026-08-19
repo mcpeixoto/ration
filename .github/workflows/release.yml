@@ -154,8 +154,16 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   release-linux:
-    name: Build and publish (Linux)
-    runs-on: ubuntu-latest
+    name: Build and publish (Linux ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
     steps:
       - uses: actions/checkout@v4
         with:
