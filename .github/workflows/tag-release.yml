@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag:
@@ -34,3 +35,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Ration ${VERSION}"
           git push origin "$TAG"
+
+          # A tag pushed with GITHUB_TOKEN does not start a workflow — GitHub
+          # refuses to chain push events from its own token. workflow_dispatch
+          # is the documented exception, so ask for the release run by hand.
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" -f tag="$TAG"
