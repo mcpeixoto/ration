@@ -1,11 +1,12 @@
 import SwiftUI
 
-/// Shown once, before Ration touches the keychain for the first time.
+/// Shown once, before Ration reads a Claude Code session for the first time.
 ///
-/// The first read triggers a macOS permission prompt, because the credential
-/// item belongs to Claude Code. An unexplained system dialog asking about a
-/// keychain item is exactly the kind of thing people should be suspicious of —
-/// so we explain it first, in our own words, and let them start it deliberately.
+/// On macOS that read *might* produce a system prompt, if the keychain item
+/// has not already granted the CLI Claude Code itself uses. An unexplained
+/// dialog asking about a keychain item is exactly the kind of thing people
+/// should be suspicious of — so we explain it first, in our own words, and
+/// let them start it deliberately.
 public struct OnboardingView: View {
 
     let onContinue: () -> Void
@@ -37,11 +38,10 @@ public struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Row(
                     symbol: "key.fill",
-                    title: "macOS will ask for permission",
+                    title: "Reads the session Claude Code already has",
                     detail:
-                        "Ration reads the login session Claude Code already saved in your keychain. "
-                        + "Because that item belongs to Claude Code, macOS will ask you to approve access. "
-                        + "Choose “Always Allow” so it only asks once."
+                        "Ration reads the login Claude Code already saved, the same way Claude Code itself does. "
+                        + "It never writes that store, so a token refresh cannot sign you out or bring the password prompt back."
                 )
 
                 Row(

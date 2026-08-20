@@ -150,6 +150,8 @@ Sparkle auto-updates and the graphical card binder remain macOS-only.
 
 On Linux, Claude Code stores credentials in `~/.claude/.credentials.json`
 (respecting `CLAUDE_CONFIG_DIR` and `CLAUDE_SECURESTORAGE_CONFIG_DIR` when set).
+On macOS it prefers that same file when it exists, and otherwise reads the
+keychain item `Claude Code-credentials` the same way Claude Code itself does.
 Cursor keeps its session at `~/.config/Cursor/User/globalStorage/state.vscdb`.
 
 Ration does not sign you in and has no account of its own. It reads what your
@@ -159,9 +161,12 @@ tools already have.
 
 **Live limits (the Usage tab).**
 
-1. Claude Code stores your login session in the macOS keychain under
+1. Claude Code stores your login session in `~/.claude/.credentials.json` when
+   that file exists, and otherwise in the macOS keychain under
    `Claude Code-credentials`.
-2. Ration reads the **access token** from that item — nothing else.
+2. Ration reads the **access token** from that store — nothing else — using
+   the same path Claude Code uses, so a token refresh cannot reset Ration's
+   access or sign you out.
 3. It calls `GET https://api.anthropic.com/api/oauth/usage` with that token,
    which is the same endpoint `/usage` uses inside Claude Code.
 4. It draws the resulting percentages in your menu bar.
@@ -204,28 +209,27 @@ That is the whole program.
 
 ### The keychain prompt
 
-The first time Ration runs, macOS will ask whether it may read the
-`Claude Code-credentials` keychain item:
+Ration does not ask macOS for its own lasting grant on Claude Code's
+keychain item. Claude Code replaces that item every time it refreshes the
+token, which used to wipe any grant Ration had been given and bring the
+login-password dialog back — and, for some people, sign them out of Claude
+Code itself.
 
-> **Ration wants to use your confidential information stored in
-> "Claude Code-credentials" in your keychain.**
+Instead Ration reads the item through `/usr/bin/security`, the same binary
+Claude Code already uses. That permission survives a refresh. If
+`~/.claude/.credentials.json` is present, Ration reads the file and never
+touches the keychain at all.
 
-This is expected. The keychain item was created by Claude Code, so its access
-list does not include Ration until you say so. Click **Always Allow** and macOS
-will not ask again.
-
-Ration explains this in its welcome screen *before* triggering the prompt,
-because an unexplained dialog asking about your credentials is exactly the sort
-of thing you should be suspicious of.
-
-If you would rather not grant it, close the welcome window. Ration will sit
-idle and read nothing.
+The welcome screen still explains this before the first read. Closing it
+without continuing means Ration reads nothing.
 
 ## What Ration does and does not do
 
 **It does:**
 
-- Read one keychain item, read-only (Claude Code).
+- Read one Claude Code credential, read-only — from the credentials file when
+  it exists, otherwise from the keychain item, via the same `security` CLI
+  Claude Code uses.
 - Read Cursor's local session file, read-only, for the access token and plan name.
 - Send those tokens to the host that issued them — `api.anthropic.com` or
   `api2.cursor.sh` — and keep them in memory only for that request.
@@ -242,8 +246,9 @@ idle and read nothing.
 - Read your prompts, the replies, or file contents out of your transcripts —
   only token counts, model, timestamp, project, and session id.
 - Write to your keychain, ever.
-- Refresh, rotate, or invalidate your session. Only the tool that owns it
-  does that. If a session expires, Ration says so and waits.
+- Refresh, rotate, or write your session. Only the tool that owns it does
+  that. Ration re-reads the live store after a 401 so a rotation is not
+  mistaken for a sign-out.
 - Write the token to disk, to `UserDefaults`, or to a log.
 - Send analytics, telemetry, or crash reports anywhere.
 - Read your prompts, your conversations, or your code.
@@ -263,7 +268,7 @@ These are enforced by tests, not just promised in a README — see
 [`Tests/RationKitTests/CredentialTests.swift`](Tests/RationKitTests/CredentialTests.swift),
 which fails the build if an unexpected host appears in the source tree, if
 networking leaks outside the client files, if the keychain is touched outside
-`Credential.swift`, if anything reads a refresh token, or if any source file
+`Credential+macOS.swift`, if anything reads a refresh token, or if any source file
 names another tool's credential file.
 
 Codex arrived with no new host — it is read from disk. Cursor could not be, so

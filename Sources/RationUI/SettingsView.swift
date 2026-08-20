@@ -158,7 +158,7 @@ public struct SettingsView: View {
 
             Text(
                 "Ration reads the sessions your tools already stored — Claude Code "
-                    + "in the keychain, Cursor on disk, Codex in its session files — "
+                    + "from its login, Cursor on disk, Codex in its session files — "
                     + "and shows how much of each plan you have used. "
                     + "It collects no analytics and stores nothing of yours on disk."
             )

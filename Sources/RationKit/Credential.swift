@@ -4,8 +4,9 @@ import Foundation
 /// metadata stored alongside it.
 ///
 /// Ration reads this and nothing else. In particular it never reads the
-/// refresh token, so it cannot mint new credentials or invalidate your
-/// session — only Claude Code can do that.
+/// refresh token, so it cannot mint new credentials. Sending a *stale*
+/// access token after Claude Code has rotated it *can* invalidate the
+/// session, which is why the store is re-read on every poll.
 public struct Credential: Sendable {
 
     public let accessToken: String
@@ -111,16 +112,30 @@ extension Credential {
             throw CredentialError.malformed
         }
 
-        let expiry = (oauth["expiresAt"] as? Double).map {
-            Date(timeIntervalSince1970: $0 / 1000)
-        }
-
         return Credential(
             accessToken: token,
-            expiresAt: expiry,
+            expiresAt: Self.expiry(from: oauth["expiresAt"]),
             subscriptionType: oauth["subscriptionType"] as? String,
             rateLimitTier: oauth["rateLimitTier"] as? String
         )
+    }
+
+    /// Claude Code has stored `expiresAt` as both milliseconds and seconds
+    /// since epoch. Treat a value too large to be a Unix-seconds date as
+    /// milliseconds; anything else as seconds.
+    static func expiry(from raw: Any?) -> Date? {
+        let value: Double
+        if let number = raw as? Double {
+            value = number
+        } else if let number = raw as? Int {
+            value = Double(number)
+        } else {
+            return nil
+        }
+        // 10 billion seconds after 1970 is the year 2286. Real token
+        // expiries in milliseconds are ~1.7e12; in seconds they are ~1.7e9.
+        let seconds = value > 10_000_000_000 ? value / 1000 : value
+        return Date(timeIntervalSince1970: seconds)
     }
 }
 
@@ -130,47 +145,90 @@ public protocol CredentialStore: Sendable {
     func credential() throws -> Credential
 }
 
-// MARK: - Caching
+// MARK: - File
 
-/// Holds a credential in memory until it is close to expiring.
+/// Reads Claude Code's credentials from the file Claude Code already wrote.
 ///
-/// Without this, Ration reads the keychain on every poll. macOS only treats an
-/// "Always Allow" grant as durable for a stable code signature, so during
-/// development — and after any re-signing — a read-per-poll means a password
-/// prompt per poll. Reading once per token lifetime is both kinder and more
-/// correct: the token does not change between refreshes.
+/// On Linux this is the only store. On macOS it is preferred when present:
+/// Claude Code itself reads `~/.claude/.credentials.json` ahead of the
+/// keychain, and some users keep that file *instead* of the keychain item
+/// so that token refresh cannot reset a keychain ACL and lock them out.
+public struct FileCredentialStore: CredentialStore {
+
+    public let fileURL: URL
+
+    public init(fileURL: URL = PlatformPaths.claudeCredentialsFile) {
+        self.fileURL = fileURL
+    }
+
+    public func credential() throws -> Credential {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            throw CredentialError.notFound
+        }
+
+        let data: Data
+        do {
+            data = try Data(contentsOf: fileURL)
+        } catch {
+            throw CredentialError.accessDenied
+        }
+
+        return try Credential.parse(from: data)
+    }
+}
+
+// MARK: - Fallback
+
+/// Tries one store, and if that store has nothing, tries another.
+///
+/// Used on macOS to prefer the credentials file (no prompt, no ACL) and
+/// fall back to the keychain item Claude Code created. A missing file is
+/// the only reason to continue — a malformed or unreadable file must not
+/// silently switch stores, because the two can hold different generations
+/// of the same OAuth session, and using the stale one signs the user out.
+public struct FallbackCredentialStore: CredentialStore {
+
+    private let primary: any CredentialStore
+    private let fallback: any CredentialStore
+
+    public init(primary: any CredentialStore, fallback: any CredentialStore) {
+        self.primary = primary
+        self.fallback = fallback
+    }
+
+    public func credential() throws -> Credential {
+        do {
+            return try primary.credential()
+        } catch CredentialError.notFound {
+            return try fallback.credential()
+        }
+    }
+}
+
+// MARK: - Pass-through
+//
+// Historically this type cached the access token until five minutes before
+// `expiresAt`. Claude Code rotates the token hours before that, and sending
+// the retired access token is what signed people out of Claude. It now
+// always reads through. The type remains because `AnthropicUsageSource`
+// still calls `invalidate()` after a 401, which is the signal to retry
+// with whatever the underlying store currently has.
+
+/// Reads through to the underlying store on every call.
+///
+/// `invalidate()` is a no-op: there is nothing to drop. The method stays
+/// so a 401 can re-read the live store and retry without a new type.
 public final class CachingCredentialStore: CredentialStore, @unchecked Sendable {
 
-    /// Re-read this long before the token actually expires, so a refresh by
-    /// Claude Code is picked up without a failed request in between.
-    public static let refreshMargin: TimeInterval = 300
-
     private let underlying: any CredentialStore
-    private let lock = NSLock()
-    private var cached: Credential?
 
     public init(wrapping underlying: any CredentialStore = DefaultCredentialStore()) {
         self.underlying = underlying
     }
 
     public func credential() throws -> Credential {
-        lock.lock()
-        defer { lock.unlock() }
-
-        if let cached, !cached.expires(within: Self.refreshMargin) {
-            return cached
-        }
-        let fresh = try underlying.credential()
-        cached = fresh
-        return fresh
+        try underlying.credential()
     }
 
-    /// Drops the cached copy, forcing the next read to hit the keychain.
-    /// Called when the server rejects the token, since Claude Code has
-    /// probably replaced it by now.
-    public func invalidate() {
-        lock.lock()
-        defer { lock.unlock() }
-        cached = nil
-    }
+    public func invalidate() {}
 }

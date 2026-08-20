@@ -42,6 +42,34 @@ struct CredentialParsingTests {
         #expect(abs(expiry.timeIntervalSince1970 - 1_786_074_387.783) < 0.01)
     }
 
+    @Test("treats a seconds-since-epoch expiry as seconds, not milliseconds")
+    func expiryInSeconds() throws {
+        // A millisecond parse of this would land in January 1970 and look
+        // expired, which is how a format change signs the user out.
+        let json = #"{"claudeAiOauth": {"accessToken": "t", "expiresAt": 1786074387}}"#
+        let credential = try Credential.parse(from: Data(json.utf8))
+        let expiry = try #require(credential.expiresAt)
+        #expect(abs(expiry.timeIntervalSince1970 - 1_786_074_387) < 0.01)
+        // Seconds since 2001; milliseconds of the same integer would be 1970.
+        #expect(expiry.timeIntervalSince1970 > 1_000_000_000)
+    }
+
+    @Test("a seconds expiry still in the future is not treated as signed-out")
+    func futureSecondsExpiryIsUsable() throws {
+        let seconds = Int(Date().timeIntervalSince1970) + 3600
+        let json = #"{"claudeAiOauth": {"accessToken": "t", "expiresAt": \#(seconds)}}"#
+        let credential = try Credential.parse(from: Data(json.utf8))
+        #expect(!credential.isExpired)
+    }
+
+    @Test("accepts an integer millisecond expiry")
+    func expiryIntegerMilliseconds() throws {
+        let json = #"{"claudeAiOauth": {"accessToken": "t", "expiresAt": 1786074387783}}"#
+        let credential = try Credential.parse(from: Data(json.utf8))
+        let expiry = try #require(credential.expiresAt)
+        #expect(abs(expiry.timeIntervalSince1970 - 1_786_074_387.783) < 0.01)
+    }
+
     @Test("throws when the oauth block is missing")
     func missingBlock() {
         #expect(throws: CredentialError.malformed) {
@@ -290,24 +318,46 @@ struct SourceTreeTests {
         }
     }
 
-    /// The keychain is Claude's alone on macOS. Linux reads a credentials
-    /// file instead — see `Credential+Linux.swift`.
-    @Test("only the Anthropic credential store touches the keychain")
+    /// Claude Code refreshes its keychain item by deleting and recreating it,
+    /// which wipes any `teamid:` ACL entry `SecItemCopyMatching` needed. The
+    /// surviving read path is `/usr/bin/security find-generic-password`, the
+    /// same binary Claude Code uses, because the rewritten item keeps the
+    /// `apple-tool:` partition. Writing, deleting, or copying via
+    /// Security.framework is how third-party readers sign the user out.
+    @Test("the Claude credential store reads via security(1), never Security.framework")
     func keychainAccessIsConfinedToOneFile() throws {
         let allowed = Set(["Credential+macOS.swift"])
-        for file in try swiftFiles() where !allowed.contains(file.url.lastPathComponent) {
-            for symbol in ["SecItemCopyMatching", "kSecClass", "SecItemAdd", "SecItemUpdate"] {
+        for file in try swiftFiles() {
+            let name = file.url.lastPathComponent
+            for symbol in [
+                "SecItemCopyMatching", "SecItemAdd", "SecItemUpdate", "SecItemDelete",
+                "kSecClass", "add-generic-password", "delete-generic-password",
+            ] {
                 #expect(
                     !file.contents.contains(symbol),
-                    "\(file.url.lastPathComponent) reaches into the keychain")
+                    "\(name) mutates or bypasses the Claude Code keychain item via \(symbol)")
+            }
+            if !allowed.contains(name) {
+                #expect(
+                    !file.contents.contains("/usr/bin/security"),
+                    "\(name) shells out to security(1); only the Claude store may")
+                #expect(
+                    !file.contents.contains("find-generic-password"),
+                    "\(name) reads a generic password; only the Claude store may")
             }
         }
+
+        let macStore = try #require(
+            try swiftFiles().first { $0.url.lastPathComponent == "Credential+macOS.swift" })
+        #expect(macStore.contents.contains("/usr/bin/security"))
+        #expect(macStore.contents.contains("find-generic-password"))
+        #expect(macStore.contents.contains("-w"))
+        #expect(!macStore.contents.contains("-U"))
     }
 }
 
-#if os(Linux)
-@Suite("Linux credential store")
-struct LinuxCredentialStoreTests {
+@Suite("File credential store")
+struct FileCredentialStoreTests {
 
     @Test("reads Claude Code credentials from a file")
     func readsFromFile() throws {
@@ -332,6 +382,94 @@ struct LinuxCredentialStoreTests {
         #expect(throws: CredentialError.notFound) {
             try FileCredentialStore(fileURL: file).credential()
         }
+    }
+}
+
+private struct StubStore: CredentialStore {
+    var result: Result<Credential, CredentialError>
+    func credential() throws -> Credential { try result.get() }
+}
+
+private func stubCredential(_ token: String) -> Credential {
+    Credential(
+        accessToken: token, expiresAt: Date(timeIntervalSinceNow: 3600),
+        subscriptionType: "max", rateLimitTier: nil)
+}
+
+@Suite("Fallback credential store")
+struct FallbackCredentialStoreTests {
+
+    @Test("uses the file when it has a credential")
+    func prefersPrimary() throws {
+        let store = FallbackCredentialStore(
+            primary: StubStore(result: .success(stubCredential("from-file"))),
+            fallback: StubStore(result: .success(stubCredential("from-keychain"))))
+        #expect(try store.credential().accessToken == "from-file")
+    }
+
+    @Test("falls back to the keychain only when the file is missing")
+    func fallsBackWhenMissing() throws {
+        let store = FallbackCredentialStore(
+            primary: StubStore(result: .failure(.notFound)),
+            fallback: StubStore(result: .success(stubCredential("from-keychain"))))
+        #expect(try store.credential().accessToken == "from-keychain")
+    }
+
+    @Test("does not fall back when the file is unreadable")
+    func doesNotFallBackOnAccessDenied() {
+        let store = FallbackCredentialStore(
+            primary: StubStore(result: .failure(.accessDenied)),
+            fallback: StubStore(result: .success(stubCredential("from-keychain"))))
+        #expect(throws: CredentialError.accessDenied) {
+            try store.credential()
+        }
+    }
+
+    @Test("does not fall back when the file is malformed")
+    func doesNotFallBackOnMalformed() {
+        let store = FallbackCredentialStore(
+            primary: StubStore(result: .failure(.malformed)),
+            fallback: StubStore(result: .success(stubCredential("from-keychain"))))
+        #expect(throws: CredentialError.malformed) {
+            try store.credential()
+        }
+    }
+}
+
+#if os(macOS)
+@Suite("Keychain security(1) mapping")
+struct KeychainCLITests {
+
+    @Test("strips the trailing newline security(1) adds to -w output")
+    func stripsTrailingNewline() throws {
+        let payload = Data(realisticPayload.utf8) + Data([0x0A])
+        let decoded = try KeychainCredentialStore.decodeCLI(status: 0, stdout: payload)
+        let credential = try Credential.parse(from: decoded)
+        #expect(credential.accessToken == "sk-ant-oat01-EXAMPLE-ACCESS-TOKEN")
+    }
+
+    @Test("maps item-not-found to notFound")
+    func itemNotFound() {
+        #expect(throws: CredentialError.notFound) {
+            try KeychainCredentialStore.decodeCLI(status: 44, stdout: Data())
+        }
+    }
+
+    @Test("maps interaction-not-allowed to accessDenied")
+    func interactionNotAllowed() {
+        #expect(throws: CredentialError.accessDenied) {
+            try KeychainCredentialStore.decodeCLI(status: 36, stdout: Data())
+        }
+    }
+
+    @Test("reads through an injected security(1) result")
+    func injectedReader() throws {
+        let store = KeychainCredentialStore { service in
+            #expect(service == KeychainCredentialStore.service)
+            return Data(realisticPayload.utf8)
+        }
+        let credential = try store.credential()
+        #expect(credential.accessToken == "sk-ant-oat01-EXAMPLE-ACCESS-TOKEN")
     }
 }
 #endif
