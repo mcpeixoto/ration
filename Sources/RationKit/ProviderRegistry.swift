@@ -202,7 +202,8 @@ public final class ProviderRegistry {
                 Entry(
                     provider: .cursor,
                     poller: UsagePoller(source: CursorUsageSource(), schedule: schedule),
-                    history: nil),
+                    history: TranscriptStore(
+                        provider: .cursor, format: CursorTranscriptFormat())),
                 Entry(
                     provider: .copilot,
                     poller: UsagePoller(

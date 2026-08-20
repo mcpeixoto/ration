@@ -135,22 +135,25 @@ strings /Applications/Ration.app/Contents/MacOS/Ration | grep -E 'https?://'
 The Activity, Trends and Detail tabs are built from local transcripts, which
 contain your prompts, the replies, and file contents. The parsers decode token
 counts, model, timestamp, working directory and session id — and nothing else.
-Each tool has its own parser and its own privacy suite, and both produce the
+Each tool has its own parser and its own privacy suite, and all produce the
 same narrow event type, pinned by a test that reflects over its properties.
 
 Codex's parser never decodes the first line of a rollout at all — the line
 carrying its instruction blob — because the session id it would have taken from
-there is available in the file name instead.
+there is available in the file name instead. Cursor's parser does the same with
+the JSONL file name, and never copies bubble text out of sqlite.
 
-Enforced by `TranscriptParserPrivacyTests`: one test plants a marker string in a
-fixture transcript and fails if it survives into the parsed result; another pins
-the exact field set a parsed event may expose, so widening it breaks the build.
+Enforced by `TranscriptParserPrivacyTests`, `CodexParserPrivacyTests` and
+`CursorParserPrivacyTests`: one test plants a marker string in a fixture
+transcript and fails if it survives into the parsed result; another pins the
+exact field set a parsed event may expose, so widening it breaks the build.
 Transcripts are read, never written.
 
 ## Sandboxing
 
-Ration is not App Sandboxed: reading session transcripts from `~/.claude/projects`
-and `~/.codex/sessions` requires filesystem access the sandbox would block.
+Ration is not App Sandboxed: reading session transcripts from `~/.claude/projects`,
+`~/.codex/sessions` and `~/.cursor/projects` requires filesystem access the
+sandbox would block.
 Releases are signed with a Developer ID, use the hardened runtime, and are
 notarised by Apple.
 

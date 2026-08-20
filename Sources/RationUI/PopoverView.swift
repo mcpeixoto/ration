@@ -47,9 +47,10 @@ public struct PopoverView: View {
     private var poller: UsagePoller? { entry?.poller }
     private var transcripts: TranscriptStore? { entry?.history }
 
-    /// Every visible tool's history, plus live gauges for tools with no
-    /// transcripts (Cursor). Collection is the one view that is allowed to
-    /// combine them, because Score is a game score, not a usage total.
+    /// Every visible tool's history, plus live gauges for tools that have a
+    /// plan percentage but no transcripts yet. Collection is the one view that
+    /// is allowed to combine them, because Score is a game score, not a usage
+    /// total.
     private var dexState: DexState {
         Dex.evaluate(dexInput)
     }

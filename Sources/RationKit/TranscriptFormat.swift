@@ -26,9 +26,21 @@ public protocol TranscriptFormat: Sendable {
     func parse(
         _ data: Data, from url: URL, carrying: inout FileCheckpoint
     ) -> (events: [UsageEvent], consumed: Int)
+
+    /// A non-append-only corpus that has to be re-read as a whole when it
+    /// changes — Cursor's sqlite, whose rows are rewritten in place.
+    ///
+    /// `nil` for formats that only have JSONL. `excludingSessionIDs` are
+    /// sessions the JSONL scan already counted, so a snapshot must not add
+    /// them again.
+    func snapshot(excludingSessionIDs: Set<String>) -> (fingerprint: String, events: [UsageEvent])?
 }
 
 extension TranscriptFormat {
+
+    public func snapshot(excludingSessionIDs _: Set<String>) -> (
+        fingerprint: String, events: [UsageEvent]
+    )? { nil }
 
     /// Walks a directory tree for `.jsonl`, which is what all of them use.
     public func jsonlFiles(under root: URL) -> [URL] {

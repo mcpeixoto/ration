@@ -80,6 +80,11 @@ extension UsageEvent {
         // incremental read that started mid-turn may not have seen one yet.
         guard model != "unknown" else { return "Unknown" }
 
+        // Cursor prefixes its own routing id: `cursor-grok-4.6-high-fast`.
+        if model.hasPrefix("cursor-") {
+            return displayName(forModel: String(model.dropFirst("cursor-".count)))
+        }
+
         // OpenAI identifiers are already the marketed name: the dashes separate
         // a version from a codename, not a family from a dotted version, so the
         // rule below would render `gpt-5.6-sol` as "Gpt 5.6.sol".
@@ -92,6 +97,17 @@ extension UsageEvent {
                 .map { $0.prefix(1).uppercased() + $0.dropFirst() }
                 .joined(separator: " ")
             return codename.isEmpty ? "GPT-\(version)" : "GPT-\(version) \(codename)"
+        }
+
+        if model.hasPrefix("grok-") {
+            var parts = model.dropFirst("grok-".count).split(separator: "-").map(String.init)
+            guard !parts.isEmpty else { return model }
+            let version = parts.removeFirst()
+            let rest =
+                parts
+                .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+                .joined(separator: " ")
+            return rest.isEmpty ? "Grok \(version)" : "Grok \(version) \(rest)"
         }
 
         var name = model

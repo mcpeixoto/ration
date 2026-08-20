@@ -71,7 +71,7 @@ Four tabs, plus **Pokémon** next to the title:
 |---|---|---|---|
 | **Claude Code** | yes | yes | one request to `api.anthropic.com`, using the token Claude Code already stored |
 | **Codex CLI** | yes | yes | entirely from `~/.codex/sessions` — no request, no credential |
-| **Cursor** | yes | no | the session Cursor already stored on disk, then one request to `api2.cursor.sh` |
+| **Cursor** | yes | yes | the session Cursor already stored on disk, then one request to `api2.cursor.sh`; history from local agent transcripts |
 | GitHub Copilot | no | no | quota is only readable over the network, with a token Ration would have to mint and store itself |
 | Gemini CLI | no | no | quota is only readable over the network; nothing usable is written to disk |
 
@@ -186,15 +186,16 @@ reads the access token and the cached plan name, then calls
 — the same dashboard numbers the Cursor website shows. It never reads a
 refresh secret, and it never opens Cursor's cookie jar.
 
-**History (the Activity, Trends and Detail tabs).** Claude Code and Codex write
-a transcript of every session — Claude Code to `~/.claude/projects/**/*.jsonl`,
+**History (the Activity, Trends and Detail tabs).** Claude Code, Codex and Cursor
+write a transcript of every session — Claude Code to `~/.claude/projects/**/*.jsonl`,
 Codex to `~/.codex/sessions/**/rollout-*.jsonl`. Ration reads the token counts
 out of those files, and only the token counts. Your prompts, the replies, and
 the contents of files you opened are never decoded, never retained, and never
 leave your machine. The first scan reads the whole corpus in the background (a
 few seconds for a gigabyte); after that it reads only the bytes appended since
-the last check. Cursor's agent transcripts are not read; there is no history
-tab for Cursor yet.
+the last check. Cursor writes agent transcripts under `~/.cursor/projects` and
+conversation totals into the same sqlite file the gauge already copies; Ration
+reads the token counts out of both, the same way it reads Claude and Codex.
 
 Each tool gets its own history, and the panel shows one at a time. Merging them
 would produce a confidently wrong number: a Claude token and a Codex token are
@@ -226,7 +227,8 @@ idle and read nothing.
 **It does:**
 
 - Read one keychain item, read-only (Claude Code).
-- Read Cursor's local session file, read-only, for the access token and plan name.
+- Read Cursor's local session file, read-only, for the access token and plan name,
+  and Cursor's local agent transcripts for history.
 - Send those tokens to the host that issued them — `api.anthropic.com` or
   `api2.cursor.sh` — and keep them in memory only for that request.
 - Check `raw.githubusercontent.com` for an update feed, and download releases

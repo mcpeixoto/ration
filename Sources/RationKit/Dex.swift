@@ -130,8 +130,8 @@ public struct TrainerStats: Sendable, Equatable {
 /// Histories Ration already has, plus tools that only have a live gauge.
 public struct DexInput: Sendable, Equatable {
     public var histories: [String: UsageHistory]
-    /// Provider ids with a live snapshot that shows real usage — how Cursor
-    /// gets into the Dex, since Ration cannot read its transcripts yet.
+    /// Provider ids with a live snapshot that shows real usage — how a tool
+    /// that has a gauge but no history yet still counts as a provider.
     public var liveProviders: Set<String>
     public var now: Date
     public var calendar: Calendar

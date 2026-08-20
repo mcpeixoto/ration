@@ -47,4 +47,9 @@ public enum PlatformPaths {
         cursorSupportDirectory
             .appending(path: "User/globalStorage/state.vscdb")
     }
+
+    /// Agent transcripts, one folder per workspace.
+    public static var cursorProjectsDirectory: URL {
+        home.appending(path: ".cursor/projects")
+    }
 }

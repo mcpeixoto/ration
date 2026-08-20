@@ -16,7 +16,7 @@ enum HistoryCommands {
         }
 
         if loaded.isEmpty {
-            print("No history available. Install Claude Code or Codex and use them first.")
+            print("No history available. Install Claude Code, Codex, or Cursor and use them first.")
             return
         }
 

@@ -82,9 +82,10 @@ Ration never reads your conversations, prompts, files, or project history.
 
 Both supported tools write every session to disk — Claude Code to
 `~/.claude/projects/**/*.jsonl`, Codex CLI to
-`~/.codex/sessions/**/rollout-*.jsonl` (and its `archived_sessions` sibling).
-Those files contain your prompts, the replies, and the contents of files you
-opened.
+`~/.codex/sessions/**/rollout-*.jsonl` (and its `archived_sessions` sibling),
+and Cursor to `~/.cursor/projects/**/agent-transcripts/**/*.jsonl` plus the
+composer rows in the sqlite file the gauge already copies. Those files contain
+your prompts, the replies, and the contents of files you opened.
 
 Ration reads a handful of fields per turn and discards the rest.
 
@@ -112,12 +113,22 @@ Codex's session id comes from the *file name*, specifically so that the first
 line of each rollout — the one carrying the multi-kilobyte instruction blob —
 never has to be handed to the JSON decoder at all.
 
-**Message content is never decoded.** `TranscriptParserPrivacyTests` and
-`CodexParserPrivacyTests` each assert this by putting marker strings in a
-fixture transcript and failing if any appears anywhere in the parsed result. A
-further test pins the exact set of fields a parsed event may carry — identical
-for both tools — so adding one is a deliberate act that breaks the build rather
-than a quiet expansion.
+From Cursor, two sources:
+
+| Field | Used for |
+|---|---|
+| `message.usage.*` / `tokenCount.*` | Token counts |
+| `model` / `modelInfo.modelName` | Grouping by model |
+| `timestamp` / `createdAt` | Grouping by day |
+| project folder name / `workspaceIdentifier` | Grouping by project (the directory name only) |
+| file name / `composerId` | Counting distinct sessions |
+
+**Message content is never decoded.** `TranscriptParserPrivacyTests`,
+`CodexParserPrivacyTests` and `CursorParserPrivacyTests` each assert this by
+putting marker strings in a fixture transcript and failing if any appears
+anywhere in the parsed result. A further test pins the exact set of fields a
+parsed event may carry — identical for every tool — so adding one is a
+deliberate act that breaks the build rather than a quiet expansion.
 
 None of it leaves your machine. The history is aggregated per day and stored
 locally (below); the raw transcripts are only ever read.
