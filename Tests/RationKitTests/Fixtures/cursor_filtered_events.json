@@ -1,0 +1,25 @@
+{
+  "totalUsageEventsCount": 2,
+  "usageEventsDisplay": [
+    {
+      "timestamp": "1785691200000",
+      "model": "composer-2",
+      "kind": "USAGE_EVENT_KIND_INCLUDED_IN_PRO",
+      "tokenUsage": {
+        "inputTokens": 1200,
+        "outputTokens": 400,
+        "cacheReadTokens": 8000,
+        "cacheWriteTokens": 150
+      }
+    },
+    {
+      "timestamp": "1785777600000",
+      "model": "grok-4.6",
+      "tokenUsage": {
+        "inputTokens": "80",
+        "outputTokens": "20",
+        "cacheReadTokens": "0"
+      }
+    }
+  ]
+}

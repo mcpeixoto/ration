@@ -182,6 +182,7 @@ public struct PopoverView: View {
             if tab != .collection {
                 RefreshButton(isRefreshing: poller?.state.status == .refreshing) {
                     poller?.refreshNow()
+                    transcripts?.refresh()
                 }
             }
 

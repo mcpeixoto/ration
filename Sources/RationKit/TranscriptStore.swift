@@ -29,6 +29,11 @@ public final class TranscriptStore {
 
     public let provider: Provider
 
+    /// A scan is in flight. The CLI waits on this rather than on `.scanning`,
+    /// because a sqlite/API snapshot with no JSONL files never paints a
+    /// progress bar and would otherwise look "ready" while still empty.
+    public var isRefreshing: Bool { scanTask != nil }
+
     private let root: URL
     private let format: any TranscriptFormat
     private let checkpointURL: URL
@@ -125,7 +130,7 @@ public final class TranscriptStore {
         let files = await Task.detached(priority: .utility) { [root, format] in
             TranscriptReader.transcriptFiles(under: root, format: format)
         }.value
-        if isFirstScan, !files.isEmpty { status = .scanning(progress: 0) }
+        if isFirstScan { status = .scanning(progress: 0) }
 
         for (index, file) in files.enumerated() {
             if Task.isCancelled { return }
@@ -152,6 +157,7 @@ public final class TranscriptStore {
         }
 
         await applySnapshot()
+        await applyRemoteSnapshot()
 
         lastScan = Date()
         status = .ready
@@ -174,8 +180,33 @@ public final class TranscriptStore {
         publishHistory()
     }
 
+    private func applyRemoteSnapshot() async {
+        let skip = format.remoteSnapshotReplacesFiles ? [] : fileHistory.sessionIDs
+        let snapshot = await Task.detached(priority: .utility) { [format] in
+            await format.remoteSnapshot(excludingSessionIDs: skip)
+        }.value
+
+        guard let snapshot else { return }
+        guard !snapshot.events.isEmpty else { return }
+        guard snapshot.fingerprint != snapshotFingerprint else { return }
+
+        var next = UsageHistory()
+        next.add(snapshot.events)
+        snapshotHistory = next
+        snapshotFingerprint = snapshot.fingerprint
+        publishHistory()
+    }
+
     private func publishHistory() {
-        history = fileHistory.merging(snapshotHistory)
+        if format.remoteSnapshotReplacesFiles,
+            let fingerprint = snapshotFingerprint,
+            fingerprint.hasPrefix("remote:"),
+            !snapshotHistory.isEmpty
+        {
+            history = snapshotHistory
+        } else {
+            history = fileHistory.merging(snapshotHistory)
+        }
     }
 
     private func saveCheckpoint() {
