@@ -89,7 +89,7 @@ presenting them as live.
 
 ### macOS
 
-[**Download Ration 0.9.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.9.0.dmg)
+[**Download Ration 1.0.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-1.0.0.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
@@ -102,11 +102,11 @@ published yet.
 
 Download the x86_64 tarball from
 [Releases](https://github.com/mcpeixoto/ration/releases/latest) —
-`ration-0.9.0-linux-x86_64.tar.gz`. On ARM64 Linux, build from source (below).
+`ration-1.0.0-linux-x86_64.tar.gz`. On ARM64 Linux, build from source (below).
 
 ```sh
-tar -xzf ration-0.9.0-linux-x86_64.tar.gz
-cd ration-0.9.0-linux-x86_64
+tar -xzf ration-1.0.0-linux-x86_64.tar.gz
+cd ration-1.0.0-linux-x86_64
 ./install.sh             # ~/.local/bin, plus the icon and desktop entry
 ration-tray              # the tray item: gauge, panel, settings
 ```

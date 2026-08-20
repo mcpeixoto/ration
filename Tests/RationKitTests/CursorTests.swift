@@ -118,7 +118,7 @@ struct CursorAuthUsageDecodingTests {
 
 // MARK: - Local session store (the sqlite Cursor already wrote)
 
-@Suite("Cursor session store")
+@Suite("Cursor session store", .serialized)
 struct CursorSessionStoreTests {
 
     @Test("reads the access token and plan, and nothing else")
@@ -157,18 +157,43 @@ struct CursorSessionStoreTests {
     @Test("reads the live database without copying it")
     func readsWithoutCopying() throws {
         let url = try makeStateDB(token: "tok-live", plan: "pro")
-        let temporary = FileManager.default.temporaryDirectory
-        let before = copiesPresent(in: temporary)
+        let before = copiesPresent()
 
         _ = try CursorSessionStore(databaseURL: url).session()
 
-        #expect(copiesPresent(in: temporary) == before, "the read left a copy behind")
+        // Compared as a set difference rather than a count: the temp directory
+        // is shared with every other test, and one of them removing its own
+        // fixture must not read as this one behaving.
+        #expect(copiesPresent().subtracting(before).isEmpty, "the read left a copy behind")
     }
 
-    private func copiesPresent(in directory: URL) -> Int {
+    /// A copy left behind by a killed process is as large as Cursor's database
+    /// — gigabytes — and nothing else will ever clean it up.
+    @Test("a copy abandoned by an earlier run is swept away")
+    func sweepsAbandonedCopies() throws {
+        let temporary = FileManager.default.temporaryDirectory
+        let abandoned = temporary.appending(path: "ration-cursor-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: abandoned, withIntermediateDirectories: true)
+        try Data("stale".utf8).write(to: abandoned.appending(path: "state.vscdb"))
+        // Backdate it past the grace period a live copy sits inside.
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-7200)], ofItemAtPath: abandoned.path)
+
+        // Reading a database that cannot be opened directly takes the copy
+        // path, which sweeps before it copies.
+        let unreadable = temporary.appending(path: "ration-fixture-\(UUID().uuidString).db")
+        try Data("not a database".utf8).write(to: unreadable)
+        _ = try? CursorSessionStore(databaseURL: unreadable).session()
+
+        #expect(!FileManager.default.fileExists(atPath: abandoned.path))
+        try? FileManager.default.removeItem(at: unreadable)
+    }
+
+    private func copiesPresent() -> Set<String> {
+        let directory = FileManager.default.temporaryDirectory
         let contents =
             (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        return contents.filter { $0.hasPrefix("ration-cursor-") }.count
+        return Set(contents.filter { $0.hasPrefix("ration-cursor-") })
     }
 }
 

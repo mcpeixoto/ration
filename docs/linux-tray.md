@@ -187,6 +187,18 @@ two-pass measure-then-draw the live panel uses, into an image surface instead
 of a window. This is the Linux counterpart of `swift run RationPreview
 docs/images`, and it is how the panel's states get checked.
 
+## The Cursor database
+
+`state.vscdb` holds the session token Ration reads, and it is a working
+database Cursor grows without bound — 11 GB on the machine this was written on.
+The original code copied it to the temp directory before reading two rows, on
+every poll: minutes of I/O, gigabytes of disk, and a copy left behind whenever
+the process was killed mid-read. Ninety of those had accumulated to 42 GB.
+
+It is now opened read-only in place. The copy remains as a fallback for when
+SQLite refuses the live file, and every copy sweeps abandoned ones first, so a
+killed run cleans up after the next one rather than never.
+
 ## Settings
 
 The tray and the CLI share one settings file — `~/.config/ration/config.json`,

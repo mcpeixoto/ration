@@ -99,6 +99,7 @@ public struct CursorSessionStore: Sendable {
     /// Expensive by nature — the file is as large as Cursor has let it grow —
     /// so this runs only after a direct read has failed.
     private func snapshotCopy() throws -> URL {
+        sweepAbandonedCopies()
         let dir = FileManager.default.temporaryDirectory
             .appending(path: "ration-cursor-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -112,6 +113,32 @@ public struct CursorSessionStore: Sendable {
             }
         }
         return dest
+    }
+
+    /// Removes copies an earlier run left behind.
+    ///
+    /// The copy is deleted as soon as it has been read, but a process killed
+    /// mid-copy cannot clean up after itself — and each of these is as large as
+    /// Cursor has let its database grow. Ninety of them accumulated to 42 GB on
+    /// one machine before anyone noticed, so every copy now begins by clearing
+    /// the ones nothing is using.
+    private func sweepAbandonedCopies(
+        olderThan age: TimeInterval = 3600, now: Date = Date()
+    ) {
+        let manager = FileManager.default
+        let temporary = manager.temporaryDirectory
+        guard
+            let entries = try? manager.contentsOfDirectory(
+                at: temporary, includingPropertiesForKeys: [.contentModificationDateKey])
+        else { return }
+
+        for entry in entries where entry.lastPathComponent.hasPrefix("ration-cursor-") {
+            let modified =
+                (try? entry.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate
+            guard let modified, now.timeIntervalSince(modified) > age else { continue }
+            try? manager.removeItem(at: entry)
+        }
     }
 
     private func string(for key: String, in db: OpaquePointer) throws -> String? {
