@@ -149,6 +149,27 @@ struct CursorSessionStoreTests {
             try CursorSessionStore(databaseURL: url).session()
         }
     }
+
+    /// `state.vscdb` is a working database that grows without bound — 11 GB on
+    /// a machine that has used Cursor for a while. Copying it to read two rows
+    /// costs minutes of I/O and gigabytes of temp space on every poll, so the
+    /// live file is read in place and the copy is only a fallback.
+    @Test("reads the live database without copying it")
+    func readsWithoutCopying() throws {
+        let url = try makeStateDB(token: "tok-live", plan: "pro")
+        let temporary = FileManager.default.temporaryDirectory
+        let before = copiesPresent(in: temporary)
+
+        _ = try CursorSessionStore(databaseURL: url).session()
+
+        #expect(copiesPresent(in: temporary) == before, "the read left a copy behind")
+    }
+
+    private func copiesPresent(in directory: URL) -> Int {
+        let contents =
+            (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        return contents.filter { $0.hasPrefix("ration-cursor-") }.count
+    }
 }
 
 // MARK: - Client

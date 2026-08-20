@@ -31,10 +31,17 @@ extension CursorSession: CustomStringConvertible, CustomDebugStringConvertible {
 
 /// Reads Cursor's local state database.
 ///
-/// Read-only by construction: the file is opened with `SQLITE_OPEN_READONLY`
-/// after being copied, so a busy editor cannot be disturbed and nothing here
-/// can write. The copy is what makes that safe — Cursor keeps the live file
-/// locked.
+/// Read-only by construction: every path opens the file with
+/// `SQLITE_OPEN_READONLY`, so a busy editor cannot be disturbed and nothing
+/// here can write.
+///
+/// The live file is tried first. Copying it was the original approach, but
+/// `state.vscdb` is a working database that grows without bound — 11 GB on a
+/// machine that has used Cursor heavily — and duplicating it into the temp
+/// directory to read two rows costs minutes of I/O and gigabytes of disk on
+/// every poll. A read-only connection is enough for the common case; the copy
+/// stays as the fallback for when SQLite refuses, which is what happens if
+/// Cursor holds the WAL index and Ration cannot map it.
 public struct CursorSessionStore: Sendable {
 
     public enum Error: Swift.Error, Equatable {
@@ -58,12 +65,22 @@ public struct CursorSessionStore: Sendable {
             throw Error.notFound
         }
 
+        if let session = try? read(at: databaseURL.path) {
+            return session
+        }
+
+        // SQLite would not open the live file — Cursor is holding it in a way
+        // this process cannot read through. Fall back to the copy.
         let copy = try snapshotCopy()
         defer { try? FileManager.default.removeItem(at: copy.deletingLastPathComponent()) }
+        return try read(at: copy.path)
+    }
 
+    /// Opens one database read-only and pulls the two values Ration needs.
+    private func read(at path: String) throws -> CursorSession {
         var db: OpaquePointer?
         let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX
-        guard sqlite3_open_v2(copy.path, &db, flags, nil) == SQLITE_OK, let db else {
+        guard sqlite3_open_v2(path, &db, flags, nil) == SQLITE_OK, let db else {
             sqlite3_close(db)
             throw Error.malformed
         }
@@ -76,8 +93,11 @@ public struct CursorSessionStore: Sendable {
         return CursorSession(accessToken: token, planName: plan)
     }
 
-    /// Copy the db (and its WAL siblings) into a throwaway directory so we
-    /// never open the file Cursor itself has locked.
+    /// Copies the db (and its WAL siblings) into a throwaway directory, for
+    /// when the live file cannot be opened at all.
+    ///
+    /// Expensive by nature — the file is as large as Cursor has let it grow —
+    /// so this runs only after a direct read has failed.
     private func snapshotCopy() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appending(path: "ration-cursor-\(UUID().uuidString)", directoryHint: .isDirectory)

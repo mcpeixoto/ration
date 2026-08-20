@@ -1,5 +1,10 @@
 import Foundation
+import RationKit
 
+/// Reads and writes the settings file `ration` and `ration-tray` share.
+///
+/// The tray keys are editable here too: one file, two front ends, and no
+/// setting that can only be reached from the one the user is not running.
 enum ConfigCommand {
 
     static func run(subcommand: String?, args: [String], config: inout CLIConfig) {
@@ -36,6 +41,15 @@ enum ConfigCommand {
             "disabledProviders: \(config.disabledProviders.isEmpty ? "none" : config.disabledProviders.joined(separator: ", "))"
         )
         print("revealedCreatures:   \(config.revealedCreatureIDs.count)")
+        print()
+        print("Tray only:")
+        print("displayMode:         \(config.displayMode.rawValue)")
+        print("weeklyBar:           \(config.showWeeklyBar)")
+        print("severityColor:       \(config.useSeverityColor)")
+        print("primaryProvider:     \(config.primaryProviderID)")
+        print(
+            "uiScale:             \(config.uiScale == 0 ? "automatic" : String(format: "%.2f", config.uiScale))"
+        )
     }
 
     private static func set(args: [String], config: inout CLIConfig) {
@@ -67,6 +81,60 @@ enum ConfigCommand {
                 }
                 if !config.disabledProviders.contains(args[index]) {
                     config.disabledProviders.append(args[index])
+                }
+            case "displayMode", "display":
+                index += 1
+                guard index < args.count,
+                    let mode = MenuBarDisplayMode(rawValue: args[index])
+                else {
+                    let modes = MenuBarDisplayMode.allCases.map(\.rawValue)
+                        .joined(separator: "|")
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set displayMode <\(modes)>\n".utf8))
+                    exit(1)
+                }
+                config.displayMode = mode
+            case "weeklyBar":
+                index += 1
+                guard index < args.count else {
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set weeklyBar <true|false>\n".utf8))
+                    exit(1)
+                }
+                config.showWeeklyBar = args[index].lowercased() == "true"
+            case "severityColor", "colour", "color":
+                index += 1
+                guard index < args.count else {
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set severityColor <true|false>\n".utf8))
+                    exit(1)
+                }
+                config.useSeverityColor = args[index].lowercased() == "true"
+            case "primaryProvider", "primary":
+                index += 1
+                guard index < args.count, let provider = Provider.named(args[index]) else {
+                    FileHandle.standardError.write(
+                        Data(
+                            "Usage: ration config set primaryProvider <claude|codex|cursor>\n"
+                                .utf8))
+                    exit(1)
+                }
+                config.primaryProvider = provider
+            case "uiScale", "scale":
+                index += 1
+                guard index < args.count else {
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set uiScale <auto|0.75-3.0>\n".utf8))
+                    exit(1)
+                }
+                if args[index].lowercased() == "auto" {
+                    config.uiScale = 0
+                } else if let value = Double(args[index]), (0.75...3.0).contains(value) {
+                    config.uiScale = value
+                } else {
+                    FileHandle.standardError.write(
+                        Data("Usage: ration config set uiScale <auto|0.75-3.0>\n".utf8))
+                    exit(1)
                 }
             case "enable":
                 index += 1
@@ -100,6 +168,14 @@ enum ConfigCommand {
               notify <true|false>      Threshold notifications in watch mode
               disable <provider>       Hide a provider (claude, codex, cursor)
               enable <provider>        Re-enable a provider
+
+            Tray keys (ration-tray reads the same file):
+              displayMode <mode>       session|weekly|highest|icon — the number
+                                       the tray gauges
+              weeklyBar <true|false>   The small weekly allowance bar
+              severityColor <t|f>      Amber past 80%, red past 90%
+              primaryProvider <id>     Which account the panel opens on
+              uiScale <auto|0.75-3.0>  How large the tray draws its windows
             """)
     }
 }

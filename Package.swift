@@ -30,10 +30,38 @@ let macOSProducts: [Product] = []
 let macOSTargets: [Target] = []
 #endif
 
+#if os(Linux)
+// The tray is the Linux counterpart of the macOS menu bar extra: the same
+// gauge and the same panel, drawn with Cairo and published through
+// libayatana-appindicator3 instead of SwiftUI's MenuBarExtra.
+let linuxProducts: [Product] = [
+    .executable(name: "ration-tray", targets: ["RationTray"])
+]
+let linuxTargets: [Target] = [
+    .systemLibrary(
+        name: "CLinuxTray",
+        path: "Sources/CLinuxTray",
+        providers: [
+            .apt(["libgtk-3-dev", "libayatana-appindicator3-dev"])
+        ]
+    ),
+    .executableTarget(
+        name: "RationTray",
+        dependencies: ["RationKit", "CLinuxTray"],
+        linkerSettings: [
+            .linkedLibrary("m")
+        ]
+    ),
+]
+#else
+let linuxProducts: [Product] = []
+let linuxTargets: [Target] = []
+#endif
+
 let package = Package(
     name: "Ration",
     platforms: [.macOS(.v14)],
-    products: macOSProducts + [
+    products: macOSProducts + linuxProducts + [
         .executable(name: "ration", targets: ["RationCLI"]),
         .library(name: "RationKit", targets: ["RationKit"]),
     ],
@@ -68,5 +96,5 @@ let package = Package(
                 .linkedLibrary("FoundationNetworking", .when(platforms: [.linux])),
             ]
         ),
-    ] + macOSTargets
+    ] + macOSTargets + linuxTargets
 )

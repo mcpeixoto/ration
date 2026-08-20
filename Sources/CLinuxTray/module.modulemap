@@ -1,0 +1,10 @@
+module CLinuxTray [system] {
+    umbrella header "include/ration_linux_tray.h"
+    link "gtk-3"
+    link "gdk-3"
+    link "gobject-2.0"
+    link "glib-2.0"
+    link "cairo"
+    link "ayatana-appindicator3"
+    export *
+}

@@ -33,6 +33,10 @@ ordinary anonymous file fetches — GitHub sees an IP address and a user agent,
 the same as visiting the repository in a browser. Turn automatic checks off in
 Settings and Ration never contacts GitHub at all.
 
+On Linux the same feed is read, but only when you press **Check for updates**
+in Settings — nothing is fetched on a timer, and nothing is downloaded. The
+tray reports the newest version and you install it yourself.
+
 The app also contains a "buy me a coffee" link and a "Post on X" compose link.
 Each is a link — clicking it opens your browser. Ration never contacts those
 hosts itself, and not clicking them means no request is ever made. The X path

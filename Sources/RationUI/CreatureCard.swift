@@ -16,6 +16,9 @@ struct CreatureCard: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tilt: CGSize = .zero
+    /// The card's drawn size, so the tilt pivots about its own centre rather
+    /// than a point that was only correct at one width.
+    @State private var cardSize: CGSize = .zero
 
     private var lore: CreatureLore { creature.lore }
     private var key: Color { caught ? lore.energy.color : Color(white: 0.5) }
@@ -122,11 +125,21 @@ struct CreatureCard: View {
         .rotation3DEffect(
             .degrees(reduceMotion ? 0 : -tilt.height * 0.06), axis: (x: 1, y: 0, z: 0)
         )
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { cardSize = geometry.size }
+                    .onChange(of: geometry.size) { _, size in cardSize = size }
+            }
+        }
         .onContinuousHover { phase in
             guard !reduceMotion else { return }
             switch phase {
             case .active(let point):
-                tilt = CGSize(width: point.x - 140, height: point.y - 200)
+                guard cardSize.width > 0, cardSize.height > 0 else { return }
+                tilt = CGSize(
+                    width: point.x - cardSize.width / 2,
+                    height: point.y - cardSize.height / 2)
             case .ended:
                 withAnimation(.spring(duration: 0.4)) { tilt = .zero }
             }

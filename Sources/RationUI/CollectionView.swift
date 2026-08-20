@@ -129,9 +129,12 @@ public struct CollectionView: View {
                     Button {
                         selected = creature
                     } label: {
+                        // Foil is a close-up material. Fifty animating minis
+                        // is noise on a panel and work the compositor does not
+                        // need to do; the inspected and catch cards shine.
                         CreatureCard(
                             creature: creature, caught: caught, style: .mini,
-                            foilPlaying: caught)
+                            foilPlaying: false)
                     }
                     .buttonStyle(.plain)
                     .overlay {
@@ -181,9 +184,11 @@ public struct CollectionView: View {
                         creature: creature, caught: caught, style: .full,
                         foilPlaying: caught
                     )
-                    .frame(width: 268)
-                    .contentShape(Rectangle())
-                    .onTapGesture { selected = nil }
+                    .frame(width: Theme.popoverWidth - 32)
+                    // Deliberately not a dismiss target. You opened this to
+                    // look at it, and a card that closes wherever you click is
+                    // one you cannot read, tilt, or reach the buttons under
+                    // without losing. The scrim, Close, and Escape all exit.
                     .compositingGroup()
                     .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
 
@@ -332,8 +337,11 @@ struct CatchOverlay<Share: View>: View {
 
     var body: some View {
         ZStack {
+            // Advance rather than skip: tapping past one card is a small
+            // action, throwing away every card still queued is not, and the
+            // two should not share a gesture.
             Color.black.opacity(0.82).ignoresSafeArea()
-                .onTapGesture(perform: onSkipAll)
+                .onTapGesture(perform: onContinue)
 
             VStack(spacing: 14) {
                 Text(creature.rarity.label)
@@ -343,7 +351,7 @@ struct CatchOverlay<Share: View>: View {
                 CreatureCard(
                     creature: creature, caught: true, style: .full, foilPlaying: true
                 )
-                .frame(width: 252)
+                .frame(width: Theme.popoverWidth - 48)
                 .compositingGroup()
                 .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
                 .scaleEffect(appeared ? 1 : 0.92)
@@ -389,6 +397,11 @@ struct CatchOverlay<Share: View>: View {
 }
 
 /// Hosts an AppKit view so `NSSharingServicePicker` has something to point at.
+///
+/// The binding is written once, on creation. Writing it from `updateNSView`
+/// invalidates the view that owns the state, which runs `updateNSView` again —
+/// a loop that re-laid the Collection tab out on every turn of the main queue
+/// for as long as it was open.
 private struct ShareAnchor: NSViewRepresentable {
     @Binding var view: NSView
 
@@ -398,7 +411,5 @@ private struct ShareAnchor: NSViewRepresentable {
         return host
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { view = nsView }
-    }
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

@@ -1,6 +1,6 @@
 # Ration
 
-Your AI coding usage, in the macOS menu bar — or the Linux terminal.
+Your AI coding usage, in the macOS menu bar, the Linux tray, or the terminal.
 
 Ration puts a small gauge in your menu bar showing how much of your plan you
 have used — for **Claude Code**, **Codex**, and **Cursor**. No more discovering you hit a
@@ -89,7 +89,7 @@ presenting them as live.
 
 ### macOS
 
-[**Download Ration 0.8.2**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.8.2.dmg)
+[**Download Ration 0.9.0**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.9.0.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
@@ -102,36 +102,65 @@ published yet.
 
 Download the x86_64 tarball from
 [Releases](https://github.com/mcpeixoto/ration/releases/latest) —
-`ration-0.8.2-linux-x86_64.tar.gz`. On ARM64 Linux, build from source (below).
+`ration-0.9.0-linux-x86_64.tar.gz`. On ARM64 Linux, build from source (below).
 
 ```sh
-tar -xzf ration-0.8.2-linux-x86_64.tar.gz
-cd ration-0.8.2-linux-x86_64
-./ration status          # one-shot usage for every tool you have
-./ration watch           # refresh every 60 seconds
-./ration watch --notify  # desktop alerts at 80% and 95% (needs notify-send)
-./ration activity        # calendar heat map and streaks
-./ration trends          # daily usage trends
-./ration detail          # tokens by model and project
-./ration dex             # Pokémon collection progress
-./ration config show     # settings at ~/.config/ration/config.json
-./ration service install # launch at login via systemd (optional)
-./ration status --json   # machine-readable output
+tar -xzf ration-0.9.0-linux-x86_64.tar.gz
+cd ration-0.9.0-linux-x86_64
+./install.sh             # ~/.local/bin, plus the icon and desktop entry
+ration-tray              # the tray item: gauge, panel, settings
 ```
+
+`install.sh` touches nothing outside your home directory and asks for no
+privileges. If your Swift runtime is not on the loader path — a toolchain
+installed with swiftly, say — it writes a launcher that points at it.
+
+The tray is the same app as the Mac's: one gauge per account in the panel, a
+weekly bar, amber past 80% and red past 90%, and a panel with **Usage**,
+**Activity**, **Trends**, **Detail** and **Pokémon**. Its menu carries the
+current limits, Refresh, Settings, and Quit. Turn on **Open at login** in
+Settings to have it start with your session.
+
+> GNOME hides legacy tray icons unless the AppIndicator extension is on.
+> Ubuntu ships it enabled; on stock GNOME, install
+> `gnome-shell-extension-appindicator`.
+
+On a high-density display the panel sizes itself from the monitor's DPI and
+your text-size setting, since X11 has no equivalent of a point. **Settings →
+Size** overrides it if you disagree.
+
+Everything is also available in the terminal, which is all Linux had before:
+
+```sh
+ration status            # one-shot usage for every tool you have
+ration watch             # refresh every 60 seconds
+ration watch --notify    # desktop alerts at 80% and 95% (needs notify-send)
+ration activity          # calendar heat map and streaks
+ration trends            # daily usage trends
+ration detail            # tokens by model and project
+ration dex               # Pokémon collection progress
+ration config show       # settings at ~/.config/ration/config.json
+ration service install   # launch at login via systemd (optional)
+ration status --json     # machine-readable output
+```
+
+`ration` and `ration-tray` read and write the same settings file, so a change
+made in either shows up in the other.
 
 Or build from source:
 
 ```sh
 git clone https://github.com/mcpeixoto/ration.git
 cd ration
-swift build -c release --product ration
-.build/release/ration status
+swift build -c release --product ration       # the CLI
+swift build -c release --product ration-tray  # the tray (needs GTK 3)
+./Scripts/bundle-linux.sh                     # both, plus icons and installer
 ```
 
-Linux ships as a rich CLI (`ration`), not a menu bar app. The CLI covers usage
-limits, history (activity, trends, detail), the Pokémon collection, desktop
-notifications via `watch --notify`, and launch-at-login via `service install`.
-Sparkle auto-updates and the graphical card binder remain macOS-only.
+One thing is still macOS-only: automatic updates. Sparkle installs them there;
+on Linux, Settings tells you when a newer release exists and you install it
+yourself. Everything else — the tray gauge, the five tabs, the card binder,
+notifications, launch at login — is on both.
 
 ### Requirements
 
@@ -144,9 +173,16 @@ Sparkle auto-updates and the graphical card binder remain macOS-only.
 **Linux**
 
 - Ubuntu 22.04+ or another glibc-based distro with Swift 6
+- For the tray: GTK 3, Cairo and libayatana-appindicator3 — all present on a
+  standard desktop install. Building it also needs `libgtk-3-dev` and
+  `libayatana-appindicator3-dev`.
 - `libsqlite3-dev` for building from source
-- `libnotify-bin` (`notify-send`) for desktop alerts in `ration watch --notify`
+- `libnotify-bin` (`notify-send`) for desktop alerts
 - At least one supported tool installed and signed in (same as macOS)
+
+Without the -dev packages — a machine where you cannot install them — put the
+headers and `.so` symlinks in `~/.local` and the build scripts will find them;
+see `docs/linux-tray.md`.
 
 On Linux, Claude Code stores credentials in `~/.claude/.credentials.json`
 (respecting `CLAUDE_CONFIG_DIR` and `CLAUDE_SECURESTORAGE_CONFIG_DIR` when set).
@@ -313,6 +349,7 @@ sudo apt-get install -y libsqlite3-dev libnotify-bin   # Debian/Ubuntu
 swift test
 swift build -c release --product ration
 .build/release/ration status
+swift build -c release --product ration-tray   # the tray; see docs/linux-tray.md
 ./Scripts/bundle-linux.sh                # produces release tarballs for your arch
 ```
 
@@ -334,6 +371,8 @@ Two helper scripts round out the workflow:
 
 ```sh
 swift Scripts/make-icon.swift             # regenerates Resources/AppIcon.icns
+.build/release/ration-tray --write-icon ration.png --icon-size 512
+                                          # the same mark, for Linux desktops
 swift run RationPreview docs/images       # regenerates the screenshots above
 swift run RationPreview dex .build        # regenerates the fifty-card sheet
 swift run RationPreview video && \
@@ -355,6 +394,8 @@ Sources/RationKit     Pure logic: models, credentials, API client, polling. No U
 Sources/RationUI      SwiftUI views and view models (macOS only).
 Sources/Ration        The macOS menu bar executable.
 Sources/RationCLI     The Linux (and cross-platform) CLI executable.
+Sources/RationTray    The Linux tray executable: Cairo drawing over GTK 3.
+Sources/CLinuxTray    C declarations for GTK, Cairo and libayatana-appindicator3.
 Sources/RationPreview Dev tool: renders the UI to PNGs. Not shipped.
 Tests/RationKitTests  Unit tests with checked-in API fixtures.
 ```

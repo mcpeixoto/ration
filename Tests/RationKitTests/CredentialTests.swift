@@ -173,6 +173,9 @@ struct SourceTreeTests {
             // The hosts Ration sends requests to.
             "api.anthropic.com",
             "api2.cursor.sh",
+            // The release feed. Sparkle reads it on macOS; `UpdateFeedClient`
+            // reads it on Linux, where there is no Sparkle to do it.
+            "raw.githubusercontent.com",
             // Links the user can click to open in their browser. Ration itself
             // never requests these — see `networkingIsConfinedToTheClient`.
             "github.com",
@@ -191,7 +194,7 @@ struct SourceTreeTests {
     /// in this repository. `updateFeedIsTheExpectedHost` covers that half.
     @Test("all first-party networking is confined to the client files")
     func networkingIsConfinedToTheClient() throws {
-        let allowed = Set(["LimitsClient.swift", "CursorClient.swift"])
+        let allowed = Set(["LimitsClient.swift", "CursorClient.swift", "UpdateFeedClient.swift"])
         for file in try swiftFiles() where !allowed.contains(file.url.lastPathComponent) {
             for symbol in ["URLSession", "URLRequest", "NSURLConnection", "CFSocket"] {
                 #expect(
@@ -217,6 +220,10 @@ struct SourceTreeTests {
         #expect(
             script.contains("https://raw.githubusercontent.com/mcpeixoto/ration/main/appcast.xml"),
             "the default update feed changed")
+        #expect(
+            UpdateFeedClient.feedURL
+                == "https://raw.githubusercontent.com/mcpeixoto/ration/main/appcast.xml",
+            "the Linux update feed changed")
     }
 
     @Test("the client targets exactly one URL")
