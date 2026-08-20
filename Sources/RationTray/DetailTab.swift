@@ -100,7 +100,8 @@ extension Panel {
         let bar = Rect(rect.x, rect.y + 17, rect.width, 4)
         canvas.fillRounded(bar, radius: 2, palette.track)
         canvas.fillRounded(
-            Rect(bar.x, bar.y, max(bar.width * share, 4), bar.height), radius: 2, palette.accent)
+            Rect(bar.x, bar.y, max(bar.width * share * entrance, 4), bar.height), radius: 2,
+            palette.accent)
         return 23
     }
 

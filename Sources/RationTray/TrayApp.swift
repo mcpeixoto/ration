@@ -202,8 +202,11 @@ final class TrayApp {
         // The two states that only appear over the binder. The reveal queue
         // is cleared first: drawing the binder refills it from whatever is
         // pending, and a queued card takes the screen ahead of the inspector.
+        //
+        // The rarest card is the interesting one to look at: it is the one
+        // carrying foil, an ability, and the longest attack text.
         panel.tab = .collection
-        if let creature = Dex.roster.first {
+        if let creature = Dex.roster.max(by: { $0.rarity < $1.rarity }) {
             panel.revealQueue = []
             panel.inspectedCreatureID = creature.id
             panel.snapshot(to: base.appending(path: "panel-inspector.png").path)

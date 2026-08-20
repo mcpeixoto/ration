@@ -32,6 +32,7 @@ Sources/RationTray/     The app.
   Canvas.swift          Cairo drawing: shapes, text, measurement.
   Glyphs.swift          Line drawings standing in for SF Symbols.
   Palette.swift         Theme.swift's colours, resolved light or dark.
+  Motion.swift          When to animate, and at what rate.
   UIScale.swift         Reads the display's density and the user's preference.
   AppIcon.swift         Draws the application icon.
 ```
@@ -126,8 +127,53 @@ remainder belongs to us; `UIScalePolicy.remainder` divides it out. Pointer
 events arrive in pixels and are divided back into logical units before hit
 testing, so the two never drift.
 
+The panel's own maximum height is bounded by the monitor it opens on as well as
+by the 700-unit ceiling: 700 units at 1.875× is 1312 pixels, taller than a
+1200-pixel laptop display, and a panel that does not fit is worse than one that
+scrolls.
+
 The policy lives in `RationKit` and is unit-tested; only the reading of the
 monitor and GSettings is in the tray.
+
+## Animation
+
+A Cairo frame is a still, so anything that moves is the panel redrawing itself.
+`Motion` decides when that is worth doing:
+
+- **Holographic foil** on every caught card above common — a wheel of the
+  rarity's colours turning under a travelling highlight, both in overlay, as on
+  the Mac. Cairo has no angular gradient, so the wheel is 48 wedges.
+- **The catch overlay's spring**: a newly unlocked card arrives at 92% and
+  settles, faded in over the same 0.45s.
+- **Entrances**: the ring sweeps up to its value and counts with it, limit bars
+  and share bars fill. Restarted when the panel opens and when the tab or the
+  account changes — the equivalent of a SwiftUI view re-running `onAppear`.
+
+Frames are asked for at 24fps, the rate the macOS `TimelineView` uses, and only
+while something is moving: the binder animates for as long as it is open
+because foil never settles, every other tab stops after its entrance, and a
+closed panel does no work at all.
+
+`org.gnome.desktop.interface enable-animations` turns the lot off, the way the
+Mac honours Reduce Motion. The curves live in `RationKit` as `MotionCurve`,
+where they are tested.
+
+The foil is deliberately weaker than the macOS values it is copied from.
+SwiftUI blends it inside the card's own compositing group; Cairo blends against
+the finished pixels, which lands heavier for the same numbers, and a card you
+cannot see the illustration through is not shiny — it is fogged.
+
+## Type and marks
+
+The panel draws with the desktop's own UI font, read from
+`org.gnome.desktop.interface font-name`. Only the family is taken: the panel's
+type scale is its own, and adopting the desktop's point size would resize every
+label independently of the layout around it.
+
+Which is why the cards' energy and rarity marks are drawn as paths rather than
+typed. `CreatureEnergy.glyph` names characters like ▲ ◉ ▣ ⟳ ☽ ⬢, and a UI font
+is under no obligation to have them — Ubuntu Sans does not, and every pip on
+every card came out as a tofu box.
 
 ## Looking at what it draws
 

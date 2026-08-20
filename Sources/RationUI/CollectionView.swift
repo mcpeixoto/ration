@@ -129,12 +129,9 @@ public struct CollectionView: View {
                     Button {
                         selected = creature
                     } label: {
-                        // Foil is a close-up material. Fifty animating minis
-                        // is noise on a panel and work the compositor does not
-                        // need to do; the inspected and catch cards shine.
                         CreatureCard(
                             creature: creature, caught: caught, style: .mini,
-                            foilPlaying: false)
+                            foilPlaying: caught)
                     }
                     .buttonStyle(.plain)
                     .overlay {

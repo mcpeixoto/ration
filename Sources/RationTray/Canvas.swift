@@ -163,8 +163,28 @@ struct Canvas {
         case trailing
     }
 
-    /// GNOME's UI face, falling back to whatever fontconfig calls "sans".
-    private static let family = "Cantarell"
+    /// The desktop's own UI face.
+    ///
+    /// GSettings reports it as "Ubuntu Sans 11" — family, then size. Only the
+    /// family is taken: the panel's type scale is its own, and adopting the
+    /// desktop's point size would resize every label independently of the
+    /// layout around it. Falls back to whatever fontconfig calls "sans".
+    static var family: String {
+        if let cached = cachedFamily { return cached }
+        let raw = GSettings.read("org.gnome.desktop.interface", "font-name") ?? ""
+        let trimmed = raw.trimmingCharacters(in: CharacterSet(charactersIn: " \n'\""))
+        // Drop the trailing point size, and any style words before it.
+        var words = trimmed.split(separator: " ").map(String.init)
+        while let last = words.last, Double(last) != nil || last == "Regular" {
+            words.removeLast()
+        }
+        let family = words.joined(separator: " ")
+        let resolved = family.isEmpty ? "sans" : family
+        cachedFamily = resolved
+        return resolved
+    }
+
+    nonisolated(unsafe) private static var cachedFamily: String?
 
     func selectFont(size: Double, weight: Weight) {
         cairo_select_font_face(cr, Self.family, 0, weight.cairoWeight)

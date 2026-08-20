@@ -15,8 +15,20 @@ final class Panel {
     /// "Weekly · Fable" label, narrow enough to still feel like a menu — the
     /// same 340 the macOS popover uses.
     static let width = 340.0
-    /// Hard ceiling; the content scrolls past this.
-    fileprivate let maxHeight = 700.0
+    /// Hard ceiling in logical units; the content scrolls past it.
+    ///
+    /// Also bounded by the screen: 700 units at 1.875× is 1312 pixels, which
+    /// is taller than a 1200-pixel laptop display. A panel that does not fit
+    /// is worse than one that scrolls.
+    fileprivate var maxHeight: Double {
+        min(700, availableHeight)
+    }
+
+    /// What the monitor under the pointer leaves room for, in logical units.
+    private var availableHeight: Double {
+        guard let placement = currentPointerPlacement() else { return 700 }
+        return max(320, Double(placement.workArea.height) / scale - 24)
+    }
 
     let app: TrayApp
     private var window: Widget?
@@ -77,6 +89,59 @@ final class Panel {
         overlayScroll = 0
     }
 
+    // MARK: Motion
+
+    /// How far through the entrance animation this frame is, 0…1.
+    var entrance: Double {
+        guard Motion.isEnabled else { return 1 }
+        return Motion.easeOut(Motion.progress(since: entranceStartedAt, duration: 0.9))
+    }
+
+    /// How far through the reveal spring the caught card is, 0…1.
+    var revealProgress: Double {
+        guard Motion.isEnabled else { return 1 }
+        return Motion.spring(Motion.progress(since: revealStartedAt, duration: 0.45))
+    }
+
+    /// The seconds value the foil turns on, or `nil` when animation is off.
+    var foilPhase: Double? {
+        Motion.isEnabled ? Motion.clock() : nil
+    }
+
+    func restartEntrance() {
+        entranceStartedAt = Date()
+        scheduleFrame()
+    }
+
+    func restartReveal() {
+        revealStartedAt = Date()
+        scheduleFrame()
+    }
+
+    /// Whether anything on screen still needs redrawing.
+    ///
+    /// Foil never settles, so the binder and its overlays animate for as long
+    /// as they are open; everything else runs its entrance and stops. A panel
+    /// that is not showing a card does no work at all.
+    private var needsFrames: Bool {
+        guard isOpen, Motion.isEnabled else { return false }
+        if tab == .collection { return true }
+        return Date() < entranceStartedAt.addingTimeInterval(0.9)
+    }
+
+    /// Asks for the next frame, at the foil's rate.
+    private func scheduleFrame() {
+        guard !frameScheduled, needsFrames else { return }
+        frameScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.frameInterval) { [weak self] in
+            guard let self else { return }
+            self.frameScheduled = false
+            guard self.needsFrames else { return }
+            self.redraw()
+            self.scheduleFrame()
+        }
+    }
+
     /// Regions that respond to a click, innermost last.
     private var hitRegions: [(rect: Rect, action: () -> Void)] = []
     private var pointer = Point(-1, -1)
@@ -89,6 +154,15 @@ final class Panel {
     /// Logical units per pixel. Everything below is written in the same units
     /// as the macOS popover and multiplied up at draw time.
     fileprivate var scale = 1.0
+
+    /// When the current entrance animation began — the ring sweeping up to its
+    /// value, the bars filling. Restarted when the panel opens and when the
+    /// tab or the account changes, the way a SwiftUI view re-runs `onAppear`.
+    private var entranceStartedAt = Date.distantPast
+    /// When the card now being revealed came on screen.
+    fileprivate var revealStartedAt = Date.distantPast
+    /// True while a frame has been asked for and not yet drawn.
+    private var frameScheduled = false
 
     init(app: TrayApp) {
         self.app = app
@@ -172,6 +246,7 @@ final class Panel {
         isOpen = true
         openedAt = Date()
         refreshScale()
+        restartEntrance()
         app.registry.setMenuOpen(true)
         app.refreshHistories()
 
@@ -351,6 +426,7 @@ final class Panel {
         if isOpen {
             DispatchQueue.main.async { [weak self] in
                 self?.resize()
+                self?.scheduleFrame()
             }
         }
     }
@@ -377,8 +453,9 @@ final class Panel {
         canvas.text(
             "Ration", at: Point(x, top + 12), size: 14, weight: .bold, color: titleColor)
         addHit(Rect(x, top + 8, titleWidth, 20)) { [weak self] in
-            guard let self else { return }
-            if self.tab == .collection { self.tab = .usage }
+            guard let self, self.tab == .collection else { return }
+            self.tab = .usage
+            self.restartEntrance()
         }
         x += titleWidth + 8
 
@@ -395,7 +472,9 @@ final class Panel {
             dexLabel, at: Point(dexRect.midX, top + 14), size: 11, weight: .bold,
             color: isDex ? palette.accent : palette.secondaryText, align: .center)
         addHit(dexRect) { [weak self] in
-            self?.tab = .collection
+            guard let self, self.tab != .collection else { return }
+            self.tab = .collection
+            self.restartEntrance()
         }
         x += dexWidth + 8
 
@@ -458,8 +537,10 @@ final class Panel {
             canvas.text(
                 label, at: Point(startX + glyphSize + 4, slotRect.midY - 7), size: 11, color: color)
             addHit(slotRect) { [weak self] in
-                self?.selectedProviderID = entry.provider.id
-                self?.focusedLimitID = nil
+                guard let self else { return }
+                self.selectedProviderID = entry.provider.id
+                self.focusedLimitID = nil
+                self.restartEntrance()
             }
         }
         return rect.height + 8
@@ -483,7 +564,9 @@ final class Panel {
                 color: isSelected ? canvas.palette.primary : canvas.palette.secondaryText,
                 align: .center)
             addHit(slotRect) { [weak self] in
-                self?.tab = candidate
+                guard let self, self.tab != candidate else { return }
+                self.tab = candidate
+                self.restartEntrance()
             }
         }
         return rect.height + 10

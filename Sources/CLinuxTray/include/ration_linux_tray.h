@@ -257,6 +257,8 @@ void cairo_stroke(cairo_t *cr);
 void cairo_stroke_preserve(cairo_t *cr);
 void cairo_paint(cairo_t *cr);
 void cairo_paint_with_alpha(cairo_t *cr, double alpha);
+void cairo_push_group(cairo_t *cr);
+void cairo_pop_group_to_source(cairo_t *cr);
 void cairo_clip(cairo_t *cr);
 void cairo_clip_preserve(cairo_t *cr);
 void cairo_reset_clip(cairo_t *cr);

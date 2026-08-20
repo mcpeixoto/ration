@@ -45,25 +45,119 @@ enum CardFace {
         }
     }
 
-    /// The mark printed next to the collector number.
-    static func pipGlyph(_ rarity: CreatureRarity) -> String {
+    private static let white = RGBA(1, 1, 1)
+
+    /// The colours a rarity's holofoil cycles through, as on the Mac.
+    static func foilColors(_ rarity: CreatureRarity) -> [RGBA] {
         switch rarity {
-        case .common: "\u{25CF}"
-        case .uncommon: "\u{25C6}"
-        case .rare: "\u{2605}"
-        case .epic: "\u{2726}"
-        case .legendary: "\u{2739}"
-        case .mythic: "\u{2735}"
+        case .common: [RGBA(1, 1, 1, 0.2)]
+        case .uncommon:
+            [
+                RGBA(0.20, 0.78, 0.35), RGBA(0.35, 0.90, 0.70), white, RGBA(0.20, 0.78, 0.35),
+            ]
+        case .rare:
+            [
+                RGBA(0.20, 0.45, 0.95), RGBA(0.30, 0.85, 0.95), white, RGBA(0.29, 0.22, 0.72),
+                RGBA(0.20, 0.45, 0.95),
+            ]
+        case .epic:
+            [
+                RGBA(0.65, 0.30, 0.85), RGBA(0.95, 0.45, 0.75), white, RGBA(0.29, 0.22, 0.72),
+                RGBA(0.65, 0.30, 0.85),
+            ]
+        case .legendary:
+            [
+                RGBA(0.98, 0.85, 0.20), RGBA(0.98, 0.60, 0.15), white, RGBA(0.35, 0.90, 0.70),
+                RGBA(0.98, 0.85, 0.20),
+            ]
+        case .mythic:
+            [
+                RGBA(0.894, 0.545, 0.416), RGBA(0.98, 0.60, 0.15), RGBA(0.98, 0.85, 0.20),
+                RGBA(0.35, 0.90, 0.70), RGBA(0.30, 0.85, 0.95), RGBA(0.65, 0.30, 0.85),
+                RGBA(0.894, 0.545, 0.416),
+            ]
         }
     }
 
-    private static let white = RGBA(1, 1, 1)
+    /// Whether the card carries a moving foil. Common is printed; the rest shine.
+    static func hasFoil(_ rarity: CreatureRarity) -> Bool {
+        rarity >= .uncommon
+    }
+
+    /// Draws the holographic layer over a card that has already been painted.
+    ///
+    /// Two passes, both in overlay so they tint what is underneath instead of
+    /// covering it: a slowly turning wheel of the rarity's colours, and a white
+    /// band that travels across the face. Cairo has no angular gradient, so the
+    /// wheel is drawn as wedges — enough of them that the seams disappear.
+    ///
+    /// Weaker than the macOS values it is copied from. SwiftUI blends the foil
+    /// inside the card's own compositing group; Cairo blends it against the
+    /// finished pixels, which lands heavier for the same numbers, and a card
+    /// you cannot see the illustration through is not shiny, it is fogged.
+    static func drawFoil(
+        _ rarity: CreatureRarity, in rect: Rect, radius: Double, phase: Double, on canvas: Canvas
+    ) {
+        guard hasFoil(rarity) else { return }
+        let cr = canvas.cr
+        let colors = foilColors(rarity)
+        guard colors.count > 1 else { return }
+
+        cairo_save(cr)
+        canvas.roundedPath(rect, radius: radius)
+        cairo_clip(cr)
+        cairo_set_operator(cr, 16)  // CAIRO_OPERATOR_OVERLAY
+
+        let spin = (phase * 0.12).truncatingRemainder(dividingBy: 1)
+        let wedges = 48
+        let centre = rect.center
+        let reach = (rect.width + rect.height)
+        for index in 0..<wedges {
+            let start = Double(index) / Double(wedges)
+            let end = Double(index + 1) / Double(wedges)
+            let color = colorAround(colors, at: (start + spin).truncatingRemainder(dividingBy: 1))
+            canvas.setColor(color.opacity(0.10))
+            cairo_move_to(cr, centre.x, centre.y)
+            cairo_arc(
+                cr, centre.x, centre.y, reach, start * 2 * Double.pi - Double.pi / 2,
+                end * 2 * Double.pi - Double.pi / 2)
+            cairo_close_path(cr)
+            cairo_fill(cr)
+        }
+
+        // The travelling highlight, diagonal like the Mac's.
+        let travel = (sin(phase * 0.7) + 1) / 2
+        let x0 = rect.x + rect.width * (travel - 0.22)
+        let x1 = rect.x + rect.width * (travel + 0.22)
+        if let band = cairo_pattern_create_linear(x0, rect.y, x1, rect.maxY) {
+            cairo_pattern_add_color_stop_rgba(band, 0, 1, 1, 1, 0)
+            cairo_pattern_add_color_stop_rgba(band, 0.5, 1, 1, 1, 0.22)
+            cairo_pattern_add_color_stop_rgba(band, 1, 1, 1, 1, 0)
+            cairo_set_source(cr, band)
+            cairo_rectangle(cr, rect.x, rect.y, rect.width, rect.height)
+            cairo_fill(cr)
+            cairo_pattern_destroy(band)
+        }
+
+        cairo_set_operator(cr, 2)  // back to OVER
+        cairo_restore(cr)
+    }
+
+    /// Samples a looping list of colours, blending between neighbours.
+    private static func colorAround(_ colors: [RGBA], at position: Double) -> RGBA {
+        let count = colors.count
+        let scaled = position * Double(count)
+        let index = Int(scaled) % count
+        let next = (index + 1) % count
+        return colors[index].mixed(with: colors[next], amount: scaled - scaled.rounded(.down))
+    }
 
     // MARK: Mini
 
     /// The binder tile: name, life, illustration, unlock deed, rarity pip.
     static func drawMini(
-        _ creature: Creature, caught: Bool, in rect: Rect, on canvas: Canvas
+        _ creature: Creature, caught: Bool, in rect: Rect, on canvas: Canvas,
+        foilPhase: Double? = nil
     ) {
         let lore = creature.lore
         let key = caught ? energyColor(lore.energy) : RGBA(0.5, 0.5, 0.5)
@@ -94,12 +188,15 @@ enum CardFace {
                 caught ? creature.requirement.deed : "Locked", size: 7,
                 maxWidth: inner.width - 26),
             at: Point(inner.x + 12, footer), size: 7, color: white.opacity(0.62))
-        canvas.text(
-            pipGlyph(creature.rarity), at: Point(inner.maxX, footer), size: 7,
+        drawRarityPip(
+            creature.rarity, center: Point(inner.maxX - 3.5, footer + 4), size: 7,
             color: caught
-                ? rarityColor(creature.rarity, palette: canvas.palette)
-                : white.opacity(0.25),
-            align: .trailing)
+                ? rarityColor(creature.rarity, palette: canvas.palette) : white.opacity(0.25),
+            on: canvas)
+
+        if caught, let foilPhase {
+            drawFoil(creature.rarity, in: rect, radius: 9, phase: foilPhase, on: canvas)
+        }
     }
 
     /// Height a mini card occupies for a given column width.
@@ -113,7 +210,8 @@ enum CardFace {
     /// Draws the full face and returns the height it used.
     @discardableResult
     static func drawFull(
-        _ creature: Creature, caught: Bool, in rect: Rect, on canvas: Canvas
+        _ creature: Creature, caught: Bool, in rect: Rect, on canvas: Canvas,
+        foilPhase: Double? = nil
     ) -> Double {
         let lore = creature.lore
         let key = caught ? energyColor(lore.energy) : RGBA(0.5, 0.5, 0.5)
@@ -308,6 +406,10 @@ enum CardFace {
             "RATION", at: Point(inner.maxX, y), size: 8, weight: .bold,
             color: canvas.palette.accent, align: .trailing)
 
+        if caught, let foilPhase {
+            drawFoil(creature.rarity, in: card, radius: 13, phase: foilPhase, on: canvas)
+        }
+
         return height
     }
 
@@ -393,7 +495,136 @@ enum CardFace {
         }
     }
 
-    /// An energy pip: the type's glyph on a coloured disc.
+    /// The mark inside an energy pip, drawn rather than typed.
+    ///
+    /// `CreatureEnergy.glyph` names a geometric character — ▲ ◉ ▣ ⟳ ◆ ☽ ⬢ ✕ —
+    /// and the desktop's UI font is under no obligation to have it. Ubuntu Sans
+    /// does not, and every pip on the card came out as a tofu box. These are
+    /// the same eight marks, as paths.
+    private static func drawEnergyMark(
+        _ energy: CreatureEnergy, center: Point, size: Double, on canvas: Canvas
+    ) {
+        let cr = canvas.cr
+        let r = size * 0.3
+        canvas.setColor(RGBA(0, 0, 0, 0.8))
+        cairo_set_line_width(cr, max(size * 0.09, 0.8))
+        cairo_set_line_cap(cr, 1)
+        cairo_set_line_join(cr, 1)
+
+        switch energy {
+        case .ember:  // ▲
+            cairo_move_to(cr, center.x, center.y - r)
+            cairo_line_to(cr, center.x + r * 0.92, center.y + r * 0.75)
+            cairo_line_to(cr, center.x - r * 0.92, center.y + r * 0.75)
+            cairo_close_path(cr)
+            cairo_fill(cr)
+        case .signal:  // ◉
+            cairo_new_sub_path(cr)
+            cairo_arc(cr, center.x, center.y, r, 0, 2 * Double.pi)
+            cairo_stroke(cr)
+            cairo_new_sub_path(cr)
+            cairo_arc(cr, center.x, center.y, r * 0.42, 0, 2 * Double.pi)
+            cairo_fill(cr)
+        case .cache:  // ▣
+            cairo_rectangle(cr, center.x - r, center.y - r, r * 2, r * 2)
+            cairo_stroke(cr)
+            cairo_rectangle(cr, center.x - r * 0.44, center.y - r * 0.44, r * 0.88, r * 0.88)
+            cairo_fill(cr)
+        case .cycle:  // ⟳
+            cairo_new_sub_path(cr)
+            cairo_arc(cr, center.x, center.y, r * 0.85, -Double.pi * 0.7, Double.pi * 0.9)
+            cairo_stroke(cr)
+            cairo_move_to(cr, center.x + r * 0.2, center.y - r * 0.95)
+            cairo_line_to(cr, center.x + r * 0.85, center.y - r * 0.6)
+            cairo_line_to(cr, center.x + r * 0.25, center.y - r * 0.25)
+            cairo_close_path(cr)
+            cairo_fill(cr)
+        case .depth:  // ◆
+            cairo_move_to(cr, center.x, center.y - r)
+            cairo_line_to(cr, center.x + r, center.y)
+            cairo_line_to(cr, center.x, center.y + r)
+            cairo_line_to(cr, center.x - r, center.y)
+            cairo_close_path(cr)
+            cairo_fill(cr)
+        case .night:  // ☽
+            cairo_new_sub_path(cr)
+            cairo_arc(cr, center.x, center.y, r, 0, 2 * Double.pi)
+            cairo_fill(cr)
+            // Bite the crescent out of it.
+            cairo_set_operator(cr, 0)
+            cairo_new_sub_path(cr)
+            cairo_arc(cr, center.x + r * 0.5, center.y - r * 0.28, r * 0.9, 0, 2 * Double.pi)
+            cairo_fill(cr)
+            cairo_set_operator(cr, 2)
+        case .alloy:  // ⬢
+            for index in 0..<6 {
+                let angle = Double(index) / 6 * 2 * Double.pi - Double.pi / 2
+                let x = center.x + cos(angle) * r
+                let y = center.y + sin(angle) * r
+                if index == 0 {
+                    cairo_move_to(cr, x, y)
+                } else {
+                    cairo_line_to(cr, x, y)
+                }
+            }
+            cairo_close_path(cr)
+            cairo_fill(cr)
+        case .void:  // ✕
+            cairo_move_to(cr, center.x - r * 0.8, center.y - r * 0.8)
+            cairo_line_to(cr, center.x + r * 0.8, center.y + r * 0.8)
+            cairo_move_to(cr, center.x + r * 0.8, center.y - r * 0.8)
+            cairo_line_to(cr, center.x - r * 0.8, center.y + r * 0.8)
+            cairo_stroke(cr)
+        }
+    }
+
+    /// The rarity mark printed beside the collector number, drawn for the same
+    /// reason as the energy marks.
+    static func drawRarityPip(
+        _ rarity: CreatureRarity, center: Point, size: Double, color: RGBA, on canvas: Canvas
+    ) {
+        let cr = canvas.cr
+        let r = size / 2
+        canvas.setColor(color)
+        cairo_set_line_width(cr, max(size * 0.14, 0.7))
+        cairo_set_line_cap(cr, 1)
+
+        func star(points: Int, inner: Double) {
+            for index in 0..<(points * 2) {
+                let radius = index % 2 == 0 ? r : r * inner
+                let angle = Double(index) / Double(points * 2) * 2 * Double.pi - Double.pi / 2
+                let x = center.x + cos(angle) * radius
+                let y = center.y + sin(angle) * radius
+                if index == 0 {
+                    cairo_move_to(cr, x, y)
+                } else {
+                    cairo_line_to(cr, x, y)
+                }
+            }
+            cairo_close_path(cr)
+            cairo_fill(cr)
+        }
+
+        switch rarity {
+        case .common:  // ●
+            cairo_new_sub_path(cr)
+            cairo_arc(cr, center.x, center.y, r * 0.8, 0, 2 * Double.pi)
+            cairo_fill(cr)
+        case .uncommon:  // ◆
+            cairo_move_to(cr, center.x, center.y - r)
+            cairo_line_to(cr, center.x + r * 0.8, center.y)
+            cairo_line_to(cr, center.x, center.y + r)
+            cairo_line_to(cr, center.x - r * 0.8, center.y)
+            cairo_close_path(cr)
+            cairo_fill(cr)
+        case .rare: star(points: 5, inner: 0.42)  // ★
+        case .epic: star(points: 4, inner: 0.34)  // ✦
+        case .legendary: star(points: 6, inner: 0.36)  // ✹
+        case .mythic: star(points: 8, inner: 0.4)  // ✵
+        }
+    }
+
+    /// An energy pip: the type's mark on a coloured disc.
     static func drawEnergyPip(
         _ energy: CreatureEnergy, center: Point, size: Double, caught: Bool, on canvas: Canvas
     ) {
@@ -413,8 +644,6 @@ enum CardFace {
             canvas.circle(center: center, radius: size / 2, color)
         }
         canvas.ring(center: center, radius: size / 2, width: 1, color)
-        canvas.text(
-            energy.glyph, at: Point(center.x, center.y - size * 0.36), size: size * 0.5,
-            weight: .bold, color: RGBA(0, 0, 0, 0.8), align: .center)
+        drawEnergyMark(energy, center: center, size: size, on: canvas)
     }
 }

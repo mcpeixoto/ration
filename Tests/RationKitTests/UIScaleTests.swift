@@ -41,7 +41,10 @@ struct UIScaleTests {
 
     @Test("the result stays inside the legible range")
     func clamped() {
-        #expect(UIScalePolicy.remainder(wanted: 8, gtkScaleFactor: 1) == UIScalePolicy.range.upperBound)
-        #expect(UIScalePolicy.remainder(wanted: 0.1, gtkScaleFactor: 1) == UIScalePolicy.range.lowerBound)
+        #expect(
+            UIScalePolicy.remainder(wanted: 8, gtkScaleFactor: 1) == UIScalePolicy.range.upperBound)
+        #expect(
+            UIScalePolicy.remainder(wanted: 0.1, gtkScaleFactor: 1)
+                == UIScalePolicy.range.lowerBound)
     }
 }

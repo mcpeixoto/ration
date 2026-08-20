@@ -162,11 +162,13 @@ extension Panel {
         let radius = 58.0 - 11.0 / 2
         canvas.ring(center: center, radius: radius, width: 11, canvas.palette.track)
         let tint = accentColor(for: severity, palette: canvas.palette)
-        canvas.arc(
-            center: center, radius: radius, fraction: min(max(percent, 0), 100) / 100, width: 11,
-            tint)
+        // Sweeps up from zero as the panel opens, and counts with it — the
+        // same entrance the macOS ring runs, for the same reason: the number
+        // arriving is what tells you it is live rather than a screenshot.
+        let shown = min(max(percent, 0), 100) * entrance
+        canvas.arc(center: center, radius: radius, fraction: shown / 100, width: 11, tint)
 
-        let value = "\(Int(min(max(percent, 0), 100).rounded(.down)))"
+        let value = "\(Int(shown.rounded(.down)))"
         let valueWidth = canvas.width(value, size: 33, weight: .bold)
         let unitWidth = canvas.width("%", size: 17, weight: .bold)
         let startX = center.x - (valueWidth + unitWidth) / 2
@@ -226,7 +228,7 @@ extension Panel {
 
     func drawLimitBar(_ canvas: Canvas, rect: Rect, percent: Double, severity: Severity) {
         canvas.fillRounded(rect, radius: rect.height / 2, canvas.palette.track)
-        let fraction = min(max(percent, 0), 100) / 100
+        let fraction = min(max(percent, 0), 100) / 100 * entrance
         guard fraction > 0 else { return }
         let filled = max(rect.width * fraction, rect.height)
         canvas.fillRounded(

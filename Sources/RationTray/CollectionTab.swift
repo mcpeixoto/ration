@@ -97,7 +97,8 @@ extension Panel {
                 12 + column * (cardWidth + gap), y + row * (cardHeight + gap), cardWidth,
                 cardHeight)
             let caught = state.caught.contains { $0.id == creature.id }
-            CardFace.drawMini(creature, caught: caught, in: rect, on: canvas)
+            CardFace.drawMini(
+                creature, caught: caught, in: rect, on: canvas, foilPhase: foilPhase)
             if isHovered(rect) {
                 canvas.strokeRounded(
                     rect, radius: 9, width: 1.5,
@@ -130,7 +131,8 @@ extension Panel {
         var y = top + 16
         let cardWidth = width - 32
         let cardHeight = CardFace.drawFull(
-            creature, caught: caught, in: Rect(16, y, cardWidth, 0), on: canvas)
+            creature, caught: caught, in: Rect(16, y, cardWidth, 0), on: canvas,
+            foilPhase: foilPhase)
         // Swallows the click so it does not fall through to the scrim.
         addHit(Rect(16, y, cardWidth, cardHeight)) {}
         y += cardHeight + 12
@@ -204,9 +206,26 @@ extension Panel {
         y += 20
 
         let cardWidth = width - 44
-        let cardHeight = CardFace.drawFull(
-            creature, caught: true, in: Rect(22, y, cardWidth, 0), on: canvas)
-        addHit(Rect(22, y, cardWidth, cardHeight)) {}
+        // Measured first, then drawn scaled about its own centre: the card
+        // arrives at 92% and settles, which is the moment the pack-rip is for.
+        let cardHeight = CardFace.fullHeight(
+            creature, caught: true, width: cardWidth, on: canvas)
+        let progress = revealProgress
+        let cardScale = 0.92 + 0.08 * progress
+        let cardRect = Rect(22, y, cardWidth, cardHeight)
+
+        cairo_save(canvas.cr)
+        cairo_translate(canvas.cr, cardRect.midX, cardRect.midY)
+        cairo_scale(canvas.cr, cardScale, cardScale)
+        cairo_translate(canvas.cr, -cardRect.midX, -cardRect.midY)
+        cairo_push_group(canvas.cr)
+        CardFace.drawFull(
+            creature, caught: true, in: cardRect, on: canvas, foilPhase: foilPhase)
+        cairo_pop_group_to_source(canvas.cr)
+        cairo_paint_with_alpha(canvas.cr, min(1, progress * 1.4))
+        cairo_restore(canvas.cr)
+
+        addHit(cardRect) {}
         y += cardHeight + 14
 
         let continueRect = Rect(width / 2 - 70, y, 140, 28)
