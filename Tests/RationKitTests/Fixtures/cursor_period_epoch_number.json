@@ -1,0 +1,9 @@
+{
+  "billingCycleStart": 1785542400000,
+  "billingCycleEnd": 1788220800000,
+  "planUsage": {
+    "totalSpend": 1234,
+    "limit": 2000,
+    "totalPercentUsed": 61.7
+  }
+}

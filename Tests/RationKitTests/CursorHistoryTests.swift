@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 #if canImport(SQLite3)
 import SQLite3
 #else
@@ -335,6 +338,44 @@ struct CursorHistoryStoreTests {
         #expect(store.history.sessionIDs.contains("comp-store"))
         #expect(store.history.sortedDays.contains { $0.billableTokens == 36 })
     }
+
+    @Test("dashboard usage events fill history when local transcripts have none")
+    @MainActor
+    func remoteEventsFillHistory() async throws {
+        let tokenDB = try makeHistoryStateDB(token: "tok-live")
+        let filtered = HTTPURLResponse(
+            url: CursorLimitsClient.filteredEventsEndpoint,
+            statusCode: 200, httpVersion: nil, headerFields: nil)!
+        let transport = HistoryStubTransport(results: [
+            .success((try cursorFixture("cursor_filtered_events"), filtered))
+        ])
+        let projects = FileManager.default.temporaryDirectory
+            .appending(path: "cursor-empty-projects-\(UUID().uuidString)")
+        let support = FileManager.default.temporaryDirectory
+            .appending(path: "ration-support-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: tokenDB)
+            try? FileManager.default.removeItem(at: projects)
+            try? FileManager.default.removeItem(at: support)
+        }
+
+        let store = TranscriptStore(
+            provider: .cursor,
+            format: CursorTranscriptFormat(
+                projectsRoot: projects,
+                databaseURL: tokenDB,
+                client: CursorLimitsClient(transport: transport),
+                sessionStore: CursorSessionStore(databaseURL: tokenDB)),
+            root: projects,
+            supportDirectory: support)
+        store.refresh()
+        try await waitUntilReady(store)
+
+        #expect(!store.history.isEmpty)
+        #expect(store.history.sortedDays.contains { $0.tokensByModel["composer-2"] == 1750 })
+    }
 }
 
 @Suite("Usage history merging")
@@ -388,6 +429,60 @@ struct UsageHistoryMergingTests {
 
 // MARK: - sqlite fixture
 
+private func cursorFixture(_ name: String) throws -> Data {
+    let url = try #require(
+        Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"),
+        "missing fixture \(name).json")
+    return try Data(contentsOf: url)
+}
+
+private final class HistoryStubTransport: Transport, @unchecked Sendable {
+    var requests: [URLRequest] = []
+    var results: [Result<(Data, HTTPURLResponse), any Error>]
+
+    init(results: [Result<(Data, HTTPURLResponse), any Error>]) {
+        self.results = results
+    }
+
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        requests.append(request)
+        guard !results.isEmpty else {
+            throw LimitsError.transport(message: "no stubbed response")
+        }
+        return try results.removeFirst().get()
+    }
+}
+
+private func makeHistoryStateDB(token: String) throws -> URL {
+    let url = FileManager.default.temporaryDirectory
+        .appending(path: "ration-cursor-history-auth-\(UUID().uuidString).vscdb")
+    var db: OpaquePointer?
+    guard sqlite3_open(url.path, &db) == SQLITE_OK, let db else {
+        throw CursorSessionStore.Error.malformed
+    }
+    defer { sqlite3_close(db) }
+
+    guard
+        sqlite3_exec(db, "CREATE TABLE ItemTable (key TEXT, value TEXT);", nil, nil, nil)
+            == SQLITE_OK
+    else {
+        throw CursorSessionStore.Error.malformed
+    }
+
+    let sql = "INSERT INTO ItemTable (key, value) VALUES (?, ?);"
+    var stmt: OpaquePointer?
+    guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+        throw CursorSessionStore.Error.malformed
+    }
+    defer { sqlite3_finalize(stmt) }
+    sqlite3_bind_text(
+        stmt, 1, "cursorAuth/accessToken", -1,
+        unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+    sqlite3_bind_text(stmt, 2, token, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+    sqlite3_step(stmt)
+    return url
+}
+
 private func makeComposerDB(
     composerID: String,
     composerJSON: String,
@@ -428,7 +523,7 @@ private func makeComposerDB(
 @MainActor
 private func waitUntilReady(_ store: TranscriptStore, timeout: TimeInterval = 5) async throws {
     let deadline = Date().addingTimeInterval(timeout)
-    while store.status != .ready {
+    while store.isRefreshing || store.status != .ready {
         if Date() > deadline {
             Issue.record("timed out waiting for history scan")
             return

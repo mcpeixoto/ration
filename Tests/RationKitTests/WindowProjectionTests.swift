@@ -89,6 +89,18 @@ struct WindowProjectionTests {
         #expect(abs(projection.projectedPercent - 80) < 0.01)
     }
 
+    @Test("a stated window length lets an otherwise-unknown kind project")
+    func statedLength() throws {
+        let limit = UsageLimit(
+            kind: .other("monthly"), group: .other("monthly"),
+            percent: 50, severity: .normal,
+            resetsAt: now.addingTimeInterval(week / 2),
+            windowLength: week)
+        let projection = try #require(WindowProjection(limit: limit, now: now))
+        #expect(abs(projection.projectedPercent - 100) < 0.01)
+        #expect(abs(projection.pace - 1.0) < 0.01)
+    }
+
     @Test("declines to project a limit kind whose window length is unknown")
     func unknownWindow() {
         let limit = UsageLimit(

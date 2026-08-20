@@ -15,10 +15,21 @@ public struct CursorTranscriptFormat: TranscriptFormat {
 
     public let defaultRoot: URL
     public let databaseURL: URL
+    public var remoteSnapshotReplacesFiles: Bool { true }
 
-    public init(projectsRoot: URL? = nil, databaseURL: URL? = nil) {
+    private let client: CursorLimitsClient
+    private let sessionStore: CursorSessionStore
+
+    public init(
+        projectsRoot: URL? = nil,
+        databaseURL: URL? = nil,
+        client: CursorLimitsClient = CursorLimitsClient(),
+        sessionStore: CursorSessionStore? = nil
+    ) {
         self.defaultRoot = projectsRoot ?? PlatformPaths.cursorProjectsDirectory
         self.databaseURL = databaseURL ?? PlatformPaths.cursorStateDatabase
+        self.client = client
+        self.sessionStore = sessionStore ?? CursorSessionStore(databaseURL: self.databaseURL)
     }
 
     /// Only files under `agent-transcripts`. `.cursor/projects` also holds
@@ -73,6 +84,33 @@ public struct CursorTranscriptFormat: TranscriptFormat {
     )? {
         CursorComposerStore(databaseURL: databaseURL).snapshot(
             excludingSessionIDs: excludingSessionIDs)
+    }
+
+    public func remoteSnapshot(excludingSessionIDs: Set<String>) async -> (
+        fingerprint: String, events: [UsageEvent]
+    )? {
+        let session: CursorSession
+        do {
+            session = try sessionStore.session()
+        } catch {
+            return nil
+        }
+        let end = Date()
+        let start =
+            Calendar.current.date(byAdding: .day, value: -90, to: end)
+            ?? end.addingTimeInterval(-90 * 24 * 3600)
+        let events: [UsageEvent]
+        do {
+            events = try await client.fetchHistoryEvents(
+                token: session.accessToken, from: start, to: end)
+        } catch {
+            return nil
+        }
+        let kept = events.filter { !excludingSessionIDs.contains($0.sessionID) }
+        guard !kept.isEmpty else { return nil }
+        let tokens = kept.reduce(0) { $0 + $1.billableTokens }
+        let last = kept.map(\.timestamp).max()?.timeIntervalSince1970 ?? 0
+        return ("remote:\(kept.count):\(tokens):\(Int(last))", kept)
     }
 
     // MARK: Lines
@@ -196,27 +234,50 @@ public struct CursorTranscriptFormat: TranscriptFormat {
 enum CursorJSON {
 
     static func int(_ value: Any?) -> Int? {
-        switch value {
-        case let int as Int: int
-        case let double as Double: Int(double)
-        case let string as String: Int(string)
-        default: nil
+        double(value).map { Int($0.rounded(.towardZero)) }
+    }
+
+    static func double(_ value: Any?) -> Double? {
+        // Do not reject `NSNumber(1)` via `is Bool` — JSON integers 0 and 1
+        // bridge to Bool on Apple and Linux, which would drop real token
+        // counts of 1.
+        if value == nil || value is NSNull { return nil }
+        if let double = value as? Double { return double }
+        if let int = value as? Int { return Double(int) }
+        if let int64 = value as? Int64 { return Double(int64) }
+        if let uint64 = value as? UInt64 { return Double(uint64) }
+        if let string = value as? String { return Double(string) }
+        if let number = value as? NSNumber { return number.doubleValue }
+        return nil
+    }
+
+    static func firstDouble(_ body: [String: Any], keys: [String]) -> Double? {
+        for key in keys {
+            if let value = double(body[key]) { return value }
         }
+        return nil
     }
 
     static func date(_ value: Any?) -> Date? {
-        switch value {
-        case let string as String:
+        if value == nil || value is NSNull { return nil }
+        if let string = value as? String {
             if let iso = ISO8601.date(from: string) { return iso }
             if let number = Double(string) { return date(fromEpoch: number) }
             return nil
-        case let double as Double:
-            return date(fromEpoch: double)
-        case let int as Int:
-            return date(fromEpoch: Double(int))
-        default:
-            return nil
         }
+        if let number = value as? NSNumber {
+            return date(fromEpoch: number.doubleValue)
+        }
+        if let double = value as? Double {
+            return date(fromEpoch: double)
+        }
+        if let int = value as? Int {
+            return date(fromEpoch: Double(int))
+        }
+        if let int64 = value as? Int64 {
+            return date(fromEpoch: Double(int64))
+        }
+        return nil
     }
 
     /// Cursor stamps sqlite rows in milliseconds, JSONL in ISO-8601, and the

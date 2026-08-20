@@ -43,6 +43,36 @@ struct CursorPeriodDecodingTests {
         #expect(monthly.windowLength == 31 * 24 * 3600.0)
     }
 
+    @Test("unix-millisecond billing dates still produce a window and a projection")
+    func epochMillisecondDates() throws {
+        let snapshot = try CursorUsage.snapshot(fromPeriod: fixture("cursor_period_epoch"))
+        let monthly = try #require(snapshot.limits.first { $0.kind.rawValue == "monthly" })
+        #expect(monthly.resetsAt == date(2026, 9, 1))
+        #expect(monthly.windowLength == 31 * 24 * 3600.0)
+
+        let now = date(2026, 8, 16)
+        let projection = try #require(WindowProjection(limit: monthly, now: now))
+        #expect(projection.windowLength == 31 * 24 * 3600.0)
+        #expect(projection.pace > 0)
+    }
+
+    @Test("numeric unix-millisecond billing dates decode the same way")
+    func epochMillisecondNumbers() throws {
+        let snapshot = try CursorUsage.snapshot(
+            fromPeriod: fixture("cursor_period_epoch_number"))
+        let monthly = try #require(snapshot.limits.first { $0.kind.rawValue == "monthly" })
+        #expect(monthly.resetsAt == date(2026, 9, 1))
+        #expect(monthly.windowLength == 31 * 24 * 3600.0)
+    }
+
+    @Test("keeps on-demand spend as a second limit when the payload has it")
+    func onDemandLimit() throws {
+        let snapshot = try CursorUsage.snapshot(fromPeriod: fixture("cursor_period_epoch"))
+        let onDemand = try #require(snapshot.limits.first { $0.kind.rawValue == "on_demand" })
+        #expect(onDemand.percent == 25)
+        #expect(onDemand.resetsAt == date(2026, 9, 1))
+    }
+
     @Test("keeps Auto and API as separate limits when the payload has them")
     func autoAndAPI() throws {
         let snapshot = try CursorUsage.snapshot(fromPeriod: fixture("cursor_period"))
@@ -191,6 +221,7 @@ struct CursorClientTests {
                 == "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer tok")
+        #expect(request.value(forHTTPHeaderField: "Connect-Protocol-Version") == "1")
         #expect(request.value(forHTTPHeaderField: "User-Agent")?.hasPrefix("Ration/") == true)
     }
 
@@ -268,6 +299,86 @@ struct CursorUsageSourceTests {
         let snapshot = try await source.fetchUsage()
         #expect(snapshot.planName == "pro")
         #expect(snapshot.limits.contains { $0.kind.rawValue == "monthly" })
+    }
+}
+
+@Suite("Cursor dashboard history events")
+struct CursorHistoryEventDecodingTests {
+
+    @Test("reads per-request rows with timestamps from the filtered log")
+    func filteredEvents() throws {
+        let events = CursorUsage.events(fromFiltered: try fixture("cursor_filtered_events"))
+        #expect(events.count == 2)
+
+        let composer = try #require(events.first { $0.model == "composer-2" })
+        #expect(composer.inputTokens == 1200)
+        #expect(composer.outputTokens == 400)
+        #expect(composer.cacheReadTokens == 8000)
+        #expect(composer.cacheWrite5mTokens == 150)
+        #expect(composer.timestamp == Date(timeIntervalSince1970: 1_785_691_200))
+        #expect(composer.project == "Cursor")
+
+        let grok = try #require(events.first { $0.model == "grok-4.6" })
+        #expect(grok.inputTokens == 80)
+        #expect(grok.outputTokens == 20)
+    }
+
+    @Test("falls back to one event per model from the aggregation")
+    func aggregatedEvents() throws {
+        let at = Date(timeIntervalSince1970: 1_785_777_600)
+        let events = CursorUsage.events(fromAggregated: try fixture("cursor_aggregated"), at: at)
+        #expect(events.count == 2)
+        let composer = try #require(events.first { $0.model == "composer-2" })
+        #expect(composer.inputTokens == 3200)
+        #expect(composer.outputTokens == 900)
+        #expect(composer.cacheWrite5mTokens == 400)
+        #expect(composer.timestamp == at)
+    }
+}
+
+@Suite("Cursor history client")
+struct CursorHistoryClientTests {
+
+    @Test("prefers the filtered usage log over the model aggregation")
+    func filteredFirst() async throws {
+        let period = HTTPURLResponse(
+            url: CursorLimitsClient.filteredEventsEndpoint,
+            statusCode: 200, httpVersion: nil, headerFields: nil)!
+        let transport = StubTransport(results: [
+            .success((try fixture("cursor_filtered_events"), period))
+        ])
+        let start = Date(timeIntervalSince1970: 1_785_542_400)
+        let events = try await CursorLimitsClient(transport: transport).fetchHistoryEvents(
+            token: "tok", from: start, to: Date(timeIntervalSince1970: 1_785_777_600))
+        #expect(events.count == 2)
+        #expect(
+            transport.requests.map(\.url?.path) == [
+                "/aiserver.v1.DashboardService/GetFilteredUsageEvents"
+            ])
+    }
+
+    @Test("falls back to aggregations when the filtered log is empty")
+    func aggregatedFallback() async throws {
+        let empty = HTTPURLResponse(
+            url: CursorLimitsClient.filteredEventsEndpoint,
+            statusCode: 200, httpVersion: nil, headerFields: nil)!
+        let aggregated = HTTPURLResponse(
+            url: CursorLimitsClient.aggregatedEventsEndpoint,
+            statusCode: 200, httpVersion: nil, headerFields: nil)!
+        let transport = StubTransport(results: [
+            .success((Data(#"{"usageEventsDisplay":[]}"#.utf8), empty)),
+            .success((try fixture("cursor_aggregated"), aggregated)),
+        ])
+        let events = try await CursorLimitsClient(transport: transport).fetchHistoryEvents(
+            token: "tok",
+            from: Date(timeIntervalSince1970: 1_785_542_400),
+            to: Date(timeIntervalSince1970: 1_785_777_600))
+        #expect(events.contains { $0.model == "composer-2" && $0.inputTokens == 3200 })
+        #expect(
+            transport.requests.map(\.url?.path) == [
+                "/aiserver.v1.DashboardService/GetFilteredUsageEvents",
+                "/aiserver.v1.DashboardService/GetAggregatedUsageEvents",
+            ])
     }
 }
 

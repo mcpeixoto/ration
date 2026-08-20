@@ -34,6 +34,19 @@ public protocol TranscriptFormat: Sendable {
     /// sessions the JSONL scan already counted, so a snapshot must not add
     /// them again.
     func snapshot(excludingSessionIDs: Set<String>) -> (fingerprint: String, events: [UsageEvent])?
+
+    /// Same job as `snapshot`, over the network. Cursor's dashboard usage log
+    /// is the billing source of truth; local agent transcripts often have no
+    /// token counts at all.
+    ///
+    /// `nil` (the default) for formats that only have files.
+    func remoteSnapshot(excludingSessionIDs: Set<String>) async -> (
+        fingerprint: String, events: [UsageEvent]
+    )?
+
+    /// When the remote snapshot has events, it replaces file-derived history
+    /// rather than merging: the dashboard already counted those turns.
+    var remoteSnapshotReplacesFiles: Bool { get }
 }
 
 extension TranscriptFormat {
@@ -41,6 +54,12 @@ extension TranscriptFormat {
     public func snapshot(excludingSessionIDs _: Set<String>) -> (
         fingerprint: String, events: [UsageEvent]
     )? { nil }
+
+    public func remoteSnapshot(excludingSessionIDs _: Set<String>) async -> (
+        fingerprint: String, events: [UsageEvent]
+    )? { nil }
+
+    public var remoteSnapshotReplacesFiles: Bool { false }
 
     /// Walks a directory tree for `.jsonl`, which is what all of them use.
     public func jsonlFiles(under root: URL) -> [URL] {

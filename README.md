@@ -71,7 +71,7 @@ Four tabs, plus **Pokémon** next to the title:
 |---|---|---|---|
 | **Claude Code** | yes | yes | one request to `api.anthropic.com`, using the token Claude Code already stored |
 | **Codex CLI** | yes | yes | entirely from `~/.codex/sessions` — no request, no credential |
-| **Cursor** | yes | yes | the session Cursor already stored on disk, then one request to `api2.cursor.sh`; history from local agent transcripts |
+| **Cursor** | yes | yes | the session Cursor already stored on disk, then `api2.cursor.sh` for the plan gauge, burn rate, and usage log |
 | GitHub Copilot | no | no | quota is only readable over the network, with a token Ration would have to mint and store itself |
 | Gemini CLI | no | no | quota is only readable over the network; nothing usable is written to disk |
 
@@ -89,7 +89,7 @@ presenting them as live.
 
 ### macOS
 
-[**Download Ration 0.8.2**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.8.2.dmg)
+[**Download Ration 0.8.3**](https://github.com/mcpeixoto/ration/releases/latest/download/Ration-0.8.3.dmg)
 — open the DMG and drag `Ration.app` to Applications.
 
 Signed with a Developer ID and notarised by Apple, so it opens without a
@@ -102,11 +102,11 @@ published yet.
 
 Download the x86_64 tarball from
 [Releases](https://github.com/mcpeixoto/ration/releases/latest) —
-`ration-0.8.2-linux-x86_64.tar.gz`. On ARM64 Linux, build from source (below).
+`ration-0.8.3-linux-x86_64.tar.gz`. On ARM64 Linux, build from source (below).
 
 ```sh
-tar -xzf ration-0.8.2-linux-x86_64.tar.gz
-cd ration-0.8.2-linux-x86_64
+tar -xzf ration-0.8.3-linux-x86_64.tar.gz
+cd ration-0.8.3-linux-x86_64
 ./ration status          # one-shot usage for every tool you have
 ./ration watch           # refresh every 60 seconds
 ./ration watch --notify  # desktop alerts at 80% and 95% (needs notify-send)
@@ -188,8 +188,10 @@ panel says *"As of 3h ago"* instead of showing a stale number as live.
 a local sqlite file (not the keychain, and not your browser cookies). Ration
 reads the access token and the cached plan name, then calls
 `POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage`
-— the same dashboard numbers the Cursor website shows. It never reads a
-refresh secret, and it never opens Cursor's cookie jar.
+— the same dashboard numbers the Cursor website shows, including the billing
+window so the burn-rate card can project the month the same way it projects
+Claude's session and week. It never reads a refresh secret, and it never opens
+Cursor's cookie jar.
 
 **History (the Activity, Trends and Detail tabs).** Claude Code, Codex and Cursor
 write a transcript of every session — Claude Code to `~/.claude/projects/**/*.jsonl`,
@@ -198,9 +200,10 @@ out of those files, and only the token counts. Your prompts, the replies, and
 the contents of files you opened are never decoded, never retained, and never
 leave your machine. The first scan reads the whole corpus in the background (a
 few seconds for a gigabyte); after that it reads only the bytes appended since
-the last check. Cursor writes agent transcripts under `~/.cursor/projects` and
-conversation totals into the same sqlite file the gauge already copies; Ration
-reads the token counts out of both, the same way it reads Claude and Codex.
+the last check. Cursor's agent transcripts under `~/.cursor/projects` often
+carry no token counts, so Ration also asks `api2.cursor.sh` for the same usage
+log the dashboard shows — timestamps, model, token counts, nothing else — and
+falls back to the local sqlite composer rows when that log is empty.
 
 Each tool gets its own history, and the panel shows one at a time. Merging them
 would produce a confidently wrong number: a Claude token and a Codex token are
@@ -232,7 +235,7 @@ without continuing means Ration reads nothing.
   it exists, otherwise from the keychain item, via the same `security` CLI
   Claude Code uses.
 - Read Cursor's local session file, read-only, for the access token and plan name,
-  and Cursor's local agent transcripts for history.
+  and `api2.cursor.sh` for the plan gauge, burn rate, and usage log.
 - Send those tokens to the host that issued them — `api.anthropic.com` or
   `api2.cursor.sh` — and keep them in memory only for that request.
 - Check `raw.githubusercontent.com` for an update feed, and download releases

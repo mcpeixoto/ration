@@ -4,8 +4,8 @@ Ration collects nothing.
 
 ## What leaves your machine
 
-One request when Ration refreshes Claude's limits, and one when it refreshes
-Cursor's:
+One request when Ration refreshes Claude's limits. Cursor's gauge is one
+request; Activity, Trends and Detail add the usage log on the same host:
 
 ```
 GET https://api.anthropic.com/api/oauth/usage
@@ -14,6 +14,8 @@ Authorization: Bearer <your Claude Code access token>
 
 ```
 POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage
+POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetFilteredUsageEvents
+POST https://api2.cursor.sh/aiserver.v1.DashboardService/GetAggregatedUsageEvents
 Authorization: Bearer <your Cursor access token>
 ```
 
@@ -116,12 +118,13 @@ Codex's session id comes from the *file name*, specifically so that the first
 line of each rollout — the one carrying the multi-kilobyte instruction blob —
 never has to be handed to the JSON decoder at all.
 
-From Cursor, two sources:
+From Cursor, two local sources plus the dashboard usage log (same host as
+the gauge, token counts and timestamps only):
 
 | Field | Used for |
 |---|---|
 | `message.usage.*` / `tokenCount.*` | Token counts |
-| `model` / `modelInfo.modelName` | Grouping by model |
+| `model` / `modelInfo.modelName` / `modelIntent` | Grouping by model |
 | `timestamp` / `createdAt` | Grouping by day |
 | project folder name / `workspaceIdentifier` | Grouping by project (the directory name only) |
 | file name / `composerId` | Counting distinct sessions |

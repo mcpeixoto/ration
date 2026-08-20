@@ -92,7 +92,7 @@ own GitHub links, which are user-clickable) appears under `Sources/`.
 `clientHasOneEndpoint` fails if `LimitsClient.swift` constructs any URL other
 than `https://api.anthropic.com/api/oauth/usage`.
 `cursorClientHasKnownEndpoints` fails if `CursorClient.swift` constructs any
-URL other than its two dashboard endpoints.
+URL other than its dashboard endpoints on `api2.cursor.sh`.
 
 Ration does contact a second host — `raw.githubusercontent.com` for the update
 feed, and `github.com` to download a release you chose to install. Those

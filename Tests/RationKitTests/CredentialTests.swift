@@ -261,7 +261,7 @@ struct SourceTreeTests {
         #expect(urls == ["https://api.anthropic.com/api/oauth/usage"])
     }
 
-    @Test("the Cursor client targets exactly its two known URLs")
+    @Test("the Cursor client targets exactly its known URLs")
     func cursorClientHasKnownEndpoints() throws {
         let client = try #require(
             try swiftFiles().first { $0.url.lastPathComponent == "CursorClient.swift" })
@@ -270,6 +270,12 @@ struct SourceTreeTests {
             client.contents.contains(
                 "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage"))
         #expect(client.contents.contains("https://api2.cursor.sh/auth/usage"))
+        #expect(
+            client.contents.contains(
+                "https://api2.cursor.sh/aiserver.v1.DashboardService/GetFilteredUsageEvents"))
+        #expect(
+            client.contents.contains(
+                "https://api2.cursor.sh/aiserver.v1.DashboardService/GetAggregatedUsageEvents"))
 
         let pattern = try NSRegularExpression(pattern: #"https?://([A-Za-z0-9.-]+)"#)
         let range = NSRange(client.contents.startIndex..., in: client.contents)

@@ -30,7 +30,7 @@ enum CLIContext {
 
     static func waitForScan(_ store: TranscriptStore, timeout: TimeInterval = 600) async {
         let deadline = Date().addingTimeInterval(timeout)
-        while case .scanning = store.status {
+        while store.isRefreshing {
             if Date() > deadline { break }
             try? await Task.sleep(for: .milliseconds(100))
         }
