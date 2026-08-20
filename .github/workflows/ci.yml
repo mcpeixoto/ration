@@ -106,8 +106,13 @@ jobs:
         with:
           swift-version: "6.0"
 
-      - name: Install SQLite
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+      - name: Install the C libraries
+        run: |
+          sudo apt-get update
+          # The tray links against GTK 3, Cairo and libayatana-appindicator3.
+          # Without them the CLI still builds, but `swift build` builds every
+          # product and the tray fails at link time.
+          sudo apt-get install -y libsqlite3-dev libgtk-3-dev libayatana-appindicator3-dev
 
       - name: Build
         run: swift build --build-tests -c debug
@@ -117,6 +122,30 @@ jobs:
 
       - name: Build release CLI
         run: swift build -c release --product ration
+
+      - name: Build the tray, and check it runs without a display
+        run: |
+          swift build -c release --product ration-tray
+          .build/release/ration-tray --version
+          # Drawing the icon needs Cairo but no X server, so it is the cheapest
+          # end-to-end check that the C interop is wired up correctly.
+          .build/release/ration-tray --write-icon .build/ration.png --icon-size 128
+          test -s .build/ration.png
+
+      # A tray with no display must say so and exit. Checked for exactly the
+      # exit code it promises: a bare "did not succeed" would also be satisfied
+      # by the process hanging until `timeout` killed it, which is the failure
+      # this is meant to catch.
+      - name: Check the tray refuses to start without a display
+        run: |
+          set +e
+          DISPLAY= timeout 20 .build/release/ration-tray
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "::error::expected exit 1 with no display, got $code"
+            exit 1
+          fi
 
       - name: Verify the CLI runs
         run: .build/release/ration version
