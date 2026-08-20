@@ -282,7 +282,7 @@ public struct PopoverView: View {
                 symbol: "hand.wave",
                 title: "Finish setting up",
                 message:
-                    "Ration needs your permission to read the \(provider.toolName) session stored in your keychain.",
+                    "Ration needs your permission to read the \(provider.toolName) session already on this Mac.",
                 action: ("Set up Ration", startSetup)
             )
         } else if case .quotaNotReadable(let reason) = poller.availability {

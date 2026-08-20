@@ -155,7 +155,7 @@ private struct AccountRow: View {
     private var source: String {
         switch entry.provider {
         case .claude:
-            return "Reads the Claude Code session in your keychain, and asks "
+            return "Reads the Claude Code session already on this Mac, and asks "
                 + "api.anthropic.com for your limits."
         case .codex:
             return "Reads the session files Codex already writes to disk. "

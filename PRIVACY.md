@@ -50,7 +50,9 @@ change showing up in a diff.
 
 ## What Ration reads
 
-From the macOS keychain item `Claude Code-credentials`, created by Claude Code:
+From the Claude Code credential store — `~/.claude/.credentials.json` when
+that file exists, otherwise the macOS keychain item `Claude Code-credentials`,
+read through `/usr/bin/security` (the same path Claude Code uses):
 
 | Field | Read? | Used for |
 | --- | --- | --- |
@@ -62,7 +64,8 @@ From the macOS keychain item `Claude Code-credentials`, created by Claude Code:
 | `mcpOAuth.*` (MCP server logins) | **No** | — |
 
 This is the only keychain item Ration reads, and a test fails the build if
-keychain calls appear anywhere but the one file that makes them.
+keychain reads appear anywhere but the one file that makes them, or if the
+item is written or deleted.
 
 **Codex's credentials are not read at all.** Codex stores its login in a
 plain file in your home directory — no keychain, no prompt, nothing standing in
@@ -160,9 +163,9 @@ line or a crash report.
 
 ## What Ration writes
 
-Nothing to your keychain. Ration calls `SecItemCopyMatching` and no other
-keychain API — there is no code path that adds, updates, or deletes a keychain
-item.
+Nothing to your keychain. Ration runs `/usr/bin/security find-generic-password -w`
+and no other keychain invocation — there is no code path that adds, updates,
+or deletes a keychain item.
 
 ## Questions
 

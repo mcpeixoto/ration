@@ -14,11 +14,23 @@ public issue for a vulnerability.
 
 These are not aspirations. Each is enforced by a test that fails the build.
 
-### 1. Read the keychain, never write it
+### 1. Read the credential store, never write it
 
-`KeychainCredentialStore` calls `SecItemCopyMatching` and nothing else. There is
-no `SecItemAdd`, `SecItemUpdate`, or `SecItemDelete` anywhere in the codebase.
-Ration cannot corrupt or delete your Claude Code login.
+`KeychainCredentialStore` runs `/usr/bin/security find-generic-password -w`
+and nothing else. There is no `SecItemAdd`, `SecItemUpdate`, `SecItemDelete`,
+or `SecItemCopyMatching` anywhere in the codebase, and `security(1)` is never
+invoked with a write or delete flag.
+
+This is not a shortcut around a permission prompt. Claude Code itself
+replaces the keychain item on every token refresh, which resets the ACL to
+the `apple-tool:` partition that `/usr/bin/security` already holds. Reading
+through Security.framework as Ration.app required a `teamid:` ACL entry that
+the replacement wiped — so the login-password prompt came back on every
+rotation, and could knock Claude Code out of its own item. Using the same
+read path Claude Code uses is what stops that.
+
+Ration cannot corrupt or delete your Claude Code login. Verified by
+`keychainAccessIsConfinedToOneFile`.
 
 ### 2. Read one secret, not the whole blob
 
@@ -34,14 +46,18 @@ anywhere under `Sources/`.
 ### 3. Never refresh, never rotate
 
 Ration has no code to exchange a refresh token or mint a new session. When the
-token expires it stops polling and shows a "signed out" state until Claude Code
-refreshes it. **Ration cannot invalidate your session or lock you out.**
+live token is rejected it re-reads the store once — Claude Code may already
+have written a new access token — and only then shows a "signed out" state.
+It never sends a cached access token across a rotation; that is what used to
+look like a sign-out, and could make Anthropic revoke the session for token
+reuse. **Ration does not refresh your session and does not write it.**
 
 ### 3b. No other tool's credentials, except the one Cursor already stored
 
 Ration reads two credentials, both of which the underlying tool already wrote:
 
-- Claude Code's access token, from the keychain item it created.
+- Claude Code's access token, from the credentials file when present, otherwise
+  from the keychain item Claude Code created.
 - Cursor's access token, from the sqlite file the Cursor app created.
 
 It never writes either. It never reads a refresh secret. It never opens Codex's
@@ -54,10 +70,11 @@ the file names themselves: a comment explaining that we do not read something
 is still a reference to it, and this guarantee is the kind that erodes one
 convenience at a time.
 
-`keychainAccessIsConfinedToOneFile` fails if keychain calls appear anywhere but
-`Credential.swift`, so a second provider cannot quietly introduce a second
-permission prompt. Cursor's token is not in the keychain, which is why adding
-it did not add a prompt.
+`keychainAccessIsConfinedToOneFile` fails if keychain reads appear anywhere but
+`Credential+macOS.swift`, and fails if Security.framework item APIs or a
+`security(1)` write/delete invocation appear anywhere under `Sources/`.
+Cursor's token is not in the keychain, which is why adding it did not add a
+prompt.
 
 ### 4. Two credentialed hosts
 
@@ -105,14 +122,22 @@ interpolation, `dump`, or a crash report. Verified by `descriptionIsRedacted`.
 
 ### 6. Consent before access
 
-The first keychain read triggers a macOS permission prompt. Ration shows a
-welcome screen explaining what is about to happen, and why, before triggering
-it. Closing that window without agreeing means Ration reads nothing at all.
+The first keychain read *may* trigger a macOS permission prompt, if Claude
+Code's item has not already granted `/usr/bin/security`. Ration shows a
+welcome screen explaining what is about to happen, and why, before
+triggering it. Closing that window without agreeing means Ration reads
+nothing at all.
 
-Ration deliberately does **not** shell out to `/usr/bin/security`, which would
-inherit that binary's existing keychain grant and bypass the prompt entirely.
-An explicit, user-granted keychain ACL entry is the correct posture, even though
-it costs one dialog.
+On macOS, if `~/.claude/.credentials.json` is present, Ration reads that
+file instead — the same preference Claude Code has — and never touches the
+keychain item. File reads do not prompt.
+
+Ration reads the keychain item through `/usr/bin/security`, which is the
+binary Claude Code already granted. That is the only read path whose
+permission survives a token refresh. An earlier version called
+Security.framework as Ration.app; the grant did not survive, and the
+prompt (and, for some people, a Claude Code sign-out) came back every
+few hours.
 
 ## Verify it yourself
 

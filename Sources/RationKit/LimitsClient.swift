@@ -146,10 +146,10 @@ public struct AnthropicLimitsClient: LimitsClient {
 
 /// Claude's usage, as a `UsageSource`.
 ///
-/// Owns the keychain read as well as the request, because the two belong
+/// Owns the credential read as well as the request, because the two belong
 /// together: the token is read, used once, and never held anywhere else. Every
 /// other provider Ration supports is read from files, so this is the only
-/// source that touches a credential at all.
+/// source that may touch a credential at all.
 public struct AnthropicUsageSource: UsageSource {
 
     public var provider: Provider { .claude }
@@ -165,42 +165,55 @@ public struct AnthropicUsageSource: UsageSource {
         self.client = client
     }
 
-    /// Always `ready`. Unlike the file-backed providers there is nothing on disk
-    /// to look for, and probing the keychain here would fire the permission
-    /// prompt from a method documented not to.
+    /// Always `ready`. Unlike the file-backed providers there is nothing on
+    /// disk that means "installed", and probing the credential store here
+    /// would do I/O from a method documented not to.
     public func availability() -> ProviderAvailability { .ready }
 
-    /// On macOS the keychain item belongs to Claude Code, so the system asks
-    /// before letting Ration read it. Linux reads a file Claude Code already
-    /// wrote, so there is nothing to prompt for.
+    /// On macOS a keychain read *might* prompt, but only when there is no
+    /// credentials file. The file is what Claude Code prefers, and reading
+    /// it never asks. Linux has only the file.
     public var promptsForPermission: Bool {
         #if os(macOS)
-        true
+        !FileManager.default.fileExists(atPath: PlatformPaths.claudeCredentialsFile.path)
         #else
         false
         #endif
     }
 
     public func fetchUsage() async throws -> UsageSnapshot {
+        try await fetchUsage(remainingRetries: 1)
+    }
+
+    /// One retry is the whole policy. Claude Code rotates the access token
+    /// hours before `expiresAt`, and the first request after that rotation
+    /// 401s. Re-reading the store and trying the live token once recovers
+    /// silently. A second failure is a real sign-out.
+    ///
+    /// Sending the retired token *and then giving up* is what used to tell
+    /// the user they were signed out — and, worse, what could make Anthropic
+    /// treat the retired token as reuse and revoke the refresh token too.
+    private func fetchUsage(remainingRetries: Int) async throws -> UsageSnapshot {
         let credential = try credentialStore.credential()
 
-        // Claude Code normally refreshes well before this. If it has not, say so
-        // rather than firing a request we know will be rejected.
-        guard !credential.isExpired else { throw LimitsError.unauthorized }
+        if credential.isExpired {
+            guard remainingRetries > 0 else { throw LimitsError.unauthorized }
+            (credentialStore as? CachingCredentialStore)?.invalidate()
+            return try await fetchUsage(remainingRetries: remainingRetries - 1)
+        }
 
         do {
             let snapshot = try await client.fetchUsage(token: credential.accessToken)
             return snapshot.withPlan(credential.subscriptionType)
-        } catch LimitsError.unauthorized {
-            // A rejected token means Claude Code has probably rotated it, so
-            // drop the cached copy and read the keychain again next time.
+        } catch LimitsError.unauthorized where remainingRetries > 0 {
             (credentialStore as? CachingCredentialStore)?.invalidate()
-            throw LimitsError.unauthorized
+            return try await fetchUsage(remainingRetries: remainingRetries - 1)
         }
     }
 
-    /// The cached credential is the only thing this source keeps between
-    /// polls. Dropping it means the next read goes to the keychain again.
+    /// Nothing is held between polls any more — a stale access token is
+    /// what signed people out. `invalidate()` remains a no-op so turning
+    /// the provider off still has a single call site.
     public func forget() {
         (credentialStore as? CachingCredentialStore)?.invalidate()
     }

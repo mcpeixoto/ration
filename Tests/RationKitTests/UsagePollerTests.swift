@@ -33,6 +33,24 @@ private struct FakeCredentialStore: CredentialStore {
     }
 }
 
+/// Hands out credentials in order, so a test can simulate Claude Code
+/// rotating the token between the first failing request and the retry.
+private final class SequenceCredentialStore: CredentialStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var remaining: [Result<Credential, CredentialError>]
+
+    init(_ remaining: [Result<Credential, CredentialError>]) {
+        self.remaining = remaining
+    }
+
+    func credential() throws -> Credential {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !remaining.isEmpty else { throw CredentialError.notFound }
+        return try remaining.removeFirst().get()
+    }
+}
+
 private final class FakeLimitsClient: LimitsClient, @unchecked Sendable {
     var results: [Result<UsageSnapshot, LimitsError>]
     private(set) var callCount = 0
@@ -142,6 +160,73 @@ struct UsagePollerTests {
 
         #expect(client.callCount == 0)
         #expect(poller.state.status == .signedOut)
+    }
+
+    @Test("a 401 retries once with a freshly read token before signing out")
+    func retriesUnauthorizedWithFreshToken() async {
+        let client = FakeLimitsClient(results: [
+            .failure(.unauthorized),
+            .success(snapshot(17)),
+        ])
+        let store = SequenceCredentialStore([
+            .success(
+                Credential(
+                    accessToken: "retired", expiresAt: Date(timeIntervalSinceNow: 3600),
+                    subscriptionType: "max", rateLimitTier: nil)),
+            .success(
+                Credential(
+                    accessToken: "current", expiresAt: Date(timeIntervalSinceNow: 3600),
+                    subscriptionType: "max", rateLimitTier: nil)),
+        ])
+        let poller = UsagePoller(credentialStore: store, client: client)
+
+        poller.start()
+        await settle(untilReady: poller)
+        poller.suspend()
+
+        #expect(client.tokensSeen == ["retired", "current"])
+        #expect(poller.state.status == .ready)
+        #expect(poller.state.snapshot?.limits.first?.percent == 17)
+    }
+
+    @Test("a second 401 is a real sign-out")
+    func secondUnauthorizedSignsOut() async {
+        let client = FakeLimitsClient(results: [
+            .failure(.unauthorized),
+            .failure(.unauthorized),
+        ])
+        let poller = UsagePoller(
+            credentialStore: FakeCredentialStore.valid(), client: client)
+
+        poller.start()
+        await settle(untilReady: poller)
+        poller.suspend()
+
+        #expect(client.callCount == 2)
+        #expect(poller.state.status == .signedOut)
+    }
+
+    @Test("an expired credential is re-read once in case Claude Code already rotated")
+    func expiredCredentialIsReread() async {
+        let client = FakeLimitsClient(results: [.success(snapshot(9))])
+        let store = SequenceCredentialStore([
+            .success(
+                Credential(
+                    accessToken: "old", expiresAt: Date(timeIntervalSinceNow: -1),
+                    subscriptionType: "max", rateLimitTier: nil)),
+            .success(
+                Credential(
+                    accessToken: "new", expiresAt: Date(timeIntervalSinceNow: 3600),
+                    subscriptionType: "max", rateLimitTier: nil)),
+        ])
+        let poller = UsagePoller(credentialStore: store, client: client)
+
+        poller.start()
+        await settle(untilReady: poller)
+        poller.suspend()
+
+        #expect(client.tokensSeen == ["new"])
+        #expect(poller.state.status == .ready)
     }
 
     @Test("keeps the last good numbers when a refresh fails")
@@ -307,19 +392,19 @@ private final class CountingCredentialStore: CredentialStore, @unchecked Sendabl
 @Suite("Forgetting a source")
 struct SourceForgetTests {
 
-    @Test("a cached credential is served without re-reading the store")
-    func cachesBetweenReads() throws {
+    @Test("a cached wrapper re-reads so a rotation is picked up")
+    func reReadsBetweenCalls() throws {
         let counting = CountingCredentialStore()
         let caching = CachingCredentialStore(wrapping: counting)
 
         _ = try caching.credential()
         _ = try caching.credential()
 
-        #expect(counting.reads == 1)
+        #expect(counting.reads == 2)
     }
 
-    @Test("forgetting drops the cached credential, so the next read hits the store")
-    func forgetInvalidatesCache() throws {
+    @Test("forgetting is a no-op when nothing is cached, and the next read still hits the store")
+    func forgetStillReadsThrough() throws {
         let counting = CountingCredentialStore()
         let caching = CachingCredentialStore(wrapping: counting)
         let source = AnthropicUsageSource(credentialStore: caching)

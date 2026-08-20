@@ -13,10 +13,9 @@ public enum PlatformPaths {
 
     // MARK: Claude Code
 
-    /// Where Claude Code keeps its OAuth blob on Linux and Windows.
-    ///
-    /// On macOS the same payload lives in the keychain instead; see
-    /// `KeychainCredentialStore`.
+    /// Where Claude Code keeps its OAuth blob on Linux and Windows, and on
+    /// macOS when the user (or Claude Code) has written the file. Claude Code
+    /// itself prefers this file over the keychain item when both exist.
     public static var claudeCredentialsFile: URL {
         if let override = ProcessInfo.processInfo.environment["CLAUDE_SECURESTORAGE_CONFIG_DIR"],
             !override.isEmpty
