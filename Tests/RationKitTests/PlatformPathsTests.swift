@@ -19,6 +19,11 @@ struct PlatformPathsTests {
         #endif
     }
 
+    @Test("Cursor agent transcripts live under ~/.cursor/projects on every platform")
+    func cursorProjects() {
+        #expect(PlatformPaths.cursorProjectsDirectory.path.hasSuffix(".cursor/projects"))
+    }
+
     @Test("Claude credentials default to ~/.claude/.credentials.json")
     func claudeCredentialsDefault() {
         #expect(

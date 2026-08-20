@@ -384,6 +384,9 @@ struct OpenAIModelNameTests {
         #expect(UsageEvent.displayName(forModel: "gpt-5.5") == "GPT-5.5")
         #expect(UsageEvent.displayName(forModel: "gpt-5.6-sol") == "GPT-5.6 Sol")
         #expect(UsageEvent.displayName(forModel: "gpt-5.3-codex") == "GPT-5.3 Codex")
+        #expect(UsageEvent.displayName(forModel: "grok-4.6-high-fast") == "Grok 4.6 High Fast")
+        #expect(
+            UsageEvent.displayName(forModel: "cursor-grok-4.6-high-fast") == "Grok 4.6 High Fast")
     }
 
     @Test("still renders Claude identifiers the old way")

@@ -161,8 +161,9 @@ private struct AccountRow: View {
             return "Reads the session files Codex already writes to disk. "
                 + "No request, no credential."
         case .cursor:
-            return "Reads the session Cursor already stored on disk, and asks "
-                + "api2.cursor.sh for your limits."
+            return "Reads the session Cursor already stored on disk, asks "
+                + "api2.cursor.sh for your limits, and reads local agent "
+                + "transcripts for Activity, Trends and Detail."
         default:
             return ""
         }

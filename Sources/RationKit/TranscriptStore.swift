@@ -34,6 +34,11 @@ public final class TranscriptStore {
     private let checkpointURL: URL
     private var checkpoints: [String: FileCheckpoint] = [:]
     private var scanTask: Task<Void, Never>?
+    /// JSONL-derived history. Published `history` is this merged with the
+    /// snapshot, so a sqlite rebuild cannot double-count file events.
+    private var fileHistory = UsageHistory()
+    private var snapshotHistory = UsageHistory()
+    private var snapshotFingerprint: String?
 
     public init(
         provider: Provider = .claude,
@@ -105,23 +110,22 @@ public final class TranscriptStore {
         // for anyone to notice.
         guard stored.version == Checkpoint.currentVersion else { return }
 
-        history = stored.history
+        fileHistory = stored.history
+        snapshotHistory = stored.snapshotHistory ?? UsageHistory()
+        snapshotFingerprint = stored.snapshotFingerprint
         checkpoints = stored.files
         lastScan = stored.savedAt
+        publishHistory()
         status = .ready
     }
 
     private func scan() async {
-        let isFirstScan = checkpoints.isEmpty
-        if isFirstScan { status = .scanning(progress: 0) }
+        let isFirstScan = checkpoints.isEmpty && snapshotFingerprint == nil
 
         let files = await Task.detached(priority: .utility) { [root, format] in
             TranscriptReader.transcriptFiles(under: root, format: format)
         }.value
-        guard !files.isEmpty else {
-            status = .ready
-            return
-        }
+        if isFirstScan, !files.isEmpty { status = .scanning(progress: 0) }
 
         for (index, file) in files.enumerated() {
             if Task.isCancelled { return }
@@ -135,10 +139,11 @@ public final class TranscriptStore {
             }.value
             guard let (events, checkpoint) = read else { continue }
 
-            history.add(events)
+            fileHistory.add(events)
             checkpoints[key] = checkpoint
+            publishHistory()
 
-            if isFirstScan {
+            if isFirstScan, !files.isEmpty {
                 status = .scanning(progress: Double(index + 1) / Double(files.count))
                 // Yield so the progress bar can actually paint during the
                 // first scan rather than after it.
@@ -146,13 +151,40 @@ public final class TranscriptStore {
             }
         }
 
+        await applySnapshot()
+
         lastScan = Date()
         status = .ready
         saveCheckpoint()
     }
 
+    private func applySnapshot() async {
+        let skip = fileHistory.sessionIDs
+        let snapshot = await Task.detached(priority: .utility) { [format] in
+            format.snapshot(excludingSessionIDs: skip)
+        }.value
+
+        guard let snapshot else { return }
+        guard snapshot.fingerprint != snapshotFingerprint else { return }
+
+        var next = UsageHistory()
+        next.add(snapshot.events)
+        snapshotHistory = next
+        snapshotFingerprint = snapshot.fingerprint
+        publishHistory()
+    }
+
+    private func publishHistory() {
+        history = fileHistory.merging(snapshotHistory)
+    }
+
     private func saveCheckpoint() {
-        let checkpoint = Checkpoint(history: history, files: checkpoints, savedAt: Date())
+        let checkpoint = Checkpoint(
+            history: fileHistory,
+            files: checkpoints,
+            savedAt: Date(),
+            snapshotHistory: snapshotHistory,
+            snapshotFingerprint: snapshotFingerprint)
         guard let data = try? JSONEncoder().encode(checkpoint) else { return }
         try? data.write(to: checkpointURL, options: .atomic)
     }
@@ -258,12 +290,22 @@ private struct Checkpoint: Codable {
     let history: UsageHistory
     let files: [String: FileCheckpoint]
     let savedAt: Date
+    let snapshotHistory: UsageHistory?
+    let snapshotFingerprint: String?
 
-    init(history: UsageHistory, files: [String: FileCheckpoint], savedAt: Date) {
+    init(
+        history: UsageHistory,
+        files: [String: FileCheckpoint],
+        savedAt: Date,
+        snapshotHistory: UsageHistory? = nil,
+        snapshotFingerprint: String? = nil
+    ) {
         self.version = Self.currentVersion
         self.history = history
         self.files = files
         self.savedAt = savedAt
+        self.snapshotHistory = snapshotHistory
+        self.snapshotFingerprint = snapshotFingerprint
     }
 
     /// Files written before versioning are version 1, which no longer matches.
@@ -273,5 +315,9 @@ private struct Checkpoint: Codable {
         history = try container.decode(UsageHistory.self, forKey: .history)
         files = try container.decode([String: FileCheckpoint].self, forKey: .files)
         savedAt = try container.decode(Date.self, forKey: .savedAt)
+        snapshotHistory = try container.decodeIfPresent(
+            UsageHistory.self, forKey: .snapshotHistory)
+        snapshotFingerprint = try container.decodeIfPresent(
+            String.self, forKey: .snapshotFingerprint)
     }
 }

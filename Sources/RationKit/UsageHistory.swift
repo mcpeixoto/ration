@@ -82,6 +82,26 @@ public struct DayUsage: Sendable, Equatable, Codable, Identifiable {
             uncostedTokens += event.billableTokens
         }
     }
+
+    mutating func merge(_ other: DayUsage) {
+        for (model, tokens) in other.tokensByModel {
+            tokensByModel[model, default: 0] += tokens
+        }
+        for (project, tokens) in other.tokensByProject {
+            tokensByProject[project, default: 0] += tokens
+        }
+        messages += other.messages
+        sessions.formUnion(other.sessions)
+        billableTokens += other.billableTokens
+        cacheReadTokens += other.cacheReadTokens
+        webSearches += other.webSearches
+        cost += other.cost
+        uncostedTokens += other.uncostedTokens
+        let count = min(tokensByHour.count, other.tokensByHour.count)
+        for hour in 0..<count {
+            tokensByHour[hour] += other.tokensByHour[hour]
+        }
+    }
 }
 
 // MARK: - History
@@ -104,6 +124,27 @@ public struct UsageHistory: Sendable, Equatable, Codable {
             let day = calendar.startOfDay(for: event.timestamp)
             days[day, default: DayUsage(date: day)].add(event, calendar: calendar)
         }
+    }
+
+    /// Combines two independently-derived histories. Used when a provider has
+    /// both append-only transcripts and a snapshot corpus that is rebuilt as a
+    /// whole (Cursor: JSONL plus sqlite).
+    public func merging(_ other: UsageHistory) -> UsageHistory {
+        if other.isEmpty { return self }
+        if isEmpty { return other }
+        var result = self
+        for (date, day) in other.days {
+            result.days[date, default: DayUsage(date: date)].merge(day)
+        }
+        return result
+    }
+
+    /// Session ids already rolled into this history, so a snapshot can skip
+    /// them rather than counting the same conversation twice.
+    public var sessionIDs: Set<String> {
+        var ids: Set<String> = []
+        for day in days.values { ids.formUnion(day.sessions) }
+        return ids
     }
 
     public var isEmpty: Bool { days.isEmpty }
