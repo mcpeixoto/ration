@@ -6,6 +6,7 @@ public struct PopoverView: View {
 
     @Bindable var registry: ProviderRegistry
     @Bindable var settings: Settings
+    @Bindable var companion: CompanionModel
     let openSettings: () -> Void
     let startSetup: () -> Void
     let quit: () -> Void
@@ -22,12 +23,14 @@ public struct PopoverView: View {
     public init(
         registry: ProviderRegistry,
         settings: Settings,
+        companion: CompanionModel,
         openSettings: @escaping () -> Void,
         startSetup: @escaping () -> Void,
         quit: @escaping () -> Void
     ) {
         self.registry = registry
         self.settings = settings
+        self.companion = companion
         self.openSettings = openSettings
         self.startSetup = startSetup
         self.quit = quit
@@ -48,12 +51,11 @@ public struct PopoverView: View {
     private var transcripts: TranscriptStore? { entry?.history }
 
     /// Every visible tool's history, plus live gauges for tools with no
-    /// transcripts (Cursor). Collection is the one view that is allowed to
-    /// combine them, because Score is a game score, not a usage total.
-    private var dexState: DexState {
-        Dex.evaluate(dexInput)
-    }
-
+    /// transcripts (Cursor). The collection is the one view allowed to combine
+    /// them, because its total is a game score, not a usage figure.
+    ///
+    /// Only the one-shot migration reads this now — the loop itself runs off the
+    /// per-provider lifetime ledger in `CompanionSync`.
     private var dexInput: DexInput {
         var histories: [String: UsageHistory] = [:]
         var live: Set<String> = []
@@ -66,6 +68,29 @@ public struct PopoverView: View {
             }
         }
         return DexInput(histories: histories, liveProviders: live)
+    }
+
+    /// Fold whatever has been read since the last look into the companion loop.
+    ///
+    /// `archive` is only evaluated on a profile that has never run the loop, so the old
+    /// threshold model is walked once in a lifetime rather than on every poll.
+    func syncCompanion() {
+        var windows: [LimitWindow] = []
+        var histories: [String: UsageHistory] = [:]
+        for entry in registry.visible {
+            if let history = entry.history?.history {
+                histories[entry.provider.id] = history
+            }
+            windows += CompanionSync.windows(
+                providerID: entry.provider.id, snapshot: entry.poller.state.snapshot)
+        }
+        companion.sync(
+            lifetimeByProvider: CompanionSync.lifetimeTokens(histories: histories),
+            windows: windows,
+            archive: {
+                Set(Dex.evaluate(dexInput).caught.map(\.id))
+                    .union(settings.revealedCreatureIDs)
+            })
     }
 
     private var isDexScanning: Bool {
@@ -243,10 +268,10 @@ public struct PopoverView: View {
         case .breakdown:
             BreakdownView(history: history, status: status, now: now, provider: provider)
         case .collection:
-            CollectionView(
-                state: dexState,
-                revealedIDs: $settings.revealedCreatureIDs,
-                isScanning: isDexScanning)
+            CollectionView(model: companion, isScanning: isDexScanning)
+                // Opening the tab is also a poll: the panel is where the progress bar
+                // is actually being looked at, so it should never be a minute stale.
+                .onAppear(perform: syncCompanion)
         }
     }
 

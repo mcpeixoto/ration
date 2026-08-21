@@ -1,4 +1,5 @@
 import Foundation
+import RationKit
 
 /// A colour with straight alpha, in the 0…1 range Cairo wants.
 struct RGBA: Equatable {
@@ -16,6 +17,13 @@ struct RGBA: Equatable {
 
     func opacity(_ alpha: Double) -> RGBA {
         RGBA(r, g, b, a * alpha)
+    }
+
+    /// The same colour, spun around the wheel. The maths lives in `ShinyPalette` so
+    /// the Cairo card and the SwiftUI card cannot drift apart on it.
+    func hueRotated(by degrees: Double) -> RGBA {
+        let rotated = ShinyPalette.rotate(red: r, green: g, blue: b, degrees: degrees)
+        return RGBA(rotated.red, rotated.green, rotated.blue, a)
     }
 
     /// Mixes toward another colour — used for hover states and heat maps.

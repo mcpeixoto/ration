@@ -155,6 +155,46 @@ struct SourceTreeTests {
         return files
     }
 
+    /// Cairo's toy text API does no font fallback, so any glyph the desktop font
+    /// happens to lack draws as an empty box. That has already cost this codebase two
+    /// rounds of tofu — the energy and rarity pips, which are now drawn as paths — so
+    /// the tray's drawable text is held to characters a stock desktop font really has.
+    ///
+    /// Only string literals are checked, because only those reach the canvas: comments
+    /// and the CLI are exempt, the terminal picking its own font and falling back.
+    /// Anything outside the safe set needs a drawn path instead — see
+    /// `CardFace.drawShinyMark`.
+    @Test("the Linux tray never draws a glyph its font may not have")
+    func trayTextAvoidsTofu() throws {
+        // Latin-1 is in every desktop font. The rest were checked against the shipped
+        // default (Ubuntu Sans) one codepoint at a time; U+2192 and U+2726 are the two
+        // that failed, which is what this test exists to keep out.
+        let extra = Set("\u{2026}\u{00BB}\u{203A}\u{2265}\u{2013}\u{2014}\u{2212}\u{20AC}")
+        let literal = try NSRegularExpression(pattern: #""(?:[^"\\]|\\.)*""#)
+        var offenders: [String] = []
+
+        for file in try swiftFiles() where file.url.pathComponents.contains("RationTray") {
+            for (number, line) in file.contents.split(
+                separator: "\n", omittingEmptySubsequences: false
+            ).enumerated() {
+                let text = String(line)
+                let range = NSRange(text.startIndex..., in: text)
+                for match in literal.matches(in: text, range: range) {
+                    guard let found = Range(match.range, in: text) else { continue }
+                    for character in text[found]
+                    where character.unicodeScalars.contains(where: { $0.value > 0xFF })
+                        && !extra.contains(character)
+                    {
+                        offenders.append(
+                            "\(file.url.lastPathComponent):\(number + 1) draws '\(character)'")
+                    }
+                }
+            }
+        }
+
+        #expect(offenders.isEmpty, "\(offenders.prefix(10))")
+    }
+
     @Test("no unexpected hosts appear anywhere in the source tree")
     func noUnexpectedHosts() throws {
         let pattern = try NSRegularExpression(pattern: #"https?://([A-Za-z0-9.-]+)"#)

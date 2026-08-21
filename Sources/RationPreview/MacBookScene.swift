@@ -172,6 +172,9 @@ struct MacBookScene: View {
     let state: SceneState
     let history: UsageHistory
     let metricsDays: Int
+    /// A posed loop, so the collection tab has something to show in the demo. Backed by
+    /// a throwaway file — rendering the video must not touch a real profile.
+    let companion = CompanionModel.posed()
 
     var body: some View {
         ZStack {
@@ -215,9 +218,7 @@ struct MacBookScene: View {
             case .breakdown:
                 BreakdownView(history: truncated, status: .ready)
             case .collection:
-                CollectionView(
-                    state: Dex.evaluate(DexInput(histories: ["claude": history])),
-                    revealedIDs: .constant(Set(Dex.roster.map(\.id))))
+                CollectionView(model: companion)
             }
         }
     }

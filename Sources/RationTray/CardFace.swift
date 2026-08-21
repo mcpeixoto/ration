@@ -19,6 +19,15 @@ enum CardFace {
 
     // MARK: Palette
 
+    /// The colour a card is drawn in: its energy, spun around the wheel if it is shiny.
+    ///
+    /// The illustration is already keyed off one colour, so a shiny costs nothing extra
+    /// to draw and is different everywhere at once — art, pips, stat bars, window.
+    static func keyColor(_ energy: CreatureEnergy, shiny: Bool) -> RGBA {
+        let base = energyColor(energy)
+        return shiny ? base.hueRotated(by: CompanionBalance.shinyHueShift) : base
+    }
+
     /// The card's key colour: pips, stat bars, art window, ability rail.
     /// Tuned for dark stock, so these do not switch with the desktop theme.
     static func energyColor(_ energy: CreatureEnergy) -> RGBA {
@@ -157,18 +166,23 @@ enum CardFace {
     /// The binder tile: name, life, illustration, unlock deed, rarity pip.
     static func drawMini(
         _ creature: Creature, caught: Bool, in rect: Rect, on canvas: Canvas,
-        foilPhase: Double? = nil
+        foilPhase: Double? = nil, shiny: Bool = false, archived: Bool = false
     ) {
         let lore = creature.lore
-        let key = caught ? energyColor(lore.energy) : RGBA(0.5, 0.5, 0.5)
+        let key = caught ? keyColor(lore.energy, shiny: shiny) : RGBA(0.5, 0.5, 0.5)
         drawStock(rect, radius: 9, key: key, caught: caught, on: canvas)
 
         let inner = rect.inset(by: 5)
-        canvas.text(
-            canvas.truncated(
-                caught ? creature.name : "???", size: 9, weight: .bold,
-                maxWidth: inner.width - 20),
-            at: Point(inner.x, inner.y), size: 9, weight: .bold, color: white)
+        let title = canvas.truncated(
+            caught ? creature.name : "???", size: 9, weight: .bold,
+            maxWidth: inner.width - (shiny ? 30 : 20))
+        canvas.text(title, at: Point(inner.x, inner.y), size: 9, weight: .bold, color: white)
+        if caught, shiny {
+            drawShinyMark(
+                center: Point(
+                    inner.x + canvas.width(title, size: 9, weight: .bold) + 5, inner.y + 5),
+                size: 7, color: white, on: canvas)
+        }
         canvas.text(
             caught ? "\(lore.life)" : "??", at: Point(inner.maxX, inner.y), size: 9,
             weight: .bold, color: caught ? white : white.opacity(0.4), align: .trailing)
@@ -178,6 +192,17 @@ enum CardFace {
             CreatureArtwork.draw(lore.art, in: art, on: canvas, key: key, caught: caught)
         }
         canvas.strokeRounded(art, radius: 5, width: 1.5, key.opacity(0.55))
+
+        // Unlocked under the old threshold model. Marked rather than dimmed — dimming
+        // would read as locked, and these are cards somebody already owns. It sits on
+        // the illustration because the header row is spoken for by the name and the HP.
+        if archived {
+            let tag = Rect(art.x + 4, art.maxY - 15, 38, 11)
+            canvas.fillRounded(tag, radius: 3, RGBA(0, 0, 0, 0.6))
+            canvas.text(
+                "SET 01", at: Point(tag.midX, tag.y + 2), size: 6.5, weight: .bold,
+                color: RGBA(1, 1, 1, 0.8), align: .center)
+        }
 
         let footer = art.maxY + 4
         drawEnergyPip(
@@ -194,8 +219,10 @@ enum CardFace {
                 ? rarityColor(creature.rarity, palette: canvas.palette) : white.opacity(0.25),
             on: canvas)
 
-        if caught, let foilPhase {
-            drawFoil(creature.rarity, in: rect, radius: 9, phase: foilPhase, on: canvas)
+        if caught, let foilPhase, shiny || hasFoil(creature.rarity) {
+            drawFoil(
+                shiny ? max(creature.rarity, .rare) : creature.rarity, in: rect, radius: 9,
+                phase: foilPhase, on: canvas)
         }
     }
 
@@ -211,10 +238,10 @@ enum CardFace {
     @discardableResult
     static func drawFull(
         _ creature: Creature, caught: Bool, in rect: Rect, on canvas: Canvas,
-        foilPhase: Double? = nil
+        foilPhase: Double? = nil, shiny: Bool = false
     ) -> Double {
         let lore = creature.lore
-        let key = caught ? energyColor(lore.energy) : RGBA(0.5, 0.5, 0.5)
+        let key = caught ? keyColor(lore.energy, shiny: shiny) : RGBA(0.5, 0.5, 0.5)
         let height = fullHeight(creature, caught: caught, width: rect.width, on: canvas)
         let card = Rect(rect.x, rect.y, rect.width, height)
         drawStock(card, radius: 13, key: key, caught: caught, on: canvas)
@@ -398,16 +425,23 @@ enum CardFace {
         canvas.text(
             creature.collectorNumber, at: Point(inner.x, y), size: 8, weight: .medium,
             color: white.opacity(0.55))
+        let rarityLabel =
+            shiny
+            ? "\(creature.rarity.label.uppercased()) · SHINY" : creature.rarity.label.uppercased()
         canvas.text(
-            creature.rarity.label.uppercased(),
+            rarityLabel,
             at: Point(inner.x + canvas.width(creature.collectorNumber, size: 8) + 6, y + 0.5),
             size: 7, weight: .bold, color: rarityColor(creature.rarity, palette: canvas.palette))
         canvas.text(
             "RATION", at: Point(inner.maxX, y), size: 8, weight: .bold,
             color: canvas.palette.accent, align: .trailing)
 
-        if caught, let foilPhase {
-            drawFoil(creature.rarity, in: card, radius: 13, phase: foilPhase, on: canvas)
+        // A shiny always shimmers, whatever its rarity — that is most of what makes a
+        // shiny common worth keeping.
+        if caught, let foilPhase, shiny || hasFoil(creature.rarity) {
+            drawFoil(
+                shiny ? max(creature.rarity, .rare) : creature.rarity, in: card, radius: 13,
+                phase: foilPhase, on: canvas)
         }
 
         return height
@@ -622,6 +656,30 @@ enum CardFace {
         case .legendary: star(points: 6, inner: 0.36)  // ✹
         case .mythic: star(points: 8, inner: 0.4)  // ✵
         }
+    }
+
+    /// The shiny mark: a four-point sparkle, drawn rather than typed.
+    ///
+    /// Cairo's toy text API does no font fallback, so a glyph the desktop font happens
+    /// to lack renders as a box — `✦` is one of those on a stock Ubuntu. Same reason the
+    /// energy and rarity marks are paths.
+    static func drawShinyMark(center: Point, size: Double, color: RGBA, on canvas: Canvas) {
+        let cr = canvas.cr
+        let r = size / 2
+        canvas.setColor(color)
+        for index in 0..<8 {
+            let radius = index % 2 == 0 ? r : r * 0.3
+            let angle = Double(index) / 8 * 2 * Double.pi - Double.pi / 2
+            let x = center.x + cos(angle) * radius
+            let y = center.y + sin(angle) * radius
+            if index == 0 {
+                cairo_move_to(cr, x, y)
+            } else {
+                cairo_line_to(cr, x, y)
+            }
+        }
+        cairo_close_path(cr)
+        cairo_fill(cr)
     }
 
     /// An energy pip: the type's mark on a coloured disc.

@@ -21,6 +21,15 @@ final class TrayApp {
 
     /// The strip last drawn, so an unchanged frame does not rewrite the PNG
     /// and make the shell reload it.
+    /// The companion loop, cached. Read from disk rather than owned, because the CLI
+    /// writes the same file — but not on every frame: the panel draws at 24fps and the
+    /// loop only moves when tokens are credited.
+    private(set) var companion = CompanionState()
+    /// Rips, evolutions and payouts the panel has not celebrated yet.
+    var companionEvents: [CompanionEvent] = []
+    private var ticksSinceCompanionSync = 0
+    private var lastCompanionID: String?
+
     private var lastStrip: MenuBarStrip?
     private var lastPalette: Palette?
     private var openPanelItem: Widget?
@@ -61,15 +70,77 @@ final class TrayApp {
     private func tick() {
         let palette = Palette.current()
         let strip = currentStrip()
-        if strip != lastStrip || palette.isDark != lastPalette?.isDark {
+        let mark = companionMark()
+        if strip != lastStrip || palette.isDark != lastPalette?.isDark
+            || mark?.creature.id != lastCompanionID
+        {
             lastStrip = strip
             lastPalette = palette
+            lastCompanionID = mark?.creature.id
+            icon?.companion = mark
             icon?.update(strip: strip, palette: palette)
             updateMenuSummary()
         }
         notifyIfNeeded()
+        // Crediting is cheap and idempotent, but it does touch the disk, so it runs on
+        // its own slower beat — and immediately whenever the panel is open, where the
+        // progress bar is actually being looked at.
+        ticksSinceCompanionSync += 1
+        if panel.isOpen || ticksSinceCompanionSync >= 15 {
+            syncCompanion()
+        }
         if panel.isOpen { panel.redraw() }
         if settingsWindow.isOpen { settingsWindow.redraw() }
+    }
+
+    /// What to draw in the tray beside the number: the pinned species if there is one,
+    /// otherwise whatever is being raised. Nothing while the pack is still sealed — an
+    /// icon for "no creature yet" would just be noise.
+    private func companionMark() -> (creature: Creature, shiny: Bool)? {
+        if let pinned = companion.pinnedID, let creature = Dex.creature(pinned) {
+            return (creature, companion.log.contains { $0.isShiny && $0.chain.contains(pinned) })
+        }
+        guard let run = companion.active, let creature = Dex.creature(run.currentID) else {
+            return nil
+        }
+        return (creature, run.isShiny)
+    }
+
+    // MARK: The companion loop
+
+    /// Fold whatever has been read since the last look into the loop.
+    func syncCompanion() {
+        ticksSinceCompanionSync = 0
+        var histories: [String: UsageHistory] = [:]
+        var windows: [LimitWindow] = []
+        for entry in registry.metered {
+            if let history = entry.history?.history {
+                histories[entry.provider.id] = history
+            }
+            windows += CompanionSync.windows(
+                providerID: entry.provider.id, snapshot: entry.poller.state.snapshot)
+        }
+        let result = CompanionSync.refresh(
+            CompanionStore(),
+            lifetimeByProvider: CompanionSync.lifetimeTokens(histories: histories),
+            windows: windows,
+            archive: {
+                Set(Dex.evaluate(self.dexInput()).caught.map(\.id)).union(self.config.revealed)
+            })
+        companion = result.state
+        companionEvents += result.events
+    }
+
+    /// Buy, use, pin — anything the panel does to the loop goes through here so the
+    /// re-read-before-write rule is kept in one place.
+    func mutateCompanion(_ change: (inout CompanionState) -> [CompanionEvent]) {
+        var produced: [CompanionEvent] = []
+        companion = CompanionStore().mutate { state in
+            produced = change(&state)
+            return state
+        }
+        companionEvents += produced
+        panel.redraw()
     }
 
     // MARK: Menu
@@ -175,6 +246,7 @@ final class TrayApp {
     // MARK: Actions
 
     func openPanel() {
+        syncCompanion()
         panel.open()
     }
 
@@ -199,22 +271,51 @@ final class TrayApp {
             panel.snapshot(to: base.appending(path: "panel-\(tab.rawValue).png").path)
         }
 
-        // The two states that only appear over the binder. The reveal queue
-        // is cleared first: drawing the binder refills it from whatever is
-        // pending, and a queued card takes the screen ahead of the inspector.
+        // The collection is four screens behind one tab, and a real profile is
+        // months of play away from having anything in three of them, so the
+        // loop is posed rather than waited for.
+        companion = CompanionState.posed()
+        companionEvents = []
+        panel.tab = .collection
+        for segment in CollectionSegment.allCases {
+            panel.collectionSegment = segment
+            panel.inspectedCreatureID = nil
+            panel.revealQueue = []
+            panel.resetOverlayScroll()
+            panel.snapshot(to: base.appending(path: "panel-\(segment.rawValue).png").path)
+        }
+        panel.collectionSegment = .binder
+
+        // The two states that only appear over the binder. The reveal queue is
+        // cleared first: drawing the tab refills it from whatever the engine
+        // reported, and a queued card takes the screen ahead of the inspector.
         //
         // The rarest card is the interesting one to look at: it is the one
         // carrying foil, an ability, and the longest attack text.
-        panel.tab = .collection
         if let creature = Dex.roster.max(by: { $0.rarity < $1.rarity }) {
             panel.revealQueue = []
             panel.inspectedCreatureID = creature.id
             panel.snapshot(to: base.appending(path: "panel-inspector.png").path)
             panel.inspectedCreatureID = nil
-            panel.revealQueue = [creature]
+            panel.revealQueue = [
+                CompanionReveal(creature: creature, kind: .filed, shiny: true)
+            ]
             panel.snapshot(to: base.appending(path: "panel-catch.png").path)
             panel.revealQueue = []
         }
+        // The tray mark, in both appearances, with and without a creature beside it.
+        let offscreen = TrayIcon(offscreen: base)
+        for (isDark, suffix) in [(true, "dark"), (false, "light")] {
+            offscreen.companion = nil
+            offscreen.writePNG(
+                strip: currentStrip(), palette: Palette(isDark: isDark),
+                to: base.appending(path: "tray-\(suffix).png").path)
+            offscreen.companion = companionMark()
+            offscreen.writePNG(
+                strip: currentStrip(), palette: Palette(isDark: isDark),
+                to: base.appending(path: "tray-companion-\(suffix).png").path)
+        }
+
         print("Wrote panel snapshots to \(base.path)")
     }
 
@@ -235,6 +336,7 @@ final class TrayApp {
             entry.history?.loadCheckpoint()
             entry.history?.refresh()
         }
+        syncCompanion()
     }
 
     /// Onboarding done: start the provider whose read was being held back.

@@ -45,14 +45,19 @@ Four tabs, plus **Pokémon** next to the title:
 - **Trends** — totals and daily charts over 7/30/90 days, across
   tokens, messages, sessions, or estimated cost, with a 7-day trend line.
 - **Detail** — where the tokens went, by model and by project.
-- **Pokémon** — Set 01: fifty original creatures unlocked from a local Score
-  across every tool Ration can read. Every card is a full trading-card face —
-  evolution line, species and size, a Life / Energy / Power / Speed stat block,
-  an ability on the higher rarities, attacks with energy costs, and a
-  weakness / resistance / retreat footer. Cards copy, save, and post to X from
-  your Mac; nothing about the collection leaves the machine unless you share
-  it. On a Mac that supports Apple Intelligence, a card can be redrawn with
-  Image Playground — still local.
+- **Pokémon** — Set 01: fifty original creatures, raised rather than listed. A
+  sealed pack fills as you burn tokens, rips into a creature, and that creature
+  evolves along its own line as you keep working until it files itself into the
+  binder and a fresh pack is sealed. One rip in sixty-four is shiny; every one
+  rolls a trait. Tokens you have already burned are also the currency, so
+  filling a limit pays out and the shop sells packs guaranteed to reach a
+  rarity. Every card is a full trading-card face — evolution line, species and
+  size, a Life / Energy / Power / Speed stat block, an ability on the higher
+  rarities, attacks with energy costs, and a weakness / resistance / retreat
+  footer. Cards copy, save, and post to X from your Mac; nothing about the
+  collection leaves the machine unless you share it. On a Mac that supports
+  Apple Intelligence, a card can be redrawn with Image Playground — still
+  local. The balance is written down in [docs/companion.md](docs/companion.md).
 
 - **Native.** SwiftUI `MenuBarExtra`, about 5 MB, no Electron and no runtime to install.
 - **Live.** Reads the same numbers `/usage` shows inside Claude Code, and the
@@ -138,7 +143,9 @@ ration watch --notify    # desktop alerts at 80% and 95% (needs notify-send)
 ration activity          # calendar heat map and streaks
 ration trends            # daily usage trends
 ration detail            # tokens by model and project
-ration dex               # Pokémon collection progress
+ration dex               # your companion, the binder, and the catch log
+ration shop              # spend burned tokens on packs and items
+ration bag               # what you are holding, and use it
 ration config show       # settings at ~/.config/ration/config.json
 ration service install   # launch at login via systemd (optional)
 ration status --json     # machine-readable output

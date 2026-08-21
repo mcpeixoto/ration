@@ -3,20 +3,24 @@ import Testing
 
 @testable import RationKit
 
-@Suite("Dex: empty history")
+// These suites cover the old threshold model. It no longer decides what anybody
+// collects — that is `CompanionEngine` — but it still decides the Set 01 archive a
+// profile carries over the first time it runs the new loop, so what it unlocks is
+// still a contract with everyone who was using Ration before the change.
+
+@Suite("Set 01 archive: empty history")
 struct DexEmptyTests {
 
-    @Test("catches nothing until there is usage")
+    @Test("archives nothing until there is usage")
     func emptyUnlocksNothing() {
         let state = Dex.evaluate(DexInput(histories: ["claude": UsageHistory()]))
 
         #expect(state.caught.isEmpty)
         #expect(state.stats.power == 0)
-        #expect(state.uncaught.count == Dex.roster.count)
     }
 }
 
-@Suite("Dex: spending unlocks creatures")
+@Suite("Set 01 archive: what past spending carried over")
 struct DexUnlockTests {
 
     @Test("the first tokens catch Sparkit")
@@ -220,36 +224,6 @@ struct DexUnlockTests {
 
         #expect(!UnlockRequirement.cost(20).isMet(by: poor))
         #expect(UnlockRequirement.cost(20).isMet(by: rich))
-    }
-}
-
-@Suite("Dex: progress and reveals")
-struct DexProgressTests {
-
-    @Test("progress toward the next Power catch is a 0...1 fraction")
-    func progressTowardNextPowerCatch() {
-        let state = Dex.evaluate(DexInput(histories: ["claude": history(billable: 25_000)]))
-
-        let next = state.nextPowerCatch
-        #expect(next?.creature.id == "gaugeling")
-        #expect(next != nil)
-        #expect(abs((next?.progress ?? 0) - 0.5) < 0.01)
-    }
-
-    @Test("creatures already revealed are not pending")
-    func revealedCreaturesAreNotPending() {
-        let caught = Dex.evaluate(DexInput(histories: ["claude": history(billable: 1_000)])).caught
-
-        let pending = Dex.pendingReveals(caught: caught, alreadyRevealed: ["sparkit"])
-        #expect(pending.isEmpty)
-    }
-
-    @Test("a newly caught creature is pending until it has been revealed")
-    func newCatchIsPending() {
-        let caught = Dex.evaluate(DexInput(histories: ["claude": history(billable: 1_000)])).caught
-
-        let pending = Dex.pendingReveals(caught: caught, alreadyRevealed: [])
-        #expect(pending.map(\.id) == ["sparkit"])
     }
 }
 

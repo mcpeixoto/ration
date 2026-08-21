@@ -156,7 +156,33 @@ extension CreatureRarity {
     }
 }
 
+extension Color {
+    /// The same colour, spun around the wheel.
+    ///
+    /// The maths lives in `RationKit.ShinyPalette` because the Cairo card does exactly
+    /// this too, and a second copy is the kind of duplication that drifts without
+    /// either side ever looking wrong.
+    func hueRotated(by degrees: Double) -> Color {
+        guard let srgb = NSColor(self).usingColorSpace(.sRGB) else { return self }
+        let rotated = ShinyPalette.rotate(
+            red: Double(srgb.redComponent), green: Double(srgb.greenComponent),
+            blue: Double(srgb.blueComponent), degrees: degrees)
+        return Color(
+            red: rotated.red, green: rotated.green, blue: rotated.blue,
+            opacity: Double(srgb.alphaComponent))
+    }
+}
+
 extension CreatureEnergy {
+
+    /// The colour a card is drawn in: this energy, spun around the wheel if the
+    /// creature is shiny.
+    ///
+    /// The illustration is already keyed off one colour, so a shiny costs nothing extra
+    /// to draw and changes everything at once — art, pips, stat bars, window.
+    func keyColor(shiny: Bool) -> Color {
+        shiny ? color.hueRotated(by: CompanionBalance.shinyHueShift) : color
+    }
 
     /// The card's key colour: pips, stat bars, art window, ability rail.
     ///

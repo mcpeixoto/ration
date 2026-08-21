@@ -116,7 +116,7 @@ MainActor.assumeIsolated {
     let poller = registry.primaryEntry!.poller
 
     let popover = PopoverView(
-        registry: registry, settings: settings,
+        registry: registry, settings: settings, companion: .posed(),
         openSettings: {}, startSetup: {}, quit: {})
 
     // Drive one refresh so the poller holds the sample snapshot. The poller is
@@ -169,9 +169,7 @@ MainActor.assumeIsolated {
         scale: 2, appearance: .darkAqua)
     render(
         TabPreview(title: "Pokémon") {
-            CollectionView(
-                state: Dex.evaluate(DexInput(histories: ["claude": transcripts.history])),
-                revealedIDs: .constant(Set(Dex.roster.map(\.id))))
+            CollectionView(model: .posed())
         },
         to: outputDirectory.appendingPathComponent("collection-dark.png"),
         scale: 2, appearance: .darkAqua)

@@ -3,158 +3,109 @@ import RationKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The collection: every creature in the set, quiet until unlocked.
+/// Which part of the collection is showing.
+enum CollectionSegment: String, CaseIterable, Identifiable {
+    case companion, binder, log, shop
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .companion: "Companion"
+        case .binder: "Binder"
+        case .log: "Log"
+        case .shop: "Shop"
+        }
+    }
+}
+
+/// A moment worth stopping the tab for: a pack opening, or a creature being filed.
+struct CompanionReveal: Identifiable {
+    enum Kind { case ripped, filed }
+
+    let id = UUID()
+    let creature: Creature
+    let kind: Kind
+    let shiny: Bool
+
+    var headline: String {
+        switch kind {
+        case .ripped: "The pack rips open"
+        case .filed: "Filed in the binder"
+        }
+    }
+}
+
+/// The collection: what you are raising, what you have filed, and what tokens buy.
 public struct CollectionView: View {
 
-    let state: DexState
-    @Binding var revealedIDs: Set<String>
+    @Bindable var model: CompanionModel
     var isScanning: Bool = false
 
+    @State private var segment: CollectionSegment = .companion
     @State private var selected: Creature?
-    @State private var revealQueue: [Creature] = []
+    @State private var revealQueue: [CompanionReveal] = []
+    @State private var celebration = 0
     @State private var copied = false
     @State private var shareAnchor = NSView()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(
-        state: DexState,
-        revealedIDs: Binding<Set<String>>,
-        isScanning: Bool = false
-    ) {
-        self.state = state
-        self._revealedIDs = revealedIDs
+    public init(model: CompanionModel, isScanning: Bool = false) {
+        self.model = model
         self.isScanning = isScanning
     }
 
+    private var state: CompanionState { model.state }
+
     public var body: some View {
         ZStack {
-            binder
-            if let creature = revealQueue.first {
+            content(for: segment)
+            if let reveal = revealQueue.first {
                 CatchOverlay(
-                    creature: creature,
+                    reveal: reveal,
                     remaining: revealQueue.count,
                     onContinue: advanceReveal,
-                    onSkipAll: skipAllReveals,
-                    share: { shareRow(creature) })
+                    onSkipAll: { revealQueue = [] },
+                    share: { shareRow(reveal.creature) })
             } else if let selected {
                 inspect(selected)
             }
         }
         .frame(minHeight: 420)
         .background(ShareAnchor(view: $shareAnchor))
-        .onAppear(perform: queuePending)
-        .onChange(of: state.caught.map(\.id)) { queuePending() }
+        .onAppear(perform: drainEvents)
+        .onChange(of: model.events.count) { drainEvents() }
     }
 
-    // MARK: Binder
-
-    private var binder: some View {
+    @ViewBuilder
+    private func content(for segment: CollectionSegment) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            header
-            if isScanning {
-                scanning
+            picker
+            if isScanning { scanning }
+            switch segment {
+            case .companion: companion
+            case .binder: binder
+            case .log:
+                ScrollView { CatchLogView(state: state) { selected = $0 }.padding(.bottom, 4) }
+            case .shop:
+                ScrollView {
+                    ShopView(state: state, buy: model.buy, use: model.use).padding(.bottom, 4)
+                }
             }
-            if state.caught.isEmpty, !isScanning {
-                Text("Use Claude, Codex, or Cursor — the first tokens unlock Ember.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            progress
-            grid
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .padding(.bottom, 10)
     }
 
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Pokémon")
-                    .font(.subheadline.weight(.semibold))
-                Text("\(state.caught.count) of \(Dex.roster.count) unlocked")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(PowerFormat.compact(state.stats.power))
-                    .font(.title3.weight(.bold).monospacedDigit())
-                Text("Score")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+    private var picker: some View {
+        Picker("", selection: $segment) {
+            ForEach(CollectionSegment.allCases) { segment in
+                Text(segment.title).tag(segment)
             }
         }
-        .accessibilityElement(children: .combine)
-        .help(
-            "Score is billable tokens from every tool Ration can read, added up as a game score. "
-                + "It is not a usage total — a Claude token is not a Codex token.")
-    }
-
-    private var progress: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if let hunt = state.nextPowerCatch {
-                HStack {
-                    Text("Next unlock")
-                        .font(.caption2.weight(.medium))
-                    Spacer()
-                    Text("\(Int(hunt.progress * 100))%")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Theme.track)
-                        Capsule()
-                            .fill(Theme.accent)
-                            .frame(width: max(6, geo.size.width * hunt.progress))
-                    }
-                }
-                .frame(height: 6)
-                .accessibilityLabel("Progress to next unlock")
-                .accessibilityValue("\(Int(hunt.progress * 100)) percent")
-            } else if state.uncaught.isEmpty {
-                Text("The set is complete.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.accent)
-            }
-        }
-    }
-
-    private var grid: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(Dex.roster) { creature in
-                    let caught = state.caught.contains { $0.id == creature.id }
-                    Button {
-                        selected = creature
-                    } label: {
-                        CreatureCard(
-                            creature: creature, caught: caught, style: .mini,
-                            foilPlaying: caught)
-                    }
-                    .buttonStyle(.plain)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(Color.accentColor.opacity(0.001), lineWidth: 1)
-                    }
-                    .accessibilityLabel(
-                        caught
-                            ? "\(creature.name), \(creature.rarity.label)"
-                            : "Locked, \(creature.requirement.hint)")
-                }
-            }
-            .padding(.bottom, 4)
-        }
-        .frame(maxHeight: .infinity)
-    }
-
-    private var columns: [GridItem] {
-        [
-            GridItem(.flexible(), spacing: 8),
-            GridItem(.flexible(), spacing: 8),
-            GridItem(.flexible(), spacing: 8),
-        ]
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     private var scanning: some View {
@@ -166,10 +117,103 @@ public struct CollectionView: View {
         }
     }
 
+    // MARK: Companion
+
+    private var companion: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                CompanionHeaderView(state: state, celebration: celebration)
+                Divider()
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(state.filedSpecies.count) of \(Dex.roster.count) filed")
+                            .font(.caption.weight(.medium))
+                        let archived = state.archive.subtracting(state.filedSpecies).count
+                        if archived > 0 {
+                            Text("\(archived) from Set 01")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(PowerFormat.compact(state.wallet))
+                            .font(.title3.weight(.bold).monospacedDigit())
+                        Text("Wallet")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                let held = state.heldItems.map { "\($0.kind.label) ×\($0.count)" }
+                if !held.isEmpty {
+                    Text(held.joined(separator: " · "))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 4)
+        }
+    }
+
+    // MARK: Binder
+
+    private var binder: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            let filed = state.filedSpecies
+            let archived = state.archive.subtracting(filed)
+            HStack(alignment: .firstTextBaseline) {
+                Text("\(filed.count) of \(Dex.roster.count) filed")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if !archived.isEmpty {
+                    Text("Set 01 archive — \(archived.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if filed.isEmpty, !isScanning {
+                Text("Nothing filed yet. Burn tokens, rip the pack, and raise what comes out.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            grid(filed: filed, archived: archived)
+        }
+    }
+
+    private func grid(filed: Set<String>, archived: Set<String>) -> some View {
+        let shinySpecies = Set(state.log.filter(\.isShiny).flatMap(\.chain))
+        return ScrollView {
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(Dex.roster) { creature in
+                    let isFiled = filed.contains(creature.id)
+                    let isArchived = archived.contains(creature.id)
+                    Button {
+                        selected = creature
+                    } label: {
+                        CreatureCard(
+                            creature: creature, caught: isFiled || isArchived, style: .mini,
+                            foilPlaying: isFiled || isArchived,
+                            shiny: shinySpecies.contains(creature.id),
+                            archived: isArchived)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.bottom, 4)
+        }
+    }
+
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
+    }
+
     // MARK: Inspect
 
     private func inspect(_ creature: Creature) -> some View {
-        let caught = state.caught.contains { $0.id == creature.id }
+        let caught =
+            state.filedSpecies.contains(creature.id) || state.archive.contains(creature.id)
+        let shiny = state.log.contains { $0.isShiny && $0.chain.contains(creature.id) }
         return ZStack {
             Color.black.opacity(0.82)
                 .ignoresSafeArea()
@@ -179,7 +223,9 @@ public struct CollectionView: View {
                 VStack(spacing: 12) {
                     CreatureCard(
                         creature: creature, caught: caught, style: .full,
-                        foilPlaying: caught
+                        foilPlaying: caught, shiny: shiny,
+                        archived: state.archive.contains(creature.id)
+                            && !state.filedSpecies.contains(creature.id)
                     )
                     .frame(width: Theme.popoverWidth - 32)
                     // Deliberately not a dismiss target. You opened this to
@@ -192,6 +238,7 @@ public struct CollectionView: View {
                     if caught {
                         shareRow(creature)
                         IntelligenceArtButton(creature: creature)
+                        pinButton(creature)
                     }
 
                     Button("Close") { selected = nil }
@@ -203,6 +250,22 @@ public struct CollectionView: View {
                 .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    /// Only offered for cards they hold — the menu bar should never show a creature
+    /// they have not seen.
+    private func pinButton(_ creature: Creature) -> some View {
+        let pinned = state.pinnedID == creature.id
+        return Button(pinned ? "Unpin" : "Pin to the menu bar") {
+            model.mutate { state in
+                state.pinnedID = pinned ? nil : creature.id
+                return []
+            }
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .font(.caption)
+        .tint(Theme.accent)
     }
 
     private func shareRow(_ creature: Creature) -> some View {
@@ -226,16 +289,37 @@ public struct CollectionView: View {
 
     // MARK: Reveals
 
-    private func queuePending() {
-        guard revealQueue.isEmpty, selected == nil else { return }
-        let pending = Dex.pendingReveals(
-            caught: state.caught, alreadyRevealed: revealedIDs)
-        if !pending.isEmpty { revealQueue = pending }
+    /// Turn what the engine reported into things to show. Rips and filings stop the
+    /// tab for a card; an evolution only flashes the header, because interrupting for
+    /// every step of a three-form line would be four interruptions per creature.
+    private func drainEvents() {
+        guard !model.events.isEmpty, selected == nil else { return }
+        var queued: [CompanionReveal] = []
+        var sawCelebration = false
+        for event in model.takeEvents() {
+            switch event {
+            case .ripped(let id, let shiny):
+                if let creature = Dex.creature(id) {
+                    queued.append(CompanionReveal(creature: creature, kind: .ripped, shiny: shiny))
+                }
+                sawCelebration = true
+            case .filed(let id, let shiny, _):
+                if let creature = Dex.creature(id) {
+                    queued.append(CompanionReveal(creature: creature, kind: .filed, shiny: shiny))
+                }
+                sawCelebration = true
+            case .evolved:
+                sawCelebration = true
+            case .granted, .bought, .boosted, .traitRolled:
+                break
+            }
+        }
+        revealQueue += queued
+        if sawCelebration { celebration += 1 }
     }
 
     private func advanceReveal() {
-        guard let current = revealQueue.first else { return }
-        revealedIDs.insert(current.id)
+        guard !revealQueue.isEmpty else { return }
         if reduceMotion {
             revealQueue.removeFirst()
         } else {
@@ -245,16 +329,12 @@ public struct CollectionView: View {
         }
     }
 
-    private func skipAllReveals() {
-        revealedIDs.formUnion(revealQueue.map(\.id))
-        revealQueue = []
-    }
-
     // MARK: Share
 
     private func rendered(_ creature: Creature) -> NSImage? {
+        let shiny = state.log.contains { $0.isShiny && $0.chain.contains(creature.id) }
         let view = CreatureCard(
-            creature: creature, caught: true, style: .full, foilPlaying: false
+            creature: creature, caught: true, style: .full, foilPlaying: false, shiny: shiny
         )
         .frame(width: 320, height: 440)
         .environment(\.colorScheme, .dark)
@@ -291,14 +371,16 @@ public struct CollectionView: View {
 
     private func presentSharePicker(_ creature: Creature) {
         guard let image = rendered(creature) else { return }
-        let text = CreatureShare.caption(for: creature, caughtCount: state.caught.count)
+        let text = CreatureShare.caption(
+            for: creature, caughtCount: state.filedSpecies.count)
         let picker = NSSharingServicePicker(items: [image, text])
         picker.show(relativeTo: shareAnchor.bounds, of: shareAnchor, preferredEdge: .minY)
     }
 
     private func postOnX(_ creature: Creature) {
         copy(creature)
-        let text = CreatureShare.caption(for: creature, caughtCount: state.caught.count)
+        let text = CreatureShare.caption(
+            for: creature, caughtCount: state.filedSpecies.count)
         var comps = URLComponents(string: Links.xCompose)!
         comps.queryItems = [URLQueryItem(name: "text", value: text)]
         if let url = comps.url {
@@ -307,9 +389,9 @@ public struct CollectionView: View {
     }
 }
 
-/// Pack-rip for newly unlocked creatures. Always has a way out.
+/// The pack-rip: one card at a time, as it happens. Always has a way out.
 struct CatchOverlay<Share: View>: View {
-    let creature: Creature
+    let reveal: CompanionReveal
     let remaining: Int
     let onContinue: () -> Void
     let onSkipAll: () -> Void
@@ -319,13 +401,13 @@ struct CatchOverlay<Share: View>: View {
     @State private var appeared = false
 
     init(
-        creature: Creature,
+        reveal: CompanionReveal,
         remaining: Int,
         onContinue: @escaping () -> Void,
         onSkipAll: @escaping () -> Void,
         @ViewBuilder share: () -> Share
     ) {
-        self.creature = creature
+        self.reveal = reveal
         self.remaining = remaining
         self.onContinue = onContinue
         self.onSkipAll = onSkipAll
@@ -341,12 +423,13 @@ struct CatchOverlay<Share: View>: View {
                 .onTapGesture(perform: onContinue)
 
             VStack(spacing: 14) {
-                Text(creature.rarity.label)
+                Text(reveal.headline)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(creature.rarity.color)
+                    .foregroundStyle(Theme.accent)
 
                 CreatureCard(
-                    creature: creature, caught: true, style: .full, foilPlaying: true
+                    creature: reveal.creature, caught: true, style: .full, foilPlaying: true,
+                    shiny: reveal.shiny
                 )
                 .frame(width: Theme.popoverWidth - 48)
                 .compositingGroup()
@@ -354,8 +437,15 @@ struct CatchOverlay<Share: View>: View {
                 .scaleEffect(appeared ? 1 : 0.92)
                 .opacity(appeared ? 1 : 0)
 
-                Text("Unlocked \(creature.name)")
-                    .font(.headline)
+                HStack(spacing: 5) {
+                    if reveal.shiny {
+                        Image(systemName: "sparkle").font(.system(size: 11))
+                    }
+                    Text(reveal.creature.name)
+                        .font(.headline)
+                }
+                .foregroundStyle(
+                    reveal.shiny ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.primary))
 
                 if remaining > 1 {
                     Text("\(remaining - 1) more waiting")
@@ -384,7 +474,7 @@ struct CatchOverlay<Share: View>: View {
                 appeared = true
             }
         }
-        .onChange(of: creature.id) {
+        .onChange(of: reveal.id) {
             appeared = false
             withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
                 appeared = true

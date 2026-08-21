@@ -59,9 +59,13 @@ final class Panel {
     var hoveredDay: DayUsage?
     /// Range shown by the Detail tab.
     var detailDays = 30
-    /// Creatures unlocked since the binder was last opened, announced one at
-    /// a time before the grid appears.
-    var revealQueue: [Creature] = []
+    /// Which part of the collection is showing.
+    var collectionSegment: CollectionSegment = .companion
+    /// Rips and filings that have not been shown yet, announced one at a time
+    /// before the rest of the tab appears.
+    var revealQueue: [CompanionReveal] = []
+    /// A rip or an evolution that the companion header should flash for.
+    var celebrationStartedAt = Date.distantPast
     /// The card whose image was just put on the clipboard.
     var copiedCreatureID: String?
     /// Where the last card image was written.
@@ -115,6 +119,19 @@ final class Panel {
 
     func restartReveal() {
         revealStartedAt = Date()
+        scheduleFrame()
+    }
+
+    /// How far through the flash an evolution or rip is, 1…0. The card arrives white
+    /// and fades into itself, which is the moment worth marking.
+    var celebrationFlash: Double {
+        guard Motion.isEnabled else { return 0 }
+        let progress = Motion.progress(since: celebrationStartedAt, duration: 0.8)
+        return progress >= 1 ? 0 : 0.85 * (1 - Motion.easeOut(progress))
+    }
+
+    func restartCelebration() {
+        celebrationStartedAt = Date()
         scheduleFrame()
     }
 

@@ -5,7 +5,8 @@ same panel, same five tabs — drawn with Cairo and published to the desktop
 through libayatana-appindicator3 instead of SwiftUI's `MenuBarExtra`.
 
 Everything that decides *what* to show is shared with macOS. `RationKit` owns
-the polling, the history, the projections, the Dex, and `MenuBarPresentation`,
+the polling, the history, the projections, the companion loop, and
+`MenuBarPresentation`,
 which turns a poll result into "this glyph, this percentage, this tint". The
 tray only decides *how* to draw it.
 
@@ -24,7 +25,7 @@ Sources/RationTray/     The app.
   ActivityTab.swift     Calendar heat map, streaks, rhythm.
   TrendsTab.swift       Totals, the daily chart, the segmented controls.
   DetailTab.swift       Tokens by model and by project.
-  CollectionTab.swift   The binder, the inspector, the pack-rip overlay.
+  CollectionTab.swift   Companion, binder, catch log, shop, and the overlays.
   CardFace.swift        A full trading-card face.
   CreatureArtwork.swift One illustration per CreatureArt.
   SettingsWindow.swift  General, Accounts, About.
@@ -175,14 +176,29 @@ typed. `CreatureEnergy.glyph` names characters like ▲ ◉ ▣ ⟳ ☽ ⬢, and
 is under no obligation to have them — Ubuntu Sans does not, and every pip on
 every card came out as a tofu box.
 
+The trap is worse than a missing family, because Cairo's *toy* text API does no
+font fallback at all: a glyph the selected family lacks draws as a box even when
+another font on the machine has it. `fc-match` will happily tell you U+2192 is
+available and the panel will still show a box. The shiny mark went the same way
+(`CardFace.drawShinyMark` is a path for that reason), and the catch log separates
+an evolution chain with `›` rather than `→`.
+
+`SourceTreeTests.trayTextAvoidsTofu` now holds the line: it scans every string
+literal under `Sources/RationTray` and fails on anything outside Latin-1 plus a
+short list checked against Ubuntu Sans one codepoint at a time. Anything else
+needs a drawn path.
+
 ## Looking at what it draws
 
 ```sh
 ration-tray --screenshot ./shots
 ```
 
-Renders every tab, plus the card inspector and the pack-rip overlay, straight
-to PNGs at the configured scale and exits. No display needed — the same
+Renders every tab, all four collection segments, the card inspector, the
+pack-rip overlay and the tray mark in both appearances, straight to PNGs at the
+configured scale and exits. The collection is posed from `CompanionState.posed()`
+rather than read from a profile, because three of its four screens are months of
+play away from having anything in them. No display needed — the same
 two-pass measure-then-draw the live panel uses, into an image surface instead
 of a window. This is the Linux counterpart of `swift run RationPreview
 docs/images`, and it is how the panel's states get checked.
@@ -236,6 +252,7 @@ a version string. A test pins the URL on both sides.
 | Panel | SwiftUI popover | GTK window, drawn with Cairo |
 | Opens on | click on the item | "Open Ration" in its menu, or middle click |
 | Card art | Image Playground can redraw a card | drawn art only |
+| Companion in the gauge | not shown — the menu bar item is a template image, and a coloured creature would cost the system tinting | drawn beside the number |
 | Size | points, resolved by AppKit | display density, or Settings → Size |
 | Updates | installed by Sparkle | reported, installed by you |
 | Launch at login | `SMAppService` | XDG autostart entry |

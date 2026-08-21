@@ -14,6 +14,7 @@ struct RationApp: App {
             PopoverView(
                 registry: appDelegate.registry,
                 settings: appDelegate.settings,
+                companion: appDelegate.companion,
                 openSettings: {
                     NSApp.activate(ignoringOtherApps: true)
                     openSettings()
@@ -61,7 +62,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let settings = Settings()
     let registry: ProviderRegistry
     let updater = UpdateController()
+    /// The companion loop. Owned here rather than by the panel, because the loop has to
+    /// keep moving while the panel is shut — that is most of the time.
+    let companion = CompanionModel()
     private let notifier = Notifier()
+    private var companionTimer: Timer?
 
     private var onboardingWindow: NSWindow?
 
@@ -108,12 +113,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         }
 
         observeSleepAndWake()
+        startCompanionLoop()
 
         // The first keychain read triggers a system permission prompt. Explain
         // it before it appears, rather than after. Providers read from the
         // user's own files start regardless — they ask nobody for anything.
         registry.start(allowingPrompts: settings.hasCompletedOnboarding)
         if !settings.hasCompletedOnboarding { showOnboarding() }
+    }
+
+    // MARK: The companion loop
+
+    /// Credit tokens on a slow beat.
+    ///
+    /// Its own timer rather than the poll's: crediting is idempotent and cheap, but it
+    /// touches a file three processes share, so there is nothing to gain from doing it
+    /// every time a gauge refreshes. The panel syncs on open for the case that matters.
+    private func startCompanionLoop() {
+        syncCompanion()
+        companionTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor in self?.syncCompanion() }
+        }
+    }
+
+    func syncCompanion() {
+        var histories: [String: UsageHistory] = [:]
+        var windows: [LimitWindow] = []
+        for entry in registry.visible {
+            if let history = entry.history?.history {
+                histories[entry.provider.id] = history
+            }
+            windows += CompanionSync.windows(
+                providerID: entry.provider.id, snapshot: entry.poller.state.snapshot)
+        }
+        var live: Set<String> = []
+        for entry in registry.visible where entry.poller.state.snapshot != nil {
+            live.insert(entry.provider.id)
+        }
+        companion.sync(
+            lifetimeByProvider: CompanionSync.lifetimeTokens(histories: histories),
+            windows: windows,
+            archive: {
+                let input = DexInput(histories: histories, liveProviders: live)
+                return Set(Dex.evaluate(input).caught.map(\.id))
+                    .union(self.settings.revealedCreatureIDs)
+            })
     }
 
     // MARK: Sleep and wake

@@ -23,6 +23,13 @@ final class TrayIcon {
     /// Drawn at twice the size so the mark stays crisp on a HiDPI panel.
     private let scale = 2.0
 
+    /// A drawing-only icon, for the screenshot harness. Has no indicator to publish to,
+    /// so `update` must not be called on it.
+    init(offscreen directory: URL) {
+        self.indicator = OpaquePointer(bitPattern: -1)!
+        self.directory = directory
+    }
+
     init?(title: String) {
         directory = PlatformPaths.home.appending(path: ".cache/ration/tray")
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -46,11 +53,22 @@ final class TrayIcon {
 
     // MARK: Drawing
 
+    /// The creature to draw beside the gauge, if any. Set before `update`.
+    var companion: (creature: Creature, shiny: Bool)?
+
     func update(strip: MenuBarStrip, palette: Palette) {
         slot = (slot + 1) % 2
         let name = "ration-\(slot)"
         let path = directory.appending(path: "\(name).png").path
+        writePNG(strip: strip, palette: palette, to: path)
+        app_indicator_set_icon_full(indicator, name, strip.accessibilityLabel)
+        app_indicator_set_title(indicator, strip.accessibilityLabel)
+    }
 
+    /// Draws the icon to a file. Split from `update` so the icon can be rendered
+    /// without a live indicator — `--screenshot` has no panel to publish to, and an
+    /// icon nobody can look at is one nobody checks.
+    func writePNG(strip: MenuBarStrip, palette: Palette, to path: String) {
         let foreground = panelForeground(palette: palette)
         let size = measure(strip: strip, palette: palette, foreground: foreground)
         guard
@@ -68,9 +86,6 @@ final class TrayIcon {
         _ = cairo_surface_write_to_png(surface, path)
         cairo_destroy(cr)
         cairo_surface_destroy(surface)
-
-        app_indicator_set_icon_full(indicator, name, strip.accessibilityLabel)
-        app_indicator_set_title(indicator, strip.accessibilityLabel)
     }
 
     /// The panel paints its own background, so the icon has to supply its own
@@ -106,13 +121,17 @@ final class TrayIcon {
             cairo_surface_destroy(surface)
         }
         let canvas = Canvas(cr: cr, palette: palette)
-        var total = 0.0
+        var total = companion == nil ? 0 : companionSize + innerSpacing
         for (index, item) in strip.items.enumerated() {
             if index > 0 { total += itemSpacing }
             total += itemWidth(item, on: canvas)
         }
         return max(total + 2, 16)
     }
+
+    /// Small enough not to cost real estate in a crowded panel, big enough that the
+    /// illustration is still a shape rather than a smudge.
+    private let companionSize = 15.0
 
     private func itemWidth(_ item: MenuBarPresentation, on canvas: Canvas) -> Double {
         var width = glyphSize
@@ -129,6 +148,16 @@ final class TrayIcon {
         strip: MenuBarStrip, on canvas: Canvas, width: Double, foreground: RGBA
     ) {
         var x = 1.0
+        // The creature leads, so the number keeps the position people read it in.
+        if let companion {
+            let rect = Rect(x, (height - companionSize) / 2, companionSize, companionSize)
+            let key = CardFace.keyColor(companion.creature.lore.energy, shiny: companion.shiny)
+            canvas.clipped(to: rect, radius: 4) {
+                CreatureArtwork.draw(
+                    companion.creature.lore.art, in: rect, on: canvas, key: key, caught: true)
+            }
+            x += companionSize + innerSpacing
+        }
         for (index, item) in strip.items.enumerated() {
             if index > 0 { x += itemSpacing }
             let color = tint(for: item, palette: canvas.palette, fallback: foreground)

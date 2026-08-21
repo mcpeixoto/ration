@@ -50,6 +50,34 @@ enum CLIContext {
         return DexInput(histories: histories, liveProviders: live)
     }
 
+    /// Bring the companion loop up to date from whatever the registry has read, and
+    /// hand back the state plus anything worth printing.
+    ///
+    /// The archive closure is only run on a profile that has never seen the loop, so
+    /// the old threshold model is evaluated once in a lifetime rather than every time
+    /// somebody types `ration dex`.
+    static func refreshCompanion(
+        registry: ProviderRegistry, config: CLIConfig
+    ) -> (state: CompanionState, events: [CompanionEvent]) {
+        var histories: [String: UsageHistory] = [:]
+        var windows: [LimitWindow] = []
+        for entry in registry.metered {
+            if let history = entry.history?.history {
+                histories[entry.provider.id] = history
+            }
+            windows += CompanionSync.windows(
+                providerID: entry.provider.id, snapshot: entry.poller.state.snapshot)
+        }
+        return CompanionSync.refresh(
+            CompanionStore(),
+            lifetimeByProvider: CompanionSync.lifetimeTokens(histories: histories),
+            windows: windows,
+            archive: {
+                Set(Dex.evaluate(dexInput(registry: registry)).caught.map(\.id))
+                    .union(config.revealed)
+            })
+    }
+
     private static func snapshotShowsUsage(_ snapshot: UsageSnapshot?) -> Bool {
         guard let snapshot else { return false }
         if snapshot.limits.contains(where: { $0.percent > 0 }) { return true }

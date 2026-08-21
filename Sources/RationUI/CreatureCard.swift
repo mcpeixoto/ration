@@ -11,6 +11,14 @@ struct CreatureCard: View {
     var caught: Bool = true
     var style: Style = .full
     var foilPlaying: Bool = false
+    /// A shiny is the same creature in a rotated colourway, decided at the rip.
+    var shiny: Bool = false
+    /// Unlocked under the old threshold model: theirs, but not part of this run of
+    /// the set. Marked rather than dimmed — dimming would read as locked.
+    var archived: Bool = false
+    /// Printed under the species when the card is a particular animal rather than
+    /// just an entry in the set.
+    var trait: CreatureTrait?
 
     enum Style { case mini, full }
 
@@ -21,7 +29,14 @@ struct CreatureCard: View {
     @State private var cardSize: CGSize = .zero
 
     private var lore: CreatureLore { creature.lore }
-    private var key: Color { caught ? lore.energy.color : Color(white: 0.5) }
+    private var key: Color {
+        caught ? lore.energy.keyColor(shiny: shiny) : Color(white: 0.5)
+    }
+
+    /// A shiny always shimmers, whatever its rarity — that is most of what makes a
+    /// shiny common worth keeping.
+    private var foilRarity: CreatureRarity { shiny ? max(creature.rarity, .rare) : creature.rarity }
+    private var wearsFoil: Bool { caught && (shiny || creature.rarity.hasFoil) }
 
     var body: some View {
         switch style {
@@ -39,6 +54,11 @@ struct CreatureCard: View {
                     .font(.system(size: 10, weight: .heavy, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                if caught, shiny {
+                    Image(systemName: "sparkle")
+                        .font(.system(size: 7))
+                        .foregroundStyle(key)
+                }
                 Spacer(minLength: 0)
                 Text(caught ? "\(lore.life)" : "??")
                     .font(.system(size: 10, weight: .heavy, design: .rounded).monospacedDigit())
@@ -68,11 +88,25 @@ struct CreatureCard: View {
                 .strokeBorder(edge, lineWidth: caught ? 1.5 : 1)
         }
         .overlay {
-            if caught, creature.rarity.hasFoil, foilPlaying, !reduceMotion {
-                HoloFoil(rarity: creature.rarity, playing: true)
+            if wearsFoil, foilPlaying, !reduceMotion {
+                HoloFoil(rarity: foilRarity, playing: true)
                     .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
             }
         }
+        .overlay(alignment: .bottomLeading) {
+            if archived { archiveTag.padding(5) }
+        }
+    }
+
+    /// Sits over the illustration rather than the header row, which is spoken for by
+    /// the name and the HP.
+    private var archiveTag: some View {
+        Text("SET 01")
+            .font(.system(size: 6.5, weight: .bold, design: .monospaced))
+            .foregroundStyle(Color.white.opacity(0.8))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1.5)
+            .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 3))
     }
 
     // MARK: Full
@@ -109,8 +143,8 @@ struct CreatureCard: View {
                 .strokeBorder(edge, lineWidth: caught ? 2 : 1)
         }
         .overlay {
-            if caught, creature.rarity.hasFoil, foilPlaying {
-                HoloFoil(rarity: creature.rarity, playing: !reduceMotion)
+            if wearsFoil, foilPlaying {
+                HoloFoil(rarity: foilRarity, playing: !reduceMotion)
                     .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
             }
         }
@@ -185,7 +219,7 @@ struct CreatureCard: View {
     }
 
     private func artWindow(corner: CGFloat, border: CGFloat, aspect: CGFloat) -> some View {
-        CreaturePortrait(creature: creature, caught: caught)
+        CreaturePortrait(creature: creature, caught: caught, shiny: shiny)
             .padding(2)
             .frame(maxWidth: .infinity)
             .aspectRatio(aspect, contentMode: .fit)
@@ -216,6 +250,11 @@ struct CreatureCard: View {
                 .font(.system(size: 8))
                 .italic()
                 .lineLimit(1)
+            if let trait, caught {
+                Text("· \(trait.label)")
+                    .font(.system(size: 8, weight: .medium))
+                    .lineLimit(1)
+            }
             Spacer(minLength: 0)
             Text(caught ? lore.size : "— m · — kg")
                 .font(.system(size: 7, weight: .medium, design: .monospaced))
@@ -375,6 +414,11 @@ struct CreatureCard: View {
                 Text(creature.rarity.label.uppercased())
                     .font(.system(size: 7, weight: .bold, design: .monospaced))
                     .foregroundStyle(creature.rarity.color)
+                if shiny {
+                    Text("· SHINY")
+                        .font(.system(size: 7, weight: .bold, design: .monospaced))
+                        .foregroundStyle(key)
+                }
                 Spacer(minLength: 0)
                 Text("RATION")
                     .font(.system(size: 8, weight: .heavy, design: .rounded))

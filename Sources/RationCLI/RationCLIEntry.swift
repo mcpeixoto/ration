@@ -22,8 +22,14 @@ struct RationCLI {
             await HistoryCommands.trends(options: CLIOptions(args: rest), config: config)
         case "detail", "breakdown":
             await HistoryCommands.detail(options: CLIOptions(args: rest), config: config)
-        case "dex", "pokemon":
-            await DexCommand.run(options: CLIOptions(args: rest), config: &config)
+        case "dex", "pokemon", "collection":
+            await DexCommand.run(options: CLIOptions(args: rest), config: config)
+        case "shop":
+            await ShopCommand.shop(
+                subcommand: rest.first, args: Array(rest.dropFirst()), config: config)
+        case "bag":
+            await ShopCommand.bag(
+                subcommand: rest.first, args: Array(rest.dropFirst()), config: config)
         case "config":
             ConfigCommand.run(
                 subcommand: rest.first, args: Array(rest.dropFirst()), config: &config)
@@ -50,7 +56,9 @@ struct RationCLI {
               activity    Calendar heat map, streaks, and rhythm
               trends      Totals and daily usage over 7/30/90 days
               detail      Breakdown by model and project
-              dex         Pokémon collection progress
+              dex         Your companion, the binder, and the catch log
+              shop        Spend tokens on packs and items
+              bag         What you are holding, and use it
               config      View or change CLI settings
             """
         #if os(Linux)

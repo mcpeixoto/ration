@@ -82,11 +82,12 @@ public final class Settings {
         }
     }
 
-    /// Creature ids the trainer has already been shown the catch animation for.
+    /// Creature ids that had already been revealed under the old threshold model.
     ///
-    /// Catch state itself is derived from local history, not stored. This set
-    /// only remembers which reveals have played, so an update that owes you
-    /// eleven creatures still rips eleven packs — once.
+    /// Nothing writes this any more. It is read once, by the migration that seeds a
+    /// profile's Set 01 archive, so somebody updating is not met by a reveal queue for
+    /// cards they were shown months ago. Kept rather than deleted because it is the
+    /// only record of that, and it costs a few bytes in `UserDefaults`.
     public var revealedCreatureIDs: Set<String> {
         didSet {
             defaults.set(revealedCreatureIDs.sorted(), forKey: Key.revealedCreatureIDs)

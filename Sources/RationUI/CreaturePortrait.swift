@@ -10,21 +10,25 @@ import SwiftUI
 struct CreaturePortrait: View {
     let creature: Creature
     var caught: Bool = true
+    var shiny: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.rationArtTime) private var artTime
     private var store = CreatureArtStore.shared
 
-    init(creature: Creature, caught: Bool = true) {
+    init(creature: Creature, caught: Bool = true, shiny: Bool = false) {
         self.creature = creature
         self.caught = caught
+        self.shiny = shiny
     }
 
     var body: some View {
         GeometryReader { geo in
             let _ = store.generation
             ZStack {
-                if caught, let custom = store.image(for: creature.id) {
+                // A redrawn portrait is a fixed image, so it cannot take the shiny
+                // colourway — fall back to the drawn scene, which can.
+                if caught, !shiny, let custom = store.image(for: creature.id) {
                     Image(nsImage: custom)
                         .resizable()
                         .scaledToFill()
@@ -46,7 +50,7 @@ struct CreaturePortrait: View {
     }
 
     private var key: Color {
-        caught ? creature.lore.energy.color : Color.primary.opacity(0.5)
+        caught ? creature.lore.energy.keyColor(shiny: shiny) : Color.primary.opacity(0.5)
     }
 }
 

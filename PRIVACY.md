@@ -157,6 +157,15 @@ Nothing to your keychain. Ration calls `SecItemCopyMatching` and no other
 keychain API — there is no code path that adds, updates, or deletes a keychain
 item.
 
+The collection is a game played entirely on this machine. `companion.json`
+— next to `config.json`, in `~/.config/ration` or Application Support — holds
+the creature you are raising, the ones you have filed, and how many tokens have
+been counted toward them. Nothing about it is sent anywhere, no part of it needs
+an account, and deleting the file only starts the collection over. The species,
+the evolution lines and the artwork are all compiled into the binary and drawn
+in code, so nothing is fetched to show you a card. See
+[docs/companion.md](docs/companion.md).
+
 ## Questions
 
 Open an issue: https://github.com/mcpeixoto/ration/issues

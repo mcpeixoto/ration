@@ -37,7 +37,7 @@ public struct Creature: Sendable, Equatable, Identifiable {
     }
 }
 
-public enum CreatureRarity: String, Sendable, Equatable, Comparable, CaseIterable {
+public enum CreatureRarity: String, Codable, Sendable, Equatable, Comparable, CaseIterable {
     case common, uncommon, rare, epic, legendary, mythic
 
     public var label: String {
@@ -60,7 +60,11 @@ public enum CreatureRarity: String, Sendable, Equatable, Comparable, CaseIterabl
     }
 }
 
-/// What has to be true of local usage before this creature is caught.
+/// The deed printed on a card.
+///
+/// These used to gate unlocking. They no longer decide anything: the card face prints
+/// the deed as flavour (`UnlockRequirement+Display`), and `Dex.evaluate` reads them
+/// only to work out a migrating profile's Set 01 archive.
 ///
 /// Power is billable tokens summed across every tool Ration can read. That
 /// sum is not a usage metric — a Claude token is not a Codex token — and the
@@ -149,39 +153,32 @@ public struct DexInput: Sendable, Equatable {
     }
 }
 
-public struct PowerHunt: Sendable, Equatable {
-    public var creature: Creature
-    public var progress: Double
-}
-
 public struct DexState: Sendable, Equatable {
     public var stats: TrainerStats
     public var caught: [Creature]
-    public var uncaught: [Creature]
-    public var nextPowerCatch: PowerHunt?
 }
 
-/// The set, and the rules that decide who has been caught.
+/// The set, and the thresholds that used to decide who had been caught.
 public enum Dex {
 
+    /// The roster keyed by id. Built once — the companion loop looks a creature up on
+    /// every frame it draws, and a linear scan of fifty for each of those adds up.
+    private static let byID: [String: Creature] = Dictionary(
+        uniqueKeysWithValues: roster.map { ($0.id, $0) })
+
+    /// A creature by id, or `nil` for an id that is not in the set.
+    public static func creature(_ id: String) -> Creature? { byID[id] }
+
+    /// What the old threshold model unlocks from a local history.
+    ///
+    /// Nothing in the app is decided by this any more — the collection is a pack that
+    /// fills, rips, evolves and files, and `CompanionEngine` owns all of it. This
+    /// survives for one job: the first time a profile runs the new loop, whatever these
+    /// thresholds had already unlocked is written into the Set 01 archive so nobody
+    /// loses a card they earned. It runs once in a profile's life.
     public static func evaluate(_ input: DexInput) -> DexState {
         let stats = tally(input)
-        let caught = roster.filter { $0.requirement.isMet(by: stats) }
-        let uncaught = roster.filter { creature in
-            !caught.contains { $0.id == creature.id }
-        }
-        return DexState(
-            stats: stats,
-            caught: caught,
-            uncaught: uncaught,
-            nextPowerCatch: nextPowerHunt(caught: caught, stats: stats))
-    }
-
-    /// Caught creatures the trainer has not been shown yet, in set order.
-    public static func pendingReveals(caught: [Creature], alreadyRevealed: Set<String>)
-        -> [Creature]
-    {
-        caught.filter { !alreadyRevealed.contains($0.id) }
+        return DexState(stats: stats, caught: roster.filter { $0.requirement.isMet(by: stats) })
     }
 
     // MARK: - Tally
@@ -220,17 +217,5 @@ public enum Dex {
             stats.busiestHour = hourTokens.firstIndex(of: peak)
         }
         return stats
-    }
-
-    private static func nextPowerHunt(caught: [Creature], stats: TrainerStats) -> PowerHunt? {
-        let caughtIDs = Set(caught.map(\.id))
-        for creature in roster where !caughtIDs.contains(creature.id) {
-            if case .power(let n) = creature.requirement, n > 0 {
-                return PowerHunt(
-                    creature: creature,
-                    progress: min(1, Double(stats.power) / Double(n)))
-            }
-        }
-        return nil
     }
 }
