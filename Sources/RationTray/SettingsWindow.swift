@@ -107,7 +107,7 @@ final class SettingsWindow {
         }
         // The close button destroys the window by default; hide it instead so
         // reopening Settings does not have to rebuild everything.
-        onSignal(window, "delete-event") { [weak self] in
+        onDeleteEvent(window) { [weak self] in
             self?.close()
         }
 

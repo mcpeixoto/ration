@@ -42,11 +42,24 @@ private func unbox(_ pointer: UnsafeMutableRawPointer?) -> CallbackBox? {
 
 // MARK: - Signals
 
-/// Connects a signal whose handler takes no arguments beyond the instance —
-/// `activate`, `clicked`, `destroy`.
+/// G_CONNECT_SWAPPED, from gobject/gsignal.h: the handler is called with the
+/// user data first and the instance second.
+private let connectSwapped: Int32 = 1 << 1
+
+/// Connects a signal for a handler that needs nothing from the emission
+/// itself — `activate`, `clicked`, `destroy`.
+///
+/// Connected swapped, so the boxed closure arrives as the *first* argument.
+/// GTK calls a handler with the instance, then the signal's own parameters,
+/// then the user data, so a trampoline that took the box from the last
+/// argument would have to know how many parameters the signal carries. One
+/// that carries a parameter — `delete-event` hands over a `GdkEvent` — made
+/// the old two-argument trampoline read the event as a Swift object and jump
+/// through whatever word sat where the closure should have been, which took
+/// the whole tray down every time Settings was closed. Reading the argument
+/// that is always in the same place makes the arity impossible to get wrong.
 func onSignal(_ widget: Widget?, _ signal: String, _ handler: @escaping () -> Void) {
-    let trampoline: @convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Void = {
-        _, data in
+    let trampoline: @convention(c) (UnsafeMutableRawPointer?) -> Void = { data in
         _ = unbox(data)?.action(nil)
     }
     _ = g_signal_connect_data(
@@ -54,7 +67,7 @@ func onSignal(_ widget: Widget?, _ signal: String, _ handler: @escaping () -> Vo
         box { _ in
             handler()
             return true
-        }, nil, 0)
+        }, nil, connectSwapped)
 }
 
 /// Connects `draw`, handing the closure the Cairo context for the widget.
@@ -166,6 +179,20 @@ func onKeyPress(_ widget: Widget?, _ handler: @escaping (InputEvent) -> Bool) {
             let event = pointer.assumingMemoryBound(to: GdkEventKey.self).pointee
             return InputEvent(kind: .key, keyval: UInt32(event.keyval))
         }, handler)
+}
+
+/// Fires when the window manager asks the window to close — its title bar
+/// button, or Alt+F4.
+///
+/// GTK destroys the window when nobody handles this; the handler is expected
+/// to hide or destroy it itself, so the default is always suppressed.
+func onDeleteEvent(_ widget: Widget?, _ handler: @escaping () -> Void) {
+    connectEvent(
+        widget, "delete-event", { _ in InputEvent(kind: .release) },
+        { _ in
+            handler()
+            return true
+        })
 }
 
 /// Fires when the panel loses focus, which is how a menu-bar panel is

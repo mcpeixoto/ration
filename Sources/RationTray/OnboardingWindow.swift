@@ -65,7 +65,7 @@ final class OnboardingWindow {
             if let area = self.area { gtk_widget_queue_draw(area) }
             return false
         }
-        onSignal(window, "delete-event") { [weak self] in
+        onDeleteEvent(window) { [weak self] in
             // Closing without continuing leaves Ration idle, reading nothing.
             self?.dismiss()
         }
