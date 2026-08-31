@@ -1,8 +1,8 @@
 # The Linux tray
 
 `ration-tray` is the Linux counterpart of the macOS menu bar app. Same gauge,
-same panel, same five tabs — drawn with Cairo and published to the desktop
-through libayatana-appindicator3 instead of SwiftUI's `MenuBarExtra`.
+same panel, same five tabs — drawn with Cairo and published to the desktop as a
+StatusNotifierItem instead of SwiftUI's `MenuBarExtra`.
 
 Everything that decides *what* to show is shared with macOS. `RationKit` owns
 the polling, the history, the projections, the companion loop, and
@@ -13,13 +13,14 @@ tray only decides *how* to draw it.
 ## Layout
 
 ```
-Sources/CLinuxTray/     C declarations for GTK 3, GDK, Cairo, GLib and
-                        libayatana-appindicator3 — the entry points Ration
-                        calls, and nothing else.
+Sources/CLinuxTray/     C declarations for GTK 3, GDK, Cairo, GLib, GDBus,
+                        libdbusmenu and libayatana-appindicator3 — the entry
+                        points Ration calls, and nothing else.
 Sources/RationTray/     The app.
   main.swift            Argument handling and the main loop.
   TrayApp.swift         Owns the registry, the icon, the menu, the windows.
   TrayIcon.swift        Draws MenuBarStrip into a PNG and publishes it.
+  StatusNotifierItem.swift The tray item itself, over D-Bus.
   Panel.swift           The panel window: chrome, hit testing, scrolling.
   UsageTab.swift        Ring gauge, limit rows, the projection card.
   ActivityTab.swift     Calendar heat map, streaks, rhythm.
@@ -69,13 +70,50 @@ main-queue block and `dispatchMain()` owns the thread.
 ## The icon
 
 The StatusNotifierItem protocol takes an icon by name from a theme directory,
-so each refresh draws a PNG into `~/.cache/ration/tray` and points the
-indicator at it. The name alternates between two slots: an indicator ignores a
-re-set of the name it already has, even when the file behind it changed.
+so each refresh draws a PNG into `~/.cache/ration/tray` and points the item at
+it, then emits `NewIcon`. The name alternates between two slots: a host ignores
+a re-set of the name it already has, even when the file behind it changed.
 
 The application icon is drawn too — `ration-tray --write-icon <path>` renders
 the same terracotta squircle `Scripts/make-icon.swift` draws for macOS, so no
 binary blob has to be checked in.
+
+## The click
+
+The item is Ration's own D-Bus object — `StatusNotifierItem.swift` — rather
+than one built by libayatana-appindicator, for one reason: the protocol has an
+`Activate` method that a host calls when the icon is clicked, and libayatana
+never published one. Unity always showed the menu, so every host fell back to
+it and reaching the panel cost a second click on "Open Ration".
+
+What the item publishes at `/StatusNotifierItem`:
+
+| | |
+|---|---|
+| `Activate` | opens the panel, or closes it |
+| `SecondaryActivate`, `XAyatanaSecondaryActivate` | the same, for a middle click |
+| `ContextMenu` | pops the GtkMenu up itself, for a host that asks rather than reading the exported one |
+| `Menu` | `/StatusNotifierItem/Menu`, the same GtkMenu exported by libdbusmenu |
+| `ItemIsMenu` | false, so a host offers the icon's own click |
+
+Only the item is ours. The menu behind it is still a `GtkMenu`, handed to
+`dbusmenu_gtk_parse_menu_structure`, which keeps watching the widgets — the
+limit summary is rewritten on every poll and travels on its own.
+
+The bus name is `org.kde.StatusNotifierItem-<pid>-1`, and hosts are *watched*
+rather than told once: a shell restart drops every item it knew about and
+expects them to register again.
+
+What a host does with the click is still the host's business. KDE, XFCE, waybar
+and swaybar call `Activate` on a plain click. GNOME's appindicator extension
+hardwires a single click to the menu and calls `Activate` on a double click, so
+there the panel is two quick clicks away — one better than before, and as close
+as that shell allows.
+
+libayatana-appindicator is kept as the fallback for a desktop with no
+StatusNotifier host on the bus — a bare window manager with an XEmbed tray —
+because it can still put an icon in one. `StatusNotifierItem.isSupported()`
+asks the bus who owns `org.kde.StatusNotifierWatcher` and decides.
 
 ## Building without -dev packages
 
@@ -91,7 +129,8 @@ unzip -j sqlite-amalgamation-3490100.zip '*/sqlite3.h' -d ~/.local/include
 
 # .so symlinks the linker looks for
 for lib in gtk-3.so.0 gdk-3.so.0 gobject-2.0.so.0 glib-2.0.so.0 \
-           cairo.so.2 ayatana-appindicator3.so.1 sqlite3.so.0; do
+           gio-2.0.so.0 cairo.so.2 dbusmenu-glib.so.4 dbusmenu-gtk3.so.4 \
+           ayatana-appindicator3.so.1 sqlite3.so.0; do
   ln -sf "/usr/lib/x86_64-linux-gnu/lib$lib" \
      "$HOME/.local/lib/lib${lib%%.so*}.so"
 done
@@ -250,13 +289,14 @@ a version string. A test pins the URL on both sides.
 |---|---|---|
 | Gauge | `MenuBarExtra` | StatusNotifierItem, PNG per refresh |
 | Panel | SwiftUI popover | GTK window, drawn with Cairo |
-| Opens on | click on the item | "Open Ration" in its menu, or middle click |
+| Opens on | click on the item | click on the item, where the host offers it — double click on GNOME; middle click, or "Open Ration" in the menu, anywhere |
 | Card art | Image Playground can redraw a card | drawn art only |
 | Companion in the gauge | not shown — the menu bar item is a template image, and a coloured creature would cost the system tinting | drawn beside the number |
 | Size | points, resolved by AppKit | display density, or Settings → Size |
 | Updates | installed by Sparkle | reported, installed by you |
 | Launch at login | `SMAppService` | XDG autostart entry |
 
-The tray opens the panel under the pointer, which is where the click that
-opened the menu happened. The tray protocol carries no coordinates for the item
-itself, so that is the closest available anchor.
+The tray opens the panel under the pointer, which is where the click on the
+item happened. The coordinates a host passes to `Activate` are documented as
+"an hint" and are empty on GNOME, so the pointer is the closest available
+anchor.

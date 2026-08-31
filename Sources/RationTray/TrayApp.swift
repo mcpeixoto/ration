@@ -44,8 +44,16 @@ final class TrayApp {
     // MARK: Lifecycle
 
     func start() {
-        icon = TrayIcon(title: "Ration")
+        // A click on the icon opens the panel wherever the desktop offers the
+        // click; the menu behind it stays for everything else.
+        icon = TrayIcon(
+            title: "Ration",
+            actions: StatusNotifierItem.Actions(
+                activate: { [weak self] in self?.togglePanel() },
+                secondaryActivate: { [weak self] in self?.togglePanel() },
+                contextMenu: { [weak self] in self?.popUpMenu() }))
         buildMenu()
+        icon?.publish()
 
         // Onboarding gates only the provider whose first read raises a system
         // prompt; everything else reads files the user already owns.
@@ -145,15 +153,16 @@ final class TrayApp {
 
     // MARK: Menu
 
-    /// The tray menu. A StatusNotifierItem has no click of its own to spend on
-    /// the panel — the shell always opens the menu — so "Open Ration" is the
-    /// first item and also the middle-click target.
+    /// The tray menu, behind a right click on the item — and behind a left one
+    /// on GNOME, whose shell reserves the single click for the menu no matter
+    /// what the item offers. "Open Ration" is the first entry for that reason,
+    /// and also the middle-click target on the libayatana fallback.
     private func buildMenu() {
         let menu = gtk_menu_new()
 
         let open = gtk_menu_item_new_with_label("Open Ration")
         onSignal(open, "activate") { [weak self] in
-            self?.panel.toggle()
+            self?.togglePanel()
         }
         gtk_menu_shell_append(menu, open)
         openPanelItem = open
@@ -248,6 +257,22 @@ final class TrayApp {
     func openPanel() {
         syncCompanion()
         panel.open()
+    }
+
+    /// What a click on the tray icon does: the panel, or away with it.
+    func togglePanel() {
+        if panel.isOpen {
+            panel.close()
+        } else {
+            openPanel()
+        }
+    }
+
+    /// For a host that asks the application to show its own menu rather than
+    /// reading the exported one.
+    private func popUpMenu() {
+        guard let menu else { return }
+        gtk_menu_popup_at_pointer(menu, nil)
     }
 
     /// Opens the panel on a named tab.

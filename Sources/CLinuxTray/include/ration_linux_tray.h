@@ -286,6 +286,122 @@ void cairo_text_path(cairo_t *cr, const char *utf8);
 void cairo_text_extents(cairo_t *cr, const char *utf8, cairo_text_extents_t *extents);
 void cairo_font_extents(cairo_t *cr, cairo_font_extents_t *extents);
 
+// MARK: - GDBus and libdbusmenu, for publishing Ration's own tray item
+//
+// The tray protocol — org.kde.StatusNotifierItem — has an `Activate` method
+// that hosts call when the icon is clicked. libayatana-appindicator never
+// published one, so every click had to fall through to the menu. Ration
+// publishes the item itself, and keeps libdbusmenu for the menu behind it.
+
+typedef struct _GDBusConnection GDBusConnection;
+typedef struct _GDBusNodeInfo GDBusNodeInfo;
+typedef struct _GDBusInterfaceInfo GDBusInterfaceInfo;
+typedef struct _GDBusMethodInvocation GDBusMethodInvocation;
+typedef struct _GCancellable GCancellable;
+typedef struct _GVariant GVariant;
+typedef struct _GVariantType GVariantType;
+
+// GError, laid out as in glib/gerror.h, so a failed call can be reported.
+typedef struct {
+    guint domain;
+    int code;
+    char *message;
+} GError;
+
+typedef void (*GDestroyNotify)(gpointer data);
+
+void g_error_free(GError *error);
+
+// G_BUS_TYPE_SESSION is 2.
+GDBusConnection *g_bus_get_sync(int bus_type, GCancellable *cancellable, GError **error);
+const char *g_dbus_connection_get_unique_name(GDBusConnection *connection);
+
+typedef void (*GBusNameAcquiredCallback)(
+    GDBusConnection *connection, const char *name, gpointer user_data);
+typedef void (*GBusNameLostCallback)(
+    GDBusConnection *connection, const char *name, gpointer user_data);
+typedef void (*GBusNameAppearedCallback)(
+    GDBusConnection *connection, const char *name, const char *name_owner, gpointer user_data);
+typedef void (*GBusNameVanishedCallback)(
+    GDBusConnection *connection, const char *name, gpointer user_data);
+
+guint g_bus_own_name_on_connection(
+    GDBusConnection *connection, const char *name, int flags,
+    GBusNameAcquiredCallback name_acquired_handler, GBusNameLostCallback name_lost_handler,
+    gpointer user_data, GDestroyNotify user_data_free_func);
+
+guint g_bus_watch_name_on_connection(
+    GDBusConnection *connection, const char *name, int flags,
+    GBusNameAppearedCallback name_appeared_handler,
+    GBusNameVanishedCallback name_vanished_handler,
+    gpointer user_data, GDestroyNotify user_data_free_func);
+
+GDBusNodeInfo *g_dbus_node_info_new_for_xml(const char *xml_data, GError **error);
+GDBusInterfaceInfo *g_dbus_node_info_lookup_interface(GDBusNodeInfo *info, const char *name);
+
+typedef void (*GDBusInterfaceMethodCallFunc)(
+    GDBusConnection *connection, const char *sender, const char *object_path,
+    const char *interface_name, const char *method_name, GVariant *parameters,
+    GDBusMethodInvocation *invocation, gpointer user_data);
+typedef GVariant *(*GDBusInterfaceGetPropertyFunc)(
+    GDBusConnection *connection, const char *sender, const char *object_path,
+    const char *interface_name, const char *property_name, GError **error, gpointer user_data);
+typedef gboolean (*GDBusInterfaceSetPropertyFunc)(
+    GDBusConnection *connection, const char *sender, const char *object_path,
+    const char *interface_name, const char *property_name, GVariant *value, GError **error,
+    gpointer user_data);
+
+// GDBusInterfaceVTable, laid out as in gio/gdbusconnection.h.
+typedef struct {
+    GDBusInterfaceMethodCallFunc method_call;
+    GDBusInterfaceGetPropertyFunc get_property;
+    GDBusInterfaceSetPropertyFunc set_property;
+    gpointer padding[8];
+} GDBusInterfaceVTable;
+
+guint g_dbus_connection_register_object(
+    GDBusConnection *connection, const char *object_path, GDBusInterfaceInfo *interface_info,
+    const GDBusInterfaceVTable *vtable, gpointer user_data,
+    GDestroyNotify user_data_free_func, GError **error);
+
+gboolean g_dbus_connection_emit_signal(
+    GDBusConnection *connection, const char *destination_bus_name, const char *object_path,
+    const char *interface_name, const char *signal_name, GVariant *parameters, GError **error);
+
+// The reply is not interesting to Ration, so `callback` is always NULL here.
+void g_dbus_connection_call(
+    GDBusConnection *connection, const char *bus_name, const char *object_path,
+    const char *interface_name, const char *method_name, GVariant *parameters,
+    const GVariantType *reply_type, int flags, int timeout_msec, GCancellable *cancellable,
+    gpointer callback, gpointer user_data);
+
+GVariant *g_dbus_connection_call_sync(
+    GDBusConnection *connection, const char *bus_name, const char *object_path,
+    const char *interface_name, const char *method_name, GVariant *parameters,
+    const GVariantType *reply_type, int flags, int timeout_msec, GCancellable *cancellable,
+    GError **error);
+
+void g_dbus_method_invocation_return_value(
+    GDBusMethodInvocation *invocation, GVariant *parameters);
+
+GVariant *g_variant_new_string(const char *string);
+GVariant *g_variant_new_object_path(const char *object_path);
+GVariant *g_variant_new_boolean(gboolean value);
+GVariant *g_variant_new_int32(int value);
+GVariant *g_variant_new_tuple(GVariant *const *children, unsigned long n_children);
+GVariant *g_variant_get_child_value(GVariant *value, unsigned long index);
+gboolean g_variant_get_boolean(GVariant *value);
+void g_variant_unref(GVariant *value);
+
+typedef struct _DbusmenuServer DbusmenuServer;
+typedef struct _DbusmenuMenuitem DbusmenuMenuitem;
+
+DbusmenuServer *dbusmenu_server_new(const char *object);
+void dbusmenu_server_set_root(DbusmenuServer *self, DbusmenuMenuitem *root);
+DbusmenuMenuitem *dbusmenu_gtk_parse_menu_structure(GtkWidget *widget);
+
+void gtk_menu_popup_at_pointer(GtkWidget *menu, const void *trigger_event);
+
 // MARK: - libayatana-appindicator3
 
 typedef struct _AppIndicator AppIndicator;

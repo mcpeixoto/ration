@@ -122,8 +122,10 @@ installed with swiftly, say — it writes a launcher that points at it.
 
 The tray is the same app as the Mac's: one gauge per account in the panel, a
 weekly bar, amber past 80% and red past 90%, and a panel with **Usage**,
-**Activity**, **Trends**, **Detail** and **Pokémon**. Its menu carries the
-current limits, Refresh, Settings, and Quit. Turn on **Open at login** in
+**Activity**, **Trends**, **Detail** and **Pokémon**. Clicking the item opens
+the panel — on GNOME, whose shell reserves the single click for the menu, that
+is a double click or a middle click. Its menu carries the current limits, Open
+Ration, Refresh, Settings, and Quit. Turn on **Open at login** in
 Settings to have it start with your session.
 
 > GNOME hides legacy tray icons unless the AppIndicator extension is on.
@@ -180,9 +182,10 @@ notifications, launch at login — is on both.
 **Linux**
 
 - Ubuntu 22.04+ or another glibc-based distro with Swift 6
-- For the tray: GTK 3, Cairo and libayatana-appindicator3 — all present on a
-  standard desktop install. Building it also needs `libgtk-3-dev` and
-  `libayatana-appindicator3-dev`.
+- For the tray: GTK 3, Cairo, GLib's GDBus, libdbusmenu and
+  libayatana-appindicator3 — all present on a standard desktop install.
+  Building it also needs `libgtk-3-dev`, `libayatana-appindicator3-dev` and
+  `libdbusmenu-gtk3-dev`.
 - `libsqlite3-dev` for building from source
 - `libnotify-bin` (`notify-send`) for desktop alerts
 - At least one supported tool installed and signed in (same as macOS)
@@ -402,7 +405,7 @@ Sources/RationUI      SwiftUI views and view models (macOS only).
 Sources/Ration        The macOS menu bar executable.
 Sources/RationCLI     The Linux (and cross-platform) CLI executable.
 Sources/RationTray    The Linux tray executable: Cairo drawing over GTK 3.
-Sources/CLinuxTray    C declarations for GTK, Cairo and libayatana-appindicator3.
+Sources/CLinuxTray    C declarations for GTK, Cairo, GDBus and libdbusmenu.
 Sources/RationPreview Dev tool: renders the UI to PNGs. Not shipped.
 Tests/RationKitTests  Unit tests with checked-in API fixtures.
 ```

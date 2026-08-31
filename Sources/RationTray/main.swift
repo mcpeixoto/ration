@@ -31,9 +31,11 @@ if CommandLine.arguments.contains("--help") {
           ration-tray --version  Print the version
           ration-tray --help     Show this message
 
-        The tray icon carries the gauge; its menu opens the panel with Usage,
-        Activity, Trends, Detail, and Pokémon. Settings live in the same menu.
-        For a terminal-only view of the same numbers, run `ration`.
+        The tray icon carries the gauge; clicking it opens the panel with
+        Usage, Activity, Trends, Detail, and Pokémon — a double click on GNOME,
+        whose shell keeps the single click for the menu. Refresh and Settings
+        live in that menu. For a terminal-only view of the same numbers, run
+        `ration`.
         """)
     exit(0)
 }

@@ -8,11 +8,23 @@ import RationKit
 /// symbol each once more are on, a percentage, a weekly bar, and a severity
 /// tint. That logic is shared with the Mac. What differs is delivery: the
 /// StatusNotifierItem protocol takes an icon by name from a theme directory,
-/// so each refresh draws a PNG and points the indicator at it.
+/// so each refresh draws a PNG and points the item at it.
 @MainActor
 final class TrayIcon {
 
-    private let indicator: OpaquePointer
+    /// How the icon reaches the desktop.
+    private enum Backend {
+        /// Ration's own item, which a click on the icon can open the panel
+        /// from. Preferred wherever a StatusNotifier host is listening.
+        case statusNotifier(StatusNotifierItem)
+        /// libayatana-appindicator, for a desktop with no host on the bus: it
+        /// can still put the icon in a legacy XEmbed tray.
+        case appIndicator(OpaquePointer)
+        /// Drawing only, for the screenshot harness: no item to publish to.
+        case offscreen
+    }
+
+    private let backend: Backend
     private let directory: URL
     /// Toggled every refresh: an indicator ignores a re-set of the icon name
     /// it already has, even when the file behind it changed.
@@ -23,32 +35,59 @@ final class TrayIcon {
     /// Drawn at twice the size so the mark stays crisp on a HiDPI panel.
     private let scale = 2.0
 
-    /// A drawing-only icon, for the screenshot harness. Has no indicator to publish to,
-    /// so `update` must not be called on it.
+    /// A drawing-only icon, for the screenshot harness. Has nothing to publish
+    /// to, so `update` writes no icon anywhere.
     init(offscreen directory: URL) {
-        self.indicator = OpaquePointer(bitPattern: -1)!
+        self.backend = .offscreen
         self.directory = directory
     }
 
-    init?(title: String) {
+    init?(title: String, actions: StatusNotifierItem.Actions) {
         directory = PlatformPaths.home.appending(path: ".cache/ration/tray")
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
+        if StatusNotifierItem.isSupported(),
+            let item = StatusNotifierItem(
+                id: "ration", title: title, iconName: "ration-0",
+                iconThemePath: directory.path, actions: actions)
+        {
+            backend = .statusNotifier(item)
+            return
+        }
+
         guard let indicator = app_indicator_new("ration", "ration-0", 0) else { return nil }
-        self.indicator = indicator
+        backend = .appIndicator(indicator)
         app_indicator_set_icon_theme_path(indicator, directory.path)
         app_indicator_set_title(indicator, title)
-        // APP_INDICATOR_STATUS_ACTIVE
-        app_indicator_set_status(indicator, 1)
     }
 
     func attach(menu: Widget?) {
-        app_indicator_set_menu(indicator, menu)
+        switch backend {
+        case .statusNotifier(let item): item.attach(menu: menu)
+        case .appIndicator(let indicator): app_indicator_set_menu(indicator, menu)
+        case .offscreen: break
+        }
+    }
+
+    /// Announces the item once its menu is in place — a host reads the menu
+    /// before it will show anything.
+    func publish() {
+        switch backend {
+        case .statusNotifier(let item): item.publish()
+        // APP_INDICATOR_STATUS_ACTIVE
+        case .appIndicator(let indicator): app_indicator_set_status(indicator, 1)
+        case .offscreen: break
+        }
     }
 
     /// Lets a middle click open the panel, matching a left click on the Mac.
+    ///
+    /// Only libayatana needs telling: Ration's own item answers
+    /// `SecondaryActivate` itself.
     func setPrimaryTarget(_ item: Widget?) {
-        app_indicator_set_secondary_activate_target(indicator, item)
+        if case .appIndicator(let indicator) = backend {
+            app_indicator_set_secondary_activate_target(indicator, item)
+        }
     }
 
     // MARK: Drawing
@@ -61,8 +100,15 @@ final class TrayIcon {
         let name = "ration-\(slot)"
         let path = directory.appending(path: "\(name).png").path
         writePNG(strip: strip, palette: palette, to: path)
-        app_indicator_set_icon_full(indicator, name, strip.accessibilityLabel)
-        app_indicator_set_title(indicator, strip.accessibilityLabel)
+        switch backend {
+        case .statusNotifier(let item):
+            item.set(iconName: name, title: strip.accessibilityLabel)
+        case .appIndicator(let indicator):
+            app_indicator_set_icon_full(indicator, name, strip.accessibilityLabel)
+            app_indicator_set_title(indicator, strip.accessibilityLabel)
+        case .offscreen:
+            break
+        }
     }
 
     /// Draws the icon to a file. Split from `update` so the icon can be rendered

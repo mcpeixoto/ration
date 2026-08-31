@@ -109,10 +109,12 @@ jobs:
       - name: Install the C libraries
         run: |
           sudo apt-get update
-          # The tray links against GTK 3, Cairo and libayatana-appindicator3.
+          # The tray links against GTK 3, Cairo, GDBus, libdbusmenu and
+          # libayatana-appindicator3.
           # Without them the CLI still builds, but `swift build` builds every
           # product and the tray fails at link time.
-          sudo apt-get install -y libsqlite3-dev libgtk-3-dev libayatana-appindicator3-dev
+          sudo apt-get install -y libsqlite3-dev libgtk-3-dev \
+            libayatana-appindicator3-dev libdbusmenu-gtk3-dev
 
       - name: Build
         run: swift build --build-tests -c debug

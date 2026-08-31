@@ -5,6 +5,9 @@ module CLinuxTray [system] {
     link "gobject-2.0"
     link "glib-2.0"
     link "cairo"
+    link "gio-2.0"
+    link "dbusmenu-glib"
+    link "dbusmenu-gtk3"
     link "ayatana-appindicator3"
     export *
 }
