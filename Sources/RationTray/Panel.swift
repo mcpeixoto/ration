@@ -161,6 +161,12 @@ final class Panel {
 
     /// Regions that respond to a click, innermost last.
     private var hitRegions: [(rect: Rect, action: () -> Void)] = []
+    /// When set, `addHit` intersects against this viewport — used while the
+    /// scrollable body is registering targets so scrolled content cannot steal
+    /// chrome clicks.
+    private var hitClip: Rect?
+    /// The body viewport in logical units; wheel events outside it are ignored.
+    private var bodyClip: Rect?
     private var pointer = Point(-1, -1)
     /// Height the last frame wanted, used to size the window.
     fileprivate var contentHeight = 0.0
@@ -188,10 +194,10 @@ final class Panel {
     // MARK: Window
 
     private func build() {
-        // A toplevel, undecorated, hinted as a popup menu. GTK_WINDOW_POPUP
-        // would also be undecorated, but the window manager never focuses one,
-        // and a panel that cannot take focus can neither be dismissed by
-        // clicking away nor closed with Escape.
+        // A toplevel, undecorated utility window. POPUP_MENU made dismiss and
+        // Settings races fragile — GTK treated the panel like a menu and tore
+        // GdkWindows down mid-click. UTILITY still skips the taskbar, stays
+        // above, and can take focus for click-away and Escape.
         let window = gtk_window_new(0)
         gtk_window_set_title(window, "Ration")
         gtk_window_set_decorated(window, 0)
@@ -199,7 +205,7 @@ final class Panel {
         gtk_window_set_skip_taskbar_hint(window, 1)
         gtk_window_set_skip_pager_hint(window, 1)
         gtk_window_set_keep_above(window, 1)
-        gtk_window_set_type_hint(window, 10)  // GDK_WINDOW_TYPE_HINT_POPUP_MENU
+        gtk_window_set_type_hint(window, 5)  // GDK_WINDOW_TYPE_HINT_UTILITY
         gtk_window_set_default_size(window, Int32(Self.width), 420)
 
         // An RGBA visual lets the rounded corners sit on the desktop rather
@@ -228,7 +234,8 @@ final class Panel {
             return self.handleMotion(to: self.logical(event))
         }
         onScroll(area) { [weak self] event in
-            self?.handleScroll(delta: event.scrollDelta) ?? false
+            guard let self else { return false }
+            return self.handleScroll(delta: event.scrollDelta, at: self.logical(event))
         }
         onKeyPress(window) { [weak self] event in
             // Escape backs out one step: an open card first, then the panel.
@@ -255,8 +262,9 @@ final class Panel {
         self.area = area
     }
 
-    /// Opens under the pointer, which is where the tray icon was clicked.
-    func open() {
+    /// Opens under the tray click when the host sent coordinates, otherwise
+    /// under the pointer.
+    func open(at point: (x: Int, y: Int)? = nil, startupID: String? = nil) {
         if window == nil { build() }
         guard let window else { return }
 
@@ -270,7 +278,11 @@ final class Panel {
         let height = Int32((min(max(contentHeight, 220), maxHeight) * scale).rounded())
         gtk_window_resize(window, pixelWidth, height)
 
-        if let placement = currentPointerPlacement() {
+        if let startupID, !startupID.isEmpty {
+            gtk_window_set_startup_id(window, startupID)
+        }
+
+        if let placement = placement(for: point) {
             let area = placement.workArea
             let panelWidth = Int(pixelWidth)
             var x = placement.pointerX - panelWidth / 2
@@ -289,6 +301,18 @@ final class Panel {
         gtk_window_present(window)
         gtk_widget_grab_focus(window)
         redraw()
+    }
+
+    /// Anchor from Activate coordinates when the host sent a real point;
+    /// otherwise the current pointer (GNOME often sends zeros).
+    private func placement(for point: (x: Int, y: Int)?) -> PointerPlacement? {
+        if let point, point.x != 0 || point.y != 0,
+            let base = currentPointerPlacement()
+        {
+            return PointerPlacement(
+                pointerX: point.x, pointerY: point.y, workArea: base.workArea)
+        }
+        return currentPointerPlacement()
     }
 
     func close() {
@@ -310,7 +334,7 @@ final class Panel {
     }
 
     func redraw() {
-        guard let area, isOpen else { return }
+        guard let area, isOpen, gtk_widget_get_window(area) != nil else { return }
         gtk_widget_queue_draw(area)
     }
 
@@ -346,7 +370,8 @@ final class Panel {
         return false
     }
 
-    private func handleScroll(delta: Double) -> Bool {
+    private func handleScroll(delta: Double, at point: Point) -> Bool {
+        guard let bodyClip, bodyClip.contains(point) else { return false }
         let offset = scrollOffset
         let limit = max(0, contentHeight - maxHeight)
         let next = min(max(offset + delta * 48, 0), limit)
@@ -373,7 +398,12 @@ final class Panel {
     // MARK: Hit testing
 
     func addHit(_ rect: Rect, _ action: @escaping () -> Void) {
-        hitRegions.append((rect, action))
+        var target = rect
+        if let hitClip {
+            target = rect.intersection(hitClip)
+            guard target.width > 0, target.height > 0 else { return }
+        }
+        hitRegions.append((target, action))
     }
 
     func isHovered(_ rect: Rect) -> Bool {
@@ -428,9 +458,13 @@ final class Panel {
         let available = maxHeight - y - footerHeight
         let offset = scrollOffset
         var bodyHeight = 0.0
-        canvas.clipped(to: Rect(0, y, width, max(0, min(available, height - y - footerHeight)))) {
+        let clip = Rect(0, y, width, max(0, min(available, height - y - footerHeight)))
+        bodyClip = clip
+        hitClip = clip
+        canvas.clipped(to: clip) {
             bodyHeight = drawBody(canvas, width: width, top: y - offset, now: now)
         }
+        hitClip = nil
 
         contentHeight = y + bodyHeight + footerHeight + 1
         let bodyBottom = min(y + bodyHeight - offset, height - footerHeight)

@@ -147,6 +147,7 @@ void gtk_window_move(GtkWidget *window, int x, int y);
 void gtk_window_resize(GtkWidget *window, int width, int height);
 void gtk_window_present(GtkWidget *window);
 void gtk_window_set_icon_name(GtkWidget *window, const char *name);
+void gtk_window_set_startup_id(GtkWidget *window, const char *startup_id);
 void gtk_window_get_position(GtkWidget *window, int *root_x, int *root_y);
 void gtk_window_get_size(GtkWidget *window, int *width, int *height);
 
@@ -391,14 +392,26 @@ GVariant *g_variant_new_int32(int value);
 GVariant *g_variant_new_tuple(GVariant *const *children, unsigned long n_children);
 GVariant *g_variant_get_child_value(GVariant *value, unsigned long index);
 gboolean g_variant_get_boolean(GVariant *value);
+int g_variant_get_int32(GVariant *value);
+const char *g_variant_get_string(GVariant *value, unsigned long *length);
 void g_variant_unref(GVariant *value);
+
+typedef struct _GList {
+    gpointer data;
+    struct _GList *next;
+    struct _GList *prev;
+} GList;
 
 typedef struct _DbusmenuServer DbusmenuServer;
 typedef struct _DbusmenuMenuitem DbusmenuMenuitem;
 
 DbusmenuServer *dbusmenu_server_new(const char *object);
 void dbusmenu_server_set_root(DbusmenuServer *self, DbusmenuMenuitem *root);
+DbusmenuMenuitem *dbusmenu_server_get_root(DbusmenuServer *self);
 DbusmenuMenuitem *dbusmenu_gtk_parse_menu_structure(GtkWidget *widget);
+GList *dbusmenu_menuitem_get_children(DbusmenuMenuitem *mi);
+gboolean dbusmenu_menuitem_property_set_bool(
+    DbusmenuMenuitem *mi, const char *property, gboolean value);
 
 void gtk_menu_popup_at_pointer(GtkWidget *menu, const void *trigger_event);
 

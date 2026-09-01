@@ -37,6 +37,14 @@ final class SettingsWindow {
 
     func open(on section: Section? = nil) {
         if let section { self.section = section }
+        // A previous open that raced popup teardown can leave a widget whose
+        // GdkWindow is already gone. Rebuild rather than queue_draw into it.
+        if let window, gtk_widget_get_window(window) == nil {
+            gtk_widget_destroy(window)
+            self.window = nil
+            self.area = nil
+            isOpen = false
+        }
         if window == nil { build() }
         guard let window else { return }
         isOpen = true
@@ -63,7 +71,9 @@ final class SettingsWindow {
     }
 
     func redraw() {
-        guard let area, isOpen else { return }
+        // `area` can outlive its GdkWindow if GTK tore the popup hierarchy
+        // down while Settings was being presented from a panel click.
+        guard let area, isOpen, gtk_widget_get_window(area) != nil else { return }
         gtk_widget_queue_draw(area)
     }
 
@@ -109,6 +119,12 @@ final class SettingsWindow {
         // reopening Settings does not have to rebuild everything.
         onDeleteEvent(window) { [weak self] in
             self?.close()
+        }
+        onSignal(window, "destroy") { [weak self] in
+            guard let self else { return }
+            self.window = nil
+            self.area = nil
+            self.isOpen = false
         }
 
         self.window = window

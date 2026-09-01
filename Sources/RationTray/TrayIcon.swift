@@ -69,6 +69,16 @@ final class TrayIcon {
         }
     }
 
+    /// Lets a ContextMenu host show the real GtkMenu instead of the GNOME
+    /// single-click path that opens the panel.
+    func beginContextMenu() {
+        if case .statusNotifier(let item) = backend { item.beginContextMenu() }
+    }
+
+    func endContextMenu() {
+        if case .statusNotifier(let item) = backend { item.endContextMenu() }
+    }
+
     /// Announces the item once its menu is in place — a host reads the menu
     /// before it will show anything.
     func publish() {

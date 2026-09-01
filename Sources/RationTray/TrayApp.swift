@@ -33,6 +33,10 @@ final class TrayApp {
     private var lastStrip: MenuBarStrip?
     private var lastPalette: Palette?
     private var openPanelItem: Widget?
+    /// Hint from SNI `Activate(x, y)` for where to place the panel.
+    private var pendingActivatePoint: (x: Int, y: Int)?
+    /// From `ProvideXdgActivationToken`, applied once when the panel opens.
+    private var activationToken: String?
 
     init() {
         config = AppConfig.load()
@@ -49,9 +53,10 @@ final class TrayApp {
         icon = TrayIcon(
             title: "Ration",
             actions: StatusNotifierItem.Actions(
-                activate: { [weak self] in self?.togglePanel() },
-                secondaryActivate: { [weak self] in self?.togglePanel() },
-                contextMenu: { [weak self] in self?.popUpMenu() }))
+                activate: { [weak self] x, y in self?.togglePanel(at: x, y: y) },
+                secondaryActivate: { [weak self] x, y in self?.togglePanel(at: x, y: y) },
+                contextMenu: { [weak self] in self?.popUpMenu() },
+                activationToken: { [weak self] token in self?.activationToken = token }))
         buildMenu()
         icon?.publish()
 
@@ -256,11 +261,18 @@ final class TrayApp {
 
     func openPanel() {
         syncCompanion()
-        panel.open()
+        let point = pendingActivatePoint
+        pendingActivatePoint = nil
+        let token = activationToken
+        activationToken = nil
+        panel.open(at: point, startupID: token)
     }
 
     /// What a click on the tray icon does: the panel, or away with it.
-    func togglePanel() {
+    func togglePanel(at x: Int = 0, y: Int = 0) {
+        if x != 0 || y != 0 {
+            pendingActivatePoint = (x, y)
+        }
         if panel.isOpen {
             panel.close()
         } else {
@@ -272,7 +284,11 @@ final class TrayApp {
     /// reading the exported one.
     private func popUpMenu() {
         guard let menu else { return }
+        icon?.beginContextMenu()
         gtk_menu_popup_at_pointer(menu, nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.icon?.endContextMenu()
+        }
     }
 
     /// Opens the panel on a named tab.
@@ -345,8 +361,16 @@ final class TrayApp {
     }
 
     func openSettings(on section: SettingsWindow.Section? = nil) {
-        panel.close()
-        settingsWindow.open(on: section)
+        // Closing the panel and presenting Settings must not run inside the
+        // panel's button-press handler. Hiding the window mid-click makes GTK
+        // destroy GdkWindows that are still being updated; the next tick then
+        // crashed in `SettingsWindow.redraw`, which is why the gear looked
+        // like it "did nothing" (the tray was dead).
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.panel.close()
+            self.settingsWindow.open(on: section)
+        }
     }
 
     func refreshNow() {

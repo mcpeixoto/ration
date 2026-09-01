@@ -347,4 +347,13 @@ struct Rect: Equatable {
     func offset(dx: Double, dy: Double) -> Rect {
         Rect(x + dx, y + dy, width, height)
     }
+
+    /// Overlap with another rect, or a zero-size rect when they miss.
+    func intersection(_ other: Rect) -> Rect {
+        let left = max(x, other.x)
+        let top = max(y, other.y)
+        let right = min(maxX, other.maxX)
+        let bottom = min(maxY, other.maxY)
+        return Rect(left, top, max(0, right - left), max(0, bottom - top))
+    }
 }

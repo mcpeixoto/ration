@@ -195,6 +195,23 @@ func onDeleteEvent(_ widget: Widget?, _ handler: @escaping () -> Void) {
         })
 }
 
+/// libdbusmenu's `about-to-show`: returns whether the layout changed.
+///
+/// GNOME's appindicator opens this menu on a single left click (and only calls
+/// SNI `Activate` on a double click). Returning after opening the panel, with
+/// the items briefly hidden, is how a single click reaches the panel there.
+func onAboutToShow(_ item: OpaquePointer?, _ handler: @escaping () -> Bool) {
+    let trampoline:
+        @convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32 =
+        { _, data in
+            guard let box = unbox(data) else { return 0 }
+            return box.action(nil) ? 1 : 0
+        }
+    _ = g_signal_connect_data(
+        raw(item), "about-to-show", unsafeBitCast(trampoline, to: GCallback.self),
+        box { _ in handler() }, nil, 0)
+}
+
 /// Fires when the panel loses focus, which is how a menu-bar panel is
 /// dismissed — clicking anywhere else closes it.
 func onFocusOut(_ widget: Widget?, _ handler: @escaping () -> Void) {

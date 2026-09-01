@@ -32,10 +32,10 @@ if CommandLine.arguments.contains("--help") {
           ration-tray --help     Show this message
 
         The tray icon carries the gauge; clicking it opens the panel with
-        Usage, Activity, Trends, Detail, and Pokémon — a double click on GNOME,
-        whose shell keeps the single click for the menu. Refresh and Settings
-        live in that menu. For a terminal-only view of the same numbers, run
-        `ration`.
+        Usage, Activity, Trends, Detail, and Pokémon. On GNOME the shell opens
+        the tray menu on a single click — Ration turns that into the panel.
+        Refresh, Settings and Quit also live in the right-click menu. For a
+        terminal-only view of the same numbers, run `ration`.
         """)
     exit(0)
 }

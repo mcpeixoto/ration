@@ -106,9 +106,11 @@ expects them to register again.
 
 What a host does with the click is still the host's business. KDE, XFCE, waybar
 and swaybar call `Activate` on a plain click. GNOME's appindicator extension
-hardwires a single click to the menu and calls `Activate` on a double click, so
-there the panel is two quick clicks away — one better than before, and as close
-as that shell allows.
+opens the dbusmenu on a single left click and only calls `Activate` on a double
+click — so the menu root's `about-to-show` toggles the panel and briefly hides
+the menu items, which is how a single click reaches the panel there. Right click
+still gets the real menu via `ContextMenu` (or the same dbusmenu path after
+`beginContextMenu`). Middle click calls `SecondaryActivate`.
 
 libayatana-appindicator is kept as the fallback for a desktop with no
 StatusNotifier host on the bus — a bare window manager with an XEmbed tray —
@@ -288,15 +290,14 @@ a version string. A test pins the URL on both sides.
 | | macOS | Linux |
 |---|---|---|
 | Gauge | `MenuBarExtra` | StatusNotifierItem, PNG per refresh |
-| Panel | SwiftUI popover | GTK window, drawn with Cairo |
-| Opens on | click on the item | click on the item, where the host offers it — double click on GNOME; middle click, or "Open Ration" in the menu, anywhere |
+| Panel | SwiftUI popover | GTK utility window, drawn with Cairo |
+| Opens on | click on the item | click on the item — `Activate` where the host offers it; on GNOME, the menu's `about-to-show` opens the panel on a single click |
 | Card art | Image Playground can redraw a card | drawn art only |
 | Companion in the gauge | not shown — the menu bar item is a template image, and a coloured creature would cost the system tinting | drawn beside the number |
 | Size | points, resolved by AppKit | display density, or Settings → Size |
 | Updates | installed by Sparkle | reported, installed by you |
 | Launch at login | `SMAppService` | XDG autostart entry |
 
-The tray opens the panel under the pointer, which is where the click on the
-item happened. The coordinates a host passes to `Activate` are documented as
-"an hint" and are empty on GNOME, so the pointer is the closest available
-anchor.
+The tray opens the panel under the `Activate` coordinates when the host sends
+them, otherwise under the pointer. GNOME often sends zeros, so the pointer is
+the fallback there.

@@ -16,20 +16,23 @@ import Foundation
 ///
 /// What a host does with the click is still the host's business. KDE, XFCE,
 /// waybar and swaybar call `Activate` on a plain click. GNOME's appindicator
-/// extension hardwires a single click to the menu and calls `Activate` on a
-/// double click, so there the panel is two quick clicks away — one better than
-/// before, and as close as that shell allows.
+/// extension hardwires a single click to the menu and `Activate` only on a
+/// double click — so for GNOME, `about-to-show` on the menu root opens the
+/// panel and briefly hides the menu items, which is as close to a Mac click
+/// as that shell allows without a custom extension.
 final class StatusNotifierItem {
 
     /// What a host can ask the item to do.
     struct Actions {
-        /// A plain click on the icon.
-        var activate: () -> Void
+        /// A plain click on the icon (x, y may be zero when the host sends none).
+        var activate: (_ x: Int, _ y: Int) -> Void
         /// A middle click.
-        var secondaryActivate: () -> Void
+        var secondaryActivate: (_ x: Int, _ y: Int) -> Void
         /// A right click, on a host that leaves the menu to the application
         /// instead of reading the exported one.
         var contextMenu: () -> Void
+        /// Wayland / startup-notification token from `ProvideXdgActivationToken`.
+        var activationToken: (_ token: String) -> Void
     }
 
     /// The path a host looks at when it is handed a bus name and nothing else.
@@ -59,8 +62,11 @@ final class StatusNotifierItem {
     private var iconName: String
     private var title: String
     private var menuServer: OpaquePointer?
+    private var menuRoot: OpaquePointer?
     private var isPublished = false
     private var isWatching = false
+    /// When true, the next `about-to-show` leaves the menu alone (ContextMenu).
+    private var allowMenuShow = false
 
     // MARK: Availability
 
@@ -116,7 +122,7 @@ final class StatusNotifierItem {
     private static func withTuple<T>(
         _ value: OpaquePointer?, _ body: (OpaquePointer?) -> T
     ) -> T {
-        var children: [OpaquePointer?] = [value]
+        let children: [OpaquePointer?] = [value]
         return children.withUnsafeBufferPointer { buffer in
             body(g_variant_new_tuple(buffer.baseAddress, 1))
         }
@@ -148,10 +154,10 @@ final class StatusNotifierItem {
         // the process, so the table is deliberately never freed.
         let vtable = UnsafeMutablePointer<GDBusInterfaceVTable>.allocate(capacity: 1)
         vtable.initialize(to: GDBusInterfaceVTable())
-        vtable.pointee.method_call = { _, _, _, _, method, _, invocation, _ in
+        vtable.pointee.method_call = { _, _, _, _, method, parameters, invocation, _ in
             guard let method else { return }
             StatusNotifierItem.live?.handle(
-                method: String(cString: method), invocation: invocation)
+                method: String(cString: method), parameters: parameters, invocation: invocation)
         }
         vtable.pointee.get_property = { _, _, _, _, property, _, _ in
             guard let property else { return nil }
@@ -170,7 +176,9 @@ final class StatusNotifierItem {
         Self.live = self
     }
 
-    /// Exports the menu a host shows on a right click.
+    /// Exports the menu a host shows on a right click — and, on GNOME, also
+    /// the menu a single left click opens. `about-to-show` turns that left
+    /// click into a panel toggle.
     ///
     /// Called before `publish()`: a host reads `Id` and `Menu` first and gives
     /// up on an item whose menu is not answering yet.
@@ -179,7 +187,22 @@ final class StatusNotifierItem {
         if menuServer == nil { menuServer = dbusmenu_server_new(Self.menuPath) }
         // The parser keeps watching the GtkMenu, so later label changes — the
         // limit summary is rewritten on every poll — travel on their own.
-        dbusmenu_server_set_root(menuServer, dbusmenu_gtk_parse_menu_structure(menu))
+        let root = dbusmenu_gtk_parse_menu_structure(menu)
+        menuRoot = root
+        dbusmenu_server_set_root(menuServer, root)
+        onAboutToShow(root) { [weak self] in
+            self?.handleAboutToShow() ?? false
+        }
+    }
+
+    /// Lets `ContextMenu` show the real menu instead of opening the panel.
+    func beginContextMenu() {
+        allowMenuShow = true
+        setMenuChildrenVisible(true)
+    }
+
+    func endContextMenu() {
+        allowMenuShow = false
     }
 
     /// Takes the item's bus name, then tells every host that appears about it.
@@ -267,19 +290,85 @@ final class StatusNotifierItem {
         }
     }
 
-    fileprivate func handle(method: String, invocation: OpaquePointer?) {
+    fileprivate func handle(
+        method: String, parameters: OpaquePointer?, invocation: OpaquePointer?
+    ) {
         switch method {
-        case "Activate": actions.activate()
-        case "SecondaryActivate", "XAyatanaSecondaryActivate": actions.secondaryActivate()
-        case "ContextMenu": actions.contextMenu()
-        // Scrolling the icon adjusts nothing, and the activation token would
-        // only matter to a Wayland compositor handing focus to a window GTK 3
-        // cannot label. Both are answered so the host does not retry.
-        case "Scroll", "ProvideXdgActivationToken": break
-        default: break
+        case "Activate":
+            let point = Self.pointArgs(parameters)
+            actions.activate(point.x, point.y)
+        case "SecondaryActivate":
+            let point = Self.pointArgs(parameters)
+            actions.secondaryActivate(point.x, point.y)
+        case "XAyatanaSecondaryActivate":
+            actions.secondaryActivate(0, 0)
+        case "ContextMenu":
+            beginContextMenu()
+            actions.contextMenu()
+            // The GtkMenu is modal for the click; restore the GNOME path after.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                StatusNotifierItem.live?.endContextMenu()
+            }
+        case "ProvideXdgActivationToken":
+            if let token = Self.stringArg(parameters) {
+                actions.activationToken(token)
+            }
+        case "Scroll":
+            break
+        default:
+            break
         }
         // Every method the interface declares returns nothing.
         g_dbus_method_invocation_return_value(invocation, nil)
+    }
+
+    /// GNOME left-click opens the dbusmenu after a double-click wait. Turn that
+    /// into a panel toggle and hide the items so the popup is empty.
+    private func handleAboutToShow() -> Bool {
+        if allowMenuShow {
+            setMenuChildrenVisible(true)
+            return false
+        }
+        actions.activate(0, 0)
+        setMenuChildrenVisible(false)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            StatusNotifierItem.live?.setMenuChildrenVisible(true)
+        }
+        return true
+    }
+
+    private func setMenuChildrenVisible(_ visible: Bool) {
+        guard let root = menuRoot else { return }
+        var node = dbusmenu_menuitem_get_children(root)
+        while let current = node {
+            if let data = current.pointee.data {
+                _ = dbusmenu_menuitem_property_set_bool(
+                    OpaquePointer(data), "visible", visible ? 1 : 0)
+            }
+            node = current.pointee.next
+        }
+    }
+
+    private static func pointArgs(_ parameters: OpaquePointer?) -> (x: Int, y: Int) {
+        guard let parameters else { return (0, 0) }
+        let x = g_variant_get_child_value(parameters, 0).map { value -> Int in
+            defer { g_variant_unref(value) }
+            return Int(g_variant_get_int32(value))
+        } ?? 0
+        let y = g_variant_get_child_value(parameters, 1).map { value -> Int in
+            defer { g_variant_unref(value) }
+            return Int(g_variant_get_int32(value))
+        } ?? 0
+        return (x, y)
+    }
+
+    private static func stringArg(_ parameters: OpaquePointer?) -> String? {
+        guard let parameters,
+            let first = g_variant_get_child_value(parameters, 0)
+        else { return nil }
+        defer { g_variant_unref(first) }
+        guard let cString = g_variant_get_string(first, nil) else { return nil }
+        return String(cString: cString)
     }
 
     /// The interface as the host reads it. `Activate` being present is what
