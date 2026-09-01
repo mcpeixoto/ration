@@ -12,7 +12,19 @@ This block is identical in every repo under `~/Documents/Coding`. To change it, 
 
 Work autonomously to completion. Do not stop to ask what to do next. Do not hand back a
 half-done task with a list of remaining steps. Do not ask permission for anything this file
-already grants. Run independent work in parallel with subagents.
+already grants.
+
+**Parallelise by default.** Whenever a task splits into parts that do not depend on each
+other, run them at once with subagents instead of one after another — the user is waiting on
+wall-clock time, not on tidy sequencing. Reach for it without being asked:
+
+- auditing or reviewing — one subagent per page, feature, or subsystem, all at once;
+- independent fixes — one subagent per fix, not a queue;
+- searching a large surface — several agents on different angles;
+- long test or build matrices — run them concurrently, not serially.
+
+Sequence only what genuinely depends on the previous step. If you catch yourself doing
+similar work N times in a row, that was N agents you should have launched together.
 
 Report tersely: what changed, what you ran, what the output said. No preamble, no recap of
 what was already agreed.
