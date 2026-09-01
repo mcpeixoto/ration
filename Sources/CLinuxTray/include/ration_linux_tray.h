@@ -407,7 +407,6 @@ typedef struct _DbusmenuMenuitem DbusmenuMenuitem;
 
 DbusmenuServer *dbusmenu_server_new(const char *object);
 void dbusmenu_server_set_root(DbusmenuServer *self, DbusmenuMenuitem *root);
-DbusmenuMenuitem *dbusmenu_server_get_root(DbusmenuServer *self);
 DbusmenuMenuitem *dbusmenu_gtk_parse_menu_structure(GtkWidget *widget);
 GList *dbusmenu_menuitem_get_children(DbusmenuMenuitem *mi);
 gboolean dbusmenu_menuitem_property_set_bool(
