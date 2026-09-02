@@ -7,12 +7,12 @@
     <language>en</language>
     <item>
       <title>Version 0.8.3</title>
-      <pubDate>Tue, 01 Sep 2026 22:29:24 +0000</pubDate>
-      <sparkle:version>106</sparkle:version>
+      <pubDate>Wed, 02 Sep 2026 13:43:25 +0000</pubDate>
+      <sparkle:version>108</sparkle:version>
       <sparkle:shortVersionString>0.8.3</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <link>https://github.com/mcpeixoto/ration/releases/tag/v0.8.3</link>
-      <enclosure url="https://github.com/mcpeixoto/ration/releases/download/v1.2.4/Ration-0.8.3.dmg" length="3673146" type="application/octet-stream" sparkle:edSignature="WfFJtQLHDXoXty7p0BXGFRp+AD++8Q4ciPLnL1ZXl2bIJygkDrymwPbSMJkCHEE5seYu+AaQAgD/gTchKqUlAg==" />
+      <enclosure url="https://github.com/mcpeixoto/ration/releases/download/v1.2.5/Ration-0.8.3.dmg" length="3672729" type="application/octet-stream" sparkle:edSignature="rnBzq97y56Zaz+5wMUgWv5LUiXXUZI8vE+UGq3CPf26a5WiN5D1mc01aRyUdP5xfPAcBuCA/yLN73nlmJ5+hBg==" />
     </item>
     <item>
       <title>Version 1.2.2</title>
