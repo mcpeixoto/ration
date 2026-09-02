@@ -1,0 +1,23 @@
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="ration mark">
+  <title>ration</title>
+  <style>
+  /* Self-contained: this file animates on its own, no host stylesheet. */
+  svg { color: #1f2937; }
+  [class^="anim-"] { animation-iteration-count: infinite; transform-box: fill-box; transform-origin: center; }
+  .anim-ration-arc { animation-name: ration-spend; animation-duration: 2400ms; animation-timing-function: cubic-bezier(.35,0,.15,1); transform-box: view-box; transform-origin: 0px 0px; /* keep the circle's own rotate(-90 512 512) attribute honest: the gate's fill-box/center origin would shift it */ }
+  @keyframes ration-spend {   0%, 100% { stroke-dasharray: 1093.17 1518.291; }   42%, 58% { stroke-dasharray: 1175 1518.291; } }
+  @media (prefers-color-scheme: dark) {
+    svg { color: #e5e7eb; }
+  }
+  @media (prefers-reduced-motion: reduce) { [class^="anim-"] { animation: none !important; } }
+  </style>
+  <defs>
+    <linearGradient id="ration-grad" gradientUnits="userSpaceOnUse" x1="88.064" y1="88.064" x2="935.936" y2="935.936">
+      <stop offset="0" stop-color="#E58C6D"/>
+      <stop offset="1" stop-color="#C96444"/>
+    </linearGradient>
+  </defs>
+  <rect x="88.064" y="88.064" width="847.872" height="847.872" rx="189.669" ry="189.669" fill="url(#ration-grad)"/>
+  <circle cx="512" cy="512" r="241.644" fill="none" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="97.505" stroke-linecap="round"/>
+  <circle class="anim-ration-arc" cx="512" cy="512" r="241.644" fill="none" stroke="#FFFFFF" stroke-width="97.505" stroke-linecap="round" stroke-dasharray="1093.17 1518.291" transform="rotate(-90 512 512)"/>
+</svg>
