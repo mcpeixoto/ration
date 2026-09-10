@@ -42,9 +42,13 @@ public struct PollSchedule: Sendable, Equatable {
         // show a sign-in prompt instead of burning requests that all 401.
         if lastError == .unauthorized { return nil }
 
-        // The server told us exactly how long to wait. Believe it.
-        if case .rateLimited(let retryAfter) = lastError, let retryAfter {
-            return max(retryAfter, Self.minimumInterval)
+        // Rate limits: honour Retry-After on the first hit, then escalate so a
+        // sticky 60s hint cannot keep us hammering the endpoint forever.
+        if case .rateLimited(let retryAfter) = lastError {
+            let hinted = max(retryAfter ?? 0, Self.minimumInterval)
+            guard failures > 1 else { return hinted }
+            let backoff = idleInterval * pow(2, Double(failures))
+            return min(max(hinted, backoff), Self.maximumBackoff)
         }
 
         guard failures > 0 else {

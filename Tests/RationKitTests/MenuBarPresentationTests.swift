@@ -199,6 +199,14 @@ struct MenuBarStateTests {
         #expect(presentation.tooltip.contains("older numbers"))
     }
 
+    @Test("a rate-limited refresh names the reason in the tooltip")
+    func rateLimitedTooltip() {
+        let stale = state([limit(.session, 42)], failing: .rateLimited(retryAfter: 60))
+        let presentation = present(stale)
+        #expect(presentation.title == "42%")
+        #expect(presentation.tooltip.contains("Rate limited"))
+    }
+
     @Test("an offline first load shows the offline icon")
     func offlineWithNoData() {
         var offline = UsageState()

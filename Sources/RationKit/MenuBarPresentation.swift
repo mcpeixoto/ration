@@ -269,7 +269,13 @@ extension MenuBarPresentation {
             lines.insert(providerName, at: 0)
         }
         if state.isStale {
-            lines.append("Last update failed — showing older numbers.")
+            if case .rateLimited = state.lastError {
+                lines.append("Rate limited — showing older numbers.")
+            } else if let detail = state.lastError?.errorDescription {
+                lines.append("Last update failed — showing older numbers. \(detail)")
+            } else {
+                lines.append("Last update failed — showing older numbers.")
+            }
         }
         return lines.joined(separator: "\n")
     }

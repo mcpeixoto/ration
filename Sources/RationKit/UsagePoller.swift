@@ -99,12 +99,22 @@ public final class UsagePoller {
     }
 
     /// The popover opened or closed. Open means faster polling and an immediate
-    /// refresh, so the numbers are current the moment they are looked at.
+    /// refresh, so the numbers are current the moment they are looked at —
+    /// unless the last failure was a rate limit, in which case opening the
+    /// menu must not burn another request and prolong the cooldown.
     public func setMenuOpen(_ open: Bool) {
         guard open != isMenuOpen else { return }
         isMenuOpen = open
         guard isRunning else { return }
-        restart(refreshImmediately: open)
+        let force = open && !isRateLimited
+        restart(refreshImmediately: force)
+    }
+
+    /// True when the last error was a rate limit. `refreshNow()` still forces
+    /// a fetch (the Retry button), but automatic open-menu refreshes do not.
+    private var isRateLimited: Bool {
+        if case .rateLimited = state.lastError { return true }
+        return false
     }
 
     public func updateSchedule(_ new: PollSchedule) {

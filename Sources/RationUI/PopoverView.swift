@@ -326,6 +326,7 @@ public struct PopoverView: View {
     private func errorSymbol(for error: LimitsError) -> String {
         switch error {
         case .noData, .unavailable: "tray"
+        case .rateLimited: "clock.arrow.circlepath"
         default: "wifi.slash"
         }
     }
@@ -333,6 +334,7 @@ public struct PopoverView: View {
     private func errorTitle(for error: LimitsError) -> String {
         switch error {
         case .noData, .unavailable: "Nothing recorded yet"
+        case .rateLimited: "Rate limited"
         default: "Can't reach \(provider.displayName)"
         }
     }
@@ -455,7 +457,13 @@ public struct PopoverView: View {
     @ViewBuilder
     private func statusText(now: Date) -> some View {
         if poller?.state.isStale == true {
-            Label("Showing older numbers", systemImage: "exclamationmark.triangle.fill")
+            let label: String =
+                if case .rateLimited = poller?.state.lastError {
+                    "Rate limited — showing older numbers"
+                } else {
+                    "Showing older numbers"
+                }
+            Label(label, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
                 .labelStyle(.titleAndIcon)
                 .imageScale(.small)

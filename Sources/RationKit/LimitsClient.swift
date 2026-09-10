@@ -24,9 +24,9 @@ public enum LimitsError: Error, Equatable, LocalizedError {
             "Your session has expired. Open the tool to sign in again."
         case .rateLimited(let retryAfter):
             if let retryAfter {
-                "Too many requests. Retrying in \(Int(retryAfter))s."
+                "Usage checks are rate-limited. Retrying in \(Int(retryAfter))s."
             } else {
-                "Too many requests. Retrying shortly."
+                "Usage checks are rate-limited. Retrying shortly."
             }
         case .serverError(let status):
             "The usage service returned an error (\(status)). Retrying."
@@ -223,5 +223,5 @@ public struct AnthropicUsageSource: UsageSource {
 
 public enum Ration {
     /// Kept in step with the VERSION file by Scripts/bundle.sh.
-    public static let version = "0.8.3"
+    public static let version = "0.8.4"
 }

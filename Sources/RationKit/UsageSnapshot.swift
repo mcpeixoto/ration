@@ -47,9 +47,16 @@ public struct UsageSnapshot: Sendable, Equatable {
         UsageSnapshot(limits: limits, spend: spend, fetchedAt: fetchedAt, planName: name)
     }
 
-    /// The limit worth showing in the menu bar: whichever is closest to being hit.
+    /// The limit worth showing in the menu bar.
+    ///
+    /// Prefers a limit the provider marked active — Cursor's monthly pool is
+    /// active while its Auto/API rows are attribution splits of the same
+    /// allowance. Falling back to "highest percent" made the tray say "API"
+    /// whenever that split looked busier than the monthly total.
     public var primaryLimit: UsageLimit? {
-        limits.max { $0.percent < $1.percent }
+        let active = limits.filter(\.isActive)
+        let pool = active.isEmpty ? limits : active
+        return pool.max { $0.percent < $1.percent }
     }
 
     /// The worst severity across all limits, for tinting the menu bar item.
