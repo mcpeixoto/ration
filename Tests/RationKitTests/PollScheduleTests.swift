@@ -62,6 +62,23 @@ struct PollScheduleTests {
         #expect(delay == PollSchedule.minimumInterval)
     }
 
+    @Test("escalates past a sticky Retry-After after repeated rate limits")
+    func rateLimitEscalates() {
+        let first = schedule.delay(
+            failures: 1, isMenuOpen: false, lastError: .rateLimited(retryAfter: 60))
+        let third = schedule.delay(
+            failures: 3, isMenuOpen: false, lastError: .rateLimited(retryAfter: 60))
+        #expect(first == 60)
+        #expect(third == 300)
+    }
+
+    @Test("rate limits without Retry-After use exponential backoff")
+    func rateLimitWithoutHint() {
+        let delay = schedule.delay(
+            failures: 2, isMenuOpen: false, lastError: .rateLimited(retryAfter: nil))
+        #expect(delay == 240)
+    }
+
     @Test("stops polling entirely once the token is rejected")
     func haltsOnUnauthorized() {
         #expect(schedule.delay(failures: 1, isMenuOpen: false, lastError: .unauthorized) == nil)

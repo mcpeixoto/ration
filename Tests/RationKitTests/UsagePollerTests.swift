@@ -315,6 +315,33 @@ struct UsagePollerTests {
         #expect(client.callCount > before)
     }
 
+    @Test("opening the popover during a rate limit does not burn another request")
+    func openingMenuRespectsRateLimit() async {
+        let client = FakeLimitsClient(results: [
+            .success(snapshot(10)),
+            .failure(.rateLimited(retryAfter: 180)),
+        ])
+        let poller = UsagePoller(credentialStore: FakeCredentialStore.valid(), client: client)
+
+        poller.start()
+        await settle(untilReady: poller)
+        poller.refreshNow()
+        // Wait until the failure is recorded.
+        for _ in 0..<40 {
+            if case .failed = poller.state.status { break }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+        let before = client.callCount
+        #expect(before >= 2)
+
+        poller.setMenuOpen(true)
+        try? await Task.sleep(for: .milliseconds(150))
+        poller.suspend()
+
+        #expect(client.callCount == before)
+        #expect(poller.state.snapshot?.limits.first?.percent == 10)
+    }
+
     @Test("closing the popover does not spend an extra request")
     func closingMenuDoesNotRefresh() async {
         let client = FakeLimitsClient(results: [.success(snapshot(1))])

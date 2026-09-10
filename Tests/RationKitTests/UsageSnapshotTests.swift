@@ -180,7 +180,7 @@ struct NamedKeyFallbackTests {
 @Suite("Snapshot presentation")
 struct SnapshotPresentationTests {
 
-    @Test("primary limit is the highest-percent one, so the worst number is what you see")
+    @Test("primary limit is the highest active one, so the worst number is what you see")
     func primaryIsWorst() throws {
         let snapshot = try decode("usage_typical")
         let primary = try #require(snapshot.primaryLimit)

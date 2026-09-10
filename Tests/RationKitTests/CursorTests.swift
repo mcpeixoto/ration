@@ -73,6 +73,34 @@ struct CursorPeriodDecodingTests {
         #expect(onDemand.resetsAt == date(2026, 9, 1))
     }
 
+    @Test("primary limit prefers the active monthly pool over a busier API split")
+    func primaryPrefersActiveMonthly() throws {
+        // Cursor reports Auto/API as separate percents of the same allowance.
+        // When API is higher than the monthly total, the tray must still show
+        // Monthly — that is the included pool, not a second meter.
+        let snapshot = try CursorUsage.snapshot(fromPeriod: Data("""
+            {
+              "billingCycleStart": "2026-08-01T00:00:00Z",
+              "billingCycleEnd": "2026-09-01T00:00:00Z",
+              "planUsage": {
+                "totalSpend": 400,
+                "limit": 2000,
+                "totalPercentUsed": 20.0,
+                "autoPercentUsed": 5.0,
+                "apiPercentUsed": 86.0
+              }
+            }
+            """.utf8))
+
+        let primary = try #require(snapshot.primaryLimit)
+        #expect(primary.kind.rawValue == "monthly")
+        #expect(primary.percent == 20.0)
+
+        let shown = MenuBarPresentation.select(mode: .sessionPercent, from: snapshot)
+        #expect(shown?.kind.rawValue == "monthly")
+        #expect(MenuBarPresentation.percentText(shown!.percent) == "20%")
+    }
+
     @Test("keeps Auto and API as separate limits when the payload has them")
     func autoAndAPI() throws {
         let snapshot = try CursorUsage.snapshot(fromPeriod: fixture("cursor_period"))
