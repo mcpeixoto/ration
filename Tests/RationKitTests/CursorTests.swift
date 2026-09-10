@@ -78,19 +78,21 @@ struct CursorPeriodDecodingTests {
         // Cursor reports Auto/API as separate percents of the same allowance.
         // When API is higher than the monthly total, the tray must still show
         // Monthly — that is the included pool, not a second meter.
-        let snapshot = try CursorUsage.snapshot(fromPeriod: Data("""
-            {
-              "billingCycleStart": "2026-08-01T00:00:00Z",
-              "billingCycleEnd": "2026-09-01T00:00:00Z",
-              "planUsage": {
-                "totalSpend": 400,
-                "limit": 2000,
-                "totalPercentUsed": 20.0,
-                "autoPercentUsed": 5.0,
-                "apiPercentUsed": 86.0
-              }
-            }
-            """.utf8))
+        let snapshot = try CursorUsage.snapshot(
+            fromPeriod: Data(
+                """
+                {
+                  "billingCycleStart": "2026-08-01T00:00:00Z",
+                  "billingCycleEnd": "2026-09-01T00:00:00Z",
+                  "planUsage": {
+                    "totalSpend": 400,
+                    "limit": 2000,
+                    "totalPercentUsed": 20.0,
+                    "autoPercentUsed": 5.0,
+                    "apiPercentUsed": 86.0
+                  }
+                }
+                """.utf8))
 
         let primary = try #require(snapshot.primaryLimit)
         #expect(primary.kind.rawValue == "monthly")
